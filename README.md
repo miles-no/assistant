@@ -30,6 +30,7 @@ Get up and running in under 2 minutes:
 ```
 
 This automated script will:
+
 - Install dependencies
 - Start PostgreSQL in Docker
 - Run migrations and seed data
@@ -71,7 +72,8 @@ The API includes a complete OpenAPI 3.0 specification with interactive Swagger U
 #### Authentication
 
 #### Register a new user
-```
+
+```js
 POST /api/auth/register
 Content-Type: application/json
 
@@ -84,7 +86,8 @@ Content-Type: application/json
 ```
 
 #### Login
-```
+
+```js
 POST /api/auth/login
 Content-Type: application/json
 
@@ -96,7 +99,7 @@ Content-Type: application/json
 
 ### Locations
 
-```
+```rb
 GET    /api/locations          - List all locations
 GET    /api/locations/:id      - Get location details
 POST   /api/locations          - Create location (Admin only)
@@ -106,7 +109,7 @@ DELETE /api/locations/:id      - Delete location (Admin only)
 
 ### Rooms
 
-```
+```rb
 GET    /api/rooms              - List rooms (filter by locationId)
 GET    /api/rooms/:id          - Get room details
 POST   /api/rooms              - Create room (Admin/Manager)
@@ -116,7 +119,7 @@ DELETE /api/rooms/:id          - Delete room (Admin/Manager)
 
 ### Bookings
 
-```
+```rb
 GET    /api/bookings           - List bookings (filtered by role)
 GET    /api/bookings/:id       - Get booking details
 POST   /api/bookings           - Create booking
@@ -126,7 +129,7 @@ DELETE /api/bookings/:id       - Cancel booking (owner/manager/admin)
 
 ### Calendar Feeds
 
-```
+```rb
 GET /api/calendar/office/:locationId.ics  - Office calendar feed
 GET /api/calendar/room/:roomId.ics        - Room calendar feed
 GET /api/calendar/user/:userId.ics        - User calendar feed
@@ -135,11 +138,13 @@ GET /api/calendar/user/:userId.ics        - User calendar feed
 ## Database Schema
 
 ### Roles
+
 - **ADMIN**: Full system access
 - **MANAGER**: Manage assigned locations and their rooms
 - **USER**: Book rooms
 
 ### Main Entities
+
 - **User**: System users with roles
 - **Location**: Office locations
 - **Room**: Bookable rooms within locations

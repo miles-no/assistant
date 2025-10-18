@@ -17,6 +17,7 @@ Run the automated setup script:
 ```
 
 This script will:
+
 - ✓ Check all prerequisites
 - ✓ Install npm dependencies
 - ✓ Create `.env` file with proper configuration
@@ -41,11 +42,11 @@ All passwords: `password123`
 
 | Email | Role | Access |
 |-------|------|--------|
-| admin@miles.com | Admin | Full system access |
-| manager.stavanger@miles.com | Manager | Stavanger office |
-| manager.oslo@miles.com | Manager | Oslo office |
-| john.doe@miles.com | User | Can book rooms |
-| jane.smith@miles.com | User | Can book rooms |
+| <admin@miles.com> | Admin | Full system access |
+| <manager.stavanger@miles.com> | Manager | Stavanger office |
+| <manager.oslo@miles.com> | Manager | Oslo office |
+| <john.doe@miles.com> | User | Can book rooms |
+| <jane.smith@miles.com> | User | Can book rooms |
 
 ## Start Development
 
@@ -60,7 +61,8 @@ The API will be available at `http://localhost:3000`
 ### 2. View API Documentation
 
 Open your browser and visit:
-```
+
+```text
 http://localhost:3000/api-docs
 ```
 
@@ -122,7 +124,7 @@ npm run prisma:studio
 
 ## Project Structure
 
-```
+```text
 ├── docker-compose.yml      # PostgreSQL setup
 ├── setup.sh                # Automated setup script
 ├── .env                    # Environment variables (created by setup)
@@ -142,28 +144,33 @@ npm run prisma:studio
 
 ### Quick Reference
 
-**Authentication**
+#### Authentication
+
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login
 - `GET /api/auth/me` - Get current user
 
-**Locations**
+#### Locations
+
 - `GET /api/locations` - List all locations
 - `POST /api/locations` - Create location (Admin)
 - `PATCH /api/locations/:id` - Update location (Admin/Manager)
 
-**Rooms**
+#### Rooms
+
 - `GET /api/rooms` - List rooms
 - `GET /api/rooms/:id/availability` - Check availability
 - `POST /api/rooms` - Create room (Admin/Manager)
 
-**Bookings**
+#### Bookings
+
 - `GET /api/bookings` - List bookings
 - `POST /api/bookings` - Create booking
 - `PATCH /api/bookings/:id` - Update booking
 - `DELETE /api/bookings/:id` - Cancel booking
 
-**Calendar Feeds**
+#### Calendar Feeds
+
 - `GET /api/calendar/office/:id.ics` - Office calendar
 - `GET /api/calendar/room/:id.ics` - Room calendar
 - `GET /api/calendar/user/:id.ics` - User calendar
@@ -177,15 +184,19 @@ Or use the included [api.http](./api.http) file with the REST Client extension i
 ## Troubleshooting
 
 ### "Docker daemon is not running"
+
 Start Docker Desktop or the Docker service.
 
 ### "Port 5432 is already in use"
+
 Another PostgreSQL instance is running. Either:
+
 - Stop the other instance: `sudo systemctl stop postgresql`
 - Change the port in `docker-compose.yml`: `"5433:5432"`
 - Update `DATABASE_URL` in `.env` to match the new port
 
 ### "Database connection failed"
+
 ```bash
 # Check if container is running
 docker ps | grep miles-booking-db
