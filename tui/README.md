@@ -46,7 +46,7 @@ miles-booking
 
 ### Default API Connection
 
-The TUI connects to `http://localhost:3000` by default. You can configure this in `config.yaml` (auto-created on first run).
+The TUI connects to `http://localhost:3000/api` by default. Make sure the API server is running before starting the TUI.
 
 ## Configuration
 

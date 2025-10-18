@@ -56,7 +56,7 @@ type App struct {
 
 // NewApp creates a new application instance
 func NewApp() *App {
-	client := api.NewClient("http://localhost:3000")
+	client := api.NewClient("http://localhost:3000/api")
 	styles := styles.DefaultStyles()
 
 	app := &App{
