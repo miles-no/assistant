@@ -130,7 +130,7 @@ func (m *DashboardModel) renderHeader() string {
 	var b strings.Builder
 
 	title := m.styles.Title.Render("Dashboard")
-	welcome := m.styles.Text.Render(fmt.Sprintf("Welcome back, %s!", m.user.Name))
+	welcome := m.styles.Text.Render(fmt.Sprintf("Welcome back, %s!", m.user.FullName()))
 	role := m.styles.Badge.Render(string(m.user.Role))
 
 	b.WriteString(title)

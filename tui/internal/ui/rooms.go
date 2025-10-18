@@ -286,14 +286,14 @@ func (m *RoomsModel) renderRoomItem(room models.Room, isSelected bool) string {
 
 	result := line1 + "\n" + line2
 
-	// Equipment
-	if len(room.Equipment) > 0 {
-		equipmentBadges := []string{}
-		for _, eq := range room.Equipment {
-			badge := m.styles.Badge.Render(eq)
-			equipmentBadges = append(equipmentBadges, badge)
+	// Amenities
+	if len(room.Amenities) > 0 {
+		amenityBadges := []string{}
+		for _, amenity := range room.Amenities {
+			badge := m.styles.Badge.Render(amenity)
+			amenityBadges = append(amenityBadges, badge)
 		}
-		line3 := "  " + strings.Join(equipmentBadges, " ")
+		line3 := "  " + strings.Join(amenityBadges, " ")
 		result += "\n" + line3
 	}
 

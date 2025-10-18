@@ -255,7 +255,7 @@ func (a *App) renderDashboard() string {
 	}
 	// Placeholder dashboard
 	return a.styles.Title.Render("Dashboard") + "\n\n" +
-		a.styles.Text.Render("Welcome to Miles Booking System, "+a.user.Name+"!") + "\n\n" +
+		a.styles.Text.Render("Welcome to Miles Booking System, "+a.user.FullName()+"!") + "\n\n" +
 		a.styles.Help.Render("Press 2-6 to navigate views • ? for help • q to quit")
 }
 

@@ -47,7 +47,11 @@ func (c *Client) ClearToken() {
 
 // Login authenticates a user
 func (c *Client) Login(email, password string) (*models.AuthResponse, error) {
-	var response models.AuthResponse
+	var response struct {
+		Message string       `json:"message"`
+		User    models.User  `json:"user"`
+		Token   string       `json:"token"`
+	}
 	resp, err := c.http.R().
 		SetBody(map[string]string{
 			"email":    email,
@@ -64,7 +68,10 @@ func (c *Client) Login(email, password string) (*models.AuthResponse, error) {
 		return nil, fmt.Errorf("login failed: %s", resp.Status())
 	}
 
-	return &response, nil
+	return &models.AuthResponse{
+		Token: response.Token,
+		User:  response.User,
+	}, nil
 }
 
 // Register creates a new user account
@@ -92,9 +99,11 @@ func (c *Client) Register(email, password, name string) (*models.AuthResponse, e
 
 // GetCurrentUser gets the current authenticated user
 func (c *Client) GetCurrentUser() (*models.User, error) {
-	var user models.User
+	var response struct {
+		User models.User `json:"user"`
+	}
 	resp, err := c.http.R().
-		SetResult(&user).
+		SetResult(&response).
 		Get("/auth/me")
 
 	if err != nil {
@@ -105,16 +114,18 @@ func (c *Client) GetCurrentUser() (*models.User, error) {
 		return nil, fmt.Errorf("failed to get user: %s", resp.Status())
 	}
 
-	return &user, nil
+	return &response.User, nil
 }
 
 // Location endpoints
 
 // GetLocations retrieves all locations
 func (c *Client) GetLocations() ([]models.Location, error) {
-	var locations []models.Location
+	var response struct {
+		Locations []models.Location `json:"locations"`
+	}
 	resp, err := c.http.R().
-		SetResult(&locations).
+		SetResult(&response).
 		Get("/locations")
 
 	if err != nil {
@@ -125,7 +136,7 @@ func (c *Client) GetLocations() ([]models.Location, error) {
 		return nil, fmt.Errorf("failed to get locations: %s", resp.Status())
 	}
 
-	return locations, nil
+	return response.Locations, nil
 }
 
 // GetLocation retrieves a location by ID
@@ -150,8 +161,10 @@ func (c *Client) GetLocation(id string) (*models.Location, error) {
 
 // GetRooms retrieves rooms with optional filters
 func (c *Client) GetRooms(locationID *string, minCapacity *int, equipment []string) ([]models.Room, error) {
-	var rooms []models.Room
-	req := c.http.R().SetResult(&rooms)
+	var response struct {
+		Rooms []models.Room `json:"rooms"`
+	}
+	req := c.http.R().SetResult(&response)
 
 	if locationID != nil {
 		req.SetQueryParam("locationId", *locationID)
@@ -174,7 +187,7 @@ func (c *Client) GetRooms(locationID *string, minCapacity *int, equipment []stri
 		return nil, fmt.Errorf("failed to get rooms: %s", resp.Status())
 	}
 
-	return rooms, nil
+	return response.Rooms, nil
 }
 
 // GetRoom retrieves a room by ID
@@ -221,8 +234,10 @@ func (c *Client) CheckRoomAvailability(roomID string, startTime, endTime time.Ti
 
 // GetBookings retrieves bookings with optional filters
 func (c *Client) GetBookings(roomID, locationID *string, startDate, endDate *time.Time) ([]models.Booking, error) {
-	var bookings []models.Booking
-	req := c.http.R().SetResult(&bookings)
+	var response struct {
+		Bookings []models.Booking `json:"bookings"`
+	}
+	req := c.http.R().SetResult(&response)
 
 	if roomID != nil {
 		req.SetQueryParam("roomId", *roomID)
@@ -246,7 +261,7 @@ func (c *Client) GetBookings(roomID, locationID *string, startDate, endDate *tim
 		return nil, fmt.Errorf("failed to get bookings: %s", resp.Status())
 	}
 
-	return bookings, nil
+	return response.Bookings, nil
 }
 
 // GetBooking retrieves a booking by ID
@@ -323,9 +338,11 @@ func (c *Client) CancelBooking(id string) error {
 
 // GetMyBookings retrieves the current user's bookings
 func (c *Client) GetMyBookings() ([]models.Booking, error) {
-	var bookings []models.Booking
+	var response struct {
+		Bookings []models.Booking `json:"bookings"`
+	}
 	resp, err := c.http.R().
-		SetResult(&bookings).
+		SetResult(&response).
 		Get("/bookings/my")
 
 	if err != nil {
@@ -336,5 +353,5 @@ func (c *Client) GetMyBookings() ([]models.Booking, error) {
 		return nil, fmt.Errorf("failed to get bookings: %s", resp.Status())
 	}
 
-	return bookings, nil
+	return response.Bookings, nil
 }

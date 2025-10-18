@@ -6,9 +6,15 @@ import "time"
 type User struct {
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`
-	Name      string    `json:"name"`
+	FirstName string    `json:"firstName"`
+	LastName  string    `json:"lastName"`
 	Role      Role      `json:"role"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"createdAt,omitempty"`
+}
+
+// FullName returns the user's full name
+func (u *User) FullName() string {
+	return u.FirstName + " " + u.LastName
 }
 
 // Role represents user role
@@ -39,7 +45,7 @@ type Room struct {
 	Location    Location  `json:"location"`
 	LocationID  string    `json:"locationId"`
 	Capacity    int       `json:"capacity"`
-	Equipment   []string  `json:"equipment"`
+	Amenities   []string  `json:"amenities"` // API uses "amenities" not "equipment"
 	Description string    `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
