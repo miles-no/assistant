@@ -1,0 +1,167 @@
+### Miles Room Booking API - HTTP Requests
+### Use with REST Client extension in VS Code
+
+@baseUrl = http://localhost:3000
+@token =
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ============================================
+### Authentication
+### ============================================
+
+### Register new user
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@miles.com",
+  "password": "password123",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Login
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.doe@miles.com",
+  "password": "password123"
+}
+
+### Get current user
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### ============================================
+### Locations
+### ============================================
+
+### Get all locations
+GET {{baseUrl}}/api/locations
+
+### Get specific location
+GET {{baseUrl}}/api/locations/sf-office
+
+### Create location (Admin only)
+POST {{baseUrl}}/api/locations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Austin Office",
+  "address": "123 Congress Ave",
+  "city": "Austin",
+  "country": "USA",
+  "timezone": "America/Chicago",
+  "description": "New Texas office"
+}
+
+### Update location
+PATCH {{baseUrl}}/api/locations/sf-office
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "description": "Updated headquarters in San Francisco"
+}
+
+### ============================================
+### Rooms
+### ============================================
+
+### Get all rooms
+GET {{baseUrl}}/api/rooms
+
+### Get rooms by location
+GET {{baseUrl}}/api/rooms?locationId=sf-office
+
+### Get specific room
+GET {{baseUrl}}/api/rooms/sf-golden-gate-conference-room
+
+### Check room availability
+GET {{baseUrl}}/api/rooms/sf-golden-gate-conference-room/availability?startDate=2025-10-20T00:00:00Z&endDate=2025-10-21T00:00:00Z
+
+### Create room
+POST {{baseUrl}}/api/rooms
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Innovation Lab",
+  "locationId": "sf-office",
+  "capacity": 8,
+  "amenities": ["whiteboard", "video_conference", "standing_desks"],
+  "description": "Creative workspace"
+}
+
+### Update room
+PATCH {{baseUrl}}/api/rooms/sf-golden-gate-conference-room
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "capacity": 12
+}
+
+### ============================================
+### Bookings
+### ============================================
+
+### Get all bookings
+GET {{baseUrl}}/api/bookings
+Authorization: Bearer {{token}}
+
+### Get bookings by room
+GET {{baseUrl}}/api/bookings?roomId=sf-golden-gate-conference-room
+Authorization: Bearer {{token}}
+
+### Get bookings by date range
+GET {{baseUrl}}/api/bookings?startDate=2025-10-20T00:00:00Z&endDate=2025-10-27T00:00:00Z
+Authorization: Bearer {{token}}
+
+### Create booking
+POST {{baseUrl}}/api/bookings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "roomId": "sf-golden-gate-conference-room",
+  "startTime": "2025-10-22T14:00:00Z",
+  "endTime": "2025-10-22T15:30:00Z",
+  "title": "Product Review Meeting",
+  "description": "Monthly product review"
+}
+
+### Update booking
+PATCH {{baseUrl}}/api/bookings/BOOKING_ID
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Updated Meeting Title",
+  "startTime": "2025-10-22T15:00:00Z"
+}
+
+### Cancel booking
+DELETE {{baseUrl}}/api/bookings/BOOKING_ID
+Authorization: Bearer {{token}}
+
+### ============================================
+### Calendar Feeds
+### ============================================
+
+### Get office calendar
+GET {{baseUrl}}/api/calendar/office/sf-office.ics
+Authorization: Bearer {{token}}
+
+### Get room calendar
+GET {{baseUrl}}/api/calendar/room/sf-golden-gate-conference-room.ics
+Authorization: Bearer {{token}}
+
+### Get user calendar
+GET {{baseUrl}}/api/calendar/user/USER_ID.ics
+Authorization: Bearer {{token}}
