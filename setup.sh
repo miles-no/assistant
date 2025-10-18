@@ -12,6 +12,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Default configuration
+DB_PORT=5432
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=miles_booking
+
 # Logging functions
 log_info() {
     echo -e "${BLUE}ℹ${NC} $1"
@@ -32,6 +39,20 @@ log_error() {
 # Check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+# Check if port is in use
+port_in_use() {
+    lsof -i ":$1" >/dev/null 2>&1
+}
+
+# Find available port starting from a given port
+find_available_port() {
+    local port=$1
+    while port_in_use $port; do
+        port=$((port + 1))
+    done
+    echo $port
 }
 
 # Main setup function
@@ -89,28 +110,59 @@ main() {
         log_warning ".env file already exists, skipping..."
     fi
 
-    # Update DATABASE_URL in .env
-    if [ -f ".env" ]; then
-        # Check if DATABASE_URL needs updating
-        if grep -q "DATABASE_URL.*localhost:5432/miles_booking" .env 2>/dev/null; then
-            log_success "DATABASE_URL already configured"
-        else
-            # Backup existing .env
-            cp .env .env.backup
-            log_warning "Backed up existing .env to .env.backup"
+    # Update DATABASE_URL will be done after port check
 
-            # Update or add DATABASE_URL
-            if grep -q "^DATABASE_URL=" .env; then
-                sed -i.tmp 's|^DATABASE_URL=.*|DATABASE_URL="postgresql://postgres:postgres@localhost:5432/miles_booking?schema=public"|' .env
-                rm -f .env.tmp
-            else
-                echo 'DATABASE_URL="postgresql://postgres:postgres@localhost:5432/miles_booking?schema=public"' >> .env
-            fi
-            log_success "DATABASE_URL configured"
+    # 5. Check if port 5432 is available
+    log_info "Checking database port availability..."
+    if port_in_use $DB_PORT; then
+        log_warning "Port $DB_PORT is already in use"
+
+        # Check what's using the port
+        PORT_USER=$(lsof -i ":$DB_PORT" -sTCP:LISTEN -t 2>/dev/null || echo "")
+        if [ -n "$PORT_USER" ]; then
+            PORT_PROCESS=$(ps -p $PORT_USER -o comm= 2>/dev/null || echo "unknown")
+            log_info "Port is being used by: $PORT_PROCESS (PID: $PORT_USER)"
         fi
+
+        echo ""
+        echo "Options:"
+        echo "  1. Use an alternative port (recommended)"
+        echo "  2. Stop the existing service and use port 5432"
+        echo "  3. Exit and handle manually"
+        echo ""
+        read -p "Choose option (1-3): " -n 1 -r
+        echo ""
+
+        case $REPLY in
+            1)
+                # Find next available port
+                DB_PORT=$(find_available_port 5433)
+                log_info "Using alternative port: $DB_PORT"
+
+                # Update docker-compose.yml
+                if [ -f "docker-compose.yml" ]; then
+                    cp docker-compose.yml docker-compose.yml.backup
+                    sed -i.tmp "s/\"5432:5432\"/\"$DB_PORT:5432\"/" docker-compose.yml
+                    rm -f docker-compose.yml.tmp
+                    log_success "Updated docker-compose.yml to use port $DB_PORT"
+                fi
+                ;;
+            2)
+                log_info "Please stop the service using port 5432 and run this script again."
+                log_info "To stop PostgreSQL: sudo systemctl stop postgresql"
+                log_info "Or kill the process: kill $PORT_USER"
+                exit 0
+                ;;
+            *)
+                log_info "Setup cancelled"
+                exit 0
+                ;;
+        esac
+    else
+        log_success "Port $DB_PORT is available"
     fi
 
-    # 5. Start PostgreSQL with Docker Compose
+    # 6. Start PostgreSQL with Docker Compose
     log_info "Starting PostgreSQL database..."
 
     # Check if container is already running
@@ -148,12 +200,33 @@ main() {
         log_success "Database is ready"
     fi
 
-    # 6. Generate Prisma Client
+    # 7. Update DATABASE_URL in .env with correct port
+    log_info "Configuring DATABASE_URL..."
+    DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME?schema=public"
+
+    if [ -f ".env" ]; then
+        # Backup existing .env if not already backed up
+        if [ ! -f ".env.backup" ]; then
+            cp .env .env.backup
+            log_info "Backed up existing .env to .env.backup"
+        fi
+
+        # Update or add DATABASE_URL
+        if grep -q "^DATABASE_URL=" .env; then
+            sed -i.tmp "s|^DATABASE_URL=.*|DATABASE_URL=\"$DATABASE_URL\"|" .env
+            rm -f .env.tmp
+        else
+            echo "DATABASE_URL=\"$DATABASE_URL\"" >> .env
+        fi
+        log_success "DATABASE_URL configured: postgresql://$DB_HOST:$DB_PORT/$DB_NAME"
+    fi
+
+    # 8. Generate Prisma Client
     log_info "Generating Prisma Client..."
     npm run prisma:generate >/dev/null
     log_success "Prisma Client generated"
 
-    # 7. Run database migrations
+    # 9. Run database migrations
     log_info "Running database migrations..."
 
     # Check if migrations have been run
@@ -177,7 +250,7 @@ main() {
         log_success "Migrations applied"
     fi
 
-    # 8. Seed the database
+    # 10. Seed the database
     log_info "Seeding database with sample data..."
 
     # Check if data already exists
@@ -201,7 +274,7 @@ main() {
         log_success "Database seeded"
     fi
 
-    # 9. Verify setup
+    # 11. Verify setup
     log_info "Verifying setup..."
 
     # Check database connection
@@ -221,16 +294,17 @@ main() {
         exit 1
     fi
 
-    # 10. Display summary
+    # 12. Display summary
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "${GREEN}  Setup Complete!${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "📦 Database:         Running in Docker (port 5432)"
+    echo "📦 Database:         Running in Docker (port $DB_PORT)"
     echo "🗄️  Tables:          $table_count tables created"
     echo "👥 Sample users:     5 test accounts"
     echo "🏢 Sample data:      3 offices, 8 rooms, 2 bookings"
+    echo "🔗 Database URL:     postgresql://$DB_HOST:$DB_PORT/$DB_NAME"
     echo ""
     echo "Test Accounts (password: password123):"
     echo "  • Admin:           admin@miles.com"

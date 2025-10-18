@@ -14,6 +14,7 @@ build/
 .env.*.local
 .env.backup
 .env.tmp
+docker-compose.yml.backup
 
 # Logs
 logs/
