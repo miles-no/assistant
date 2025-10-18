@@ -43,3 +43,6 @@ coverage/
 
 # Prisma
 prisma/migrations/
+
+# Claude
+.claude/settings.local.json
