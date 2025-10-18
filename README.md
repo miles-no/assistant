@@ -60,7 +60,15 @@ See [SETUP.md](./SETUP.md) for detailed instructions.
 
 ## API Documentation
 
-### Authentication
+**Interactive API Documentation**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
+
+The API includes a complete OpenAPI 3.0 specification with interactive Swagger UI documentation. Start the server and visit `/api-docs` to explore all endpoints, request/response schemas, and try out the API directly from your browser.
+
+**OpenAPI Spec**: [openapi.yaml](./openapi.yaml)
+
+### Quick Reference
+
+#### Authentication
 
 #### Register a new user
 ```

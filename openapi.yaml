@@ -1,0 +1,1113 @@
+openapi: 3.0.3
+info:
+  title: Miles Room Booking API
+  description: |
+    A comprehensive room booking system for Miles office locations with role-based access control and calendar feed generation.
+
+    ## Authentication
+    Most endpoints require JWT authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+
+    ## Roles
+    - **ADMIN**: Full system access
+    - **MANAGER**: Manage assigned locations and their rooms
+    - **USER**: Book rooms (default role for new users)
+
+    ## Test Accounts
+    After running the seed script, you can use these accounts (password: `password123`):
+    - `admin@miles.com` - Admin
+    - `manager.sf@miles.com` - Manager (San Francisco)
+    - `manager.ny@miles.com` - Manager (New York)
+    - `john.doe@miles.com` - Regular user
+    - `jane.smith@miles.com` - Regular user
+  version: 1.0.0
+  contact:
+    name: Miles
+    email: support@miles.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.miles.com
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and registration
+  - name: Locations
+    description: Office location management
+  - name: Rooms
+    description: Meeting room management
+  - name: Bookings
+    description: Room booking operations
+  - name: Calendar
+    description: Calendar feed generation (iCal format)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is running
+      tags: [System]
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/auth/register:
+    post:
+      summary: Register a new user
+      description: Create a new user account. New users are assigned the USER role by default.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, firstName, lastName]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john.doe@miles.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: securepassword123
+                firstName:
+                  type: string
+                  example: John
+                lastName:
+                  type: string
+                  example: Doe
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User registered successfully
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/auth/login:
+    post:
+      summary: Login
+      description: Authenticate and receive a JWT token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john.doe@miles.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Login successful
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/me:
+    get:
+      summary: Get current user
+      description: Get the authenticated user's profile information
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    allOf:
+                      - $ref: '#/components/schemas/User'
+                      - type: object
+                        properties:
+                          managedLocations:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                location:
+                                  $ref: '#/components/schemas/Location'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/locations:
+    get:
+      summary: List all locations
+      description: Get a list of all office locations
+      tags: [Locations]
+      responses:
+        '200':
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Location'
+                        - type: object
+                          properties:
+                            _count:
+                              type: object
+                              properties:
+                                rooms:
+                                  type: integer
+
+    post:
+      summary: Create a location
+      description: Create a new office location (Admin only)
+      tags: [Locations]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationInput'
+      responses:
+        '201':
+          description: Location created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  location:
+                    $ref: '#/components/schemas/Location'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/locations/{id}:
+    get:
+      summary: Get location by ID
+      description: Get details of a specific location including rooms and managers
+      tags: [Locations]
+      parameters:
+        - $ref: '#/components/parameters/locationId'
+      responses:
+        '200':
+          description: Location details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    allOf:
+                      - $ref: '#/components/schemas/Location'
+                      - type: object
+                        properties:
+                          rooms:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Room'
+                          managers:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                user:
+                                  $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update location
+      description: Update a location (Admin or Manager of that location)
+      tags: [Locations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/locationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationInput'
+      responses:
+        '200':
+          description: Location updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  location:
+                    $ref: '#/components/schemas/Location'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete location
+      description: Delete a location (Admin only)
+      tags: [Locations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/locationId'
+      responses:
+        '200':
+          description: Location deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/locations/{id}/managers:
+    post:
+      summary: Assign manager to location
+      description: Assign a manager to a location (Admin only)
+      tags: [Locations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/locationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+      responses:
+        '201':
+          description: Manager assigned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  managerLocation:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/locations/{id}/managers/{userId}:
+    delete:
+      summary: Remove manager from location
+      description: Remove a manager from a location (Admin only)
+      tags: [Locations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/locationId'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Manager removed successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/rooms:
+    get:
+      summary: List all rooms
+      description: Get a list of all rooms, optionally filtered by location
+      tags: [Rooms]
+      parameters:
+        - name: locationId
+          in: query
+          description: Filter rooms by location ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Room'
+                        - type: object
+                          properties:
+                            location:
+                              $ref: '#/components/schemas/Location'
+                            _count:
+                              type: object
+                              properties:
+                                bookings:
+                                  type: integer
+
+    post:
+      summary: Create a room
+      description: Create a new room (Admin or Manager of that location)
+      tags: [Rooms]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomInput'
+      responses:
+        '201':
+          description: Room created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  room:
+                    allOf:
+                      - $ref: '#/components/schemas/Room'
+                      - type: object
+                        properties:
+                          location:
+                            $ref: '#/components/schemas/Location'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/rooms/{id}:
+    get:
+      summary: Get room by ID
+      description: Get details of a specific room
+      tags: [Rooms]
+      parameters:
+        - $ref: '#/components/parameters/roomId'
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room:
+                    allOf:
+                      - $ref: '#/components/schemas/Room'
+                      - type: object
+                        properties:
+                          location:
+                            $ref: '#/components/schemas/Location'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update room
+      description: Update a room (Admin or Manager of that location)
+      tags: [Rooms]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/roomId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                capacity:
+                  type: integer
+                  minimum: 1
+                description:
+                  type: string
+                amenities:
+                  type: array
+                  items:
+                    type: string
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Room updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  room:
+                    $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    delete:
+      summary: Delete room
+      description: Delete a room (Admin or Manager of that location)
+      tags: [Rooms]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/roomId'
+      responses:
+        '200':
+          description: Room deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/rooms/{id}/availability:
+    get:
+      summary: Check room availability
+      description: Get all bookings for a room within a date range
+      tags: [Rooms]
+      parameters:
+        - $ref: '#/components/parameters/roomId'
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: '2025-10-20T00:00:00Z'
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: '2025-10-21T00:00:00Z'
+      responses:
+        '200':
+          description: Room availability
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/bookings:
+    get:
+      summary: List bookings
+      description: |
+        Get bookings filtered by user role:
+        - **USER**: Only their own bookings
+        - **MANAGER**: Bookings in their managed locations
+        - **ADMIN**: All bookings
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roomId
+          in: query
+          description: Filter by room ID
+          schema:
+            type: string
+        - name: locationId
+          in: query
+          description: Filter by location ID
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          description: Filter bookings starting after this date
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Filter bookings ending before this date
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Booking'
+                        - type: object
+                          properties:
+                            room:
+                              allOf:
+                                - $ref: '#/components/schemas/Room'
+                                - type: object
+                                  properties:
+                                    location:
+                                      $ref: '#/components/schemas/Location'
+                            user:
+                              $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a booking
+      description: Create a new room booking
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingInput'
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  booking:
+                    $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Room not available for the selected time slot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Room is not available for the selected time slot
+
+  /api/bookings/{id}:
+    get:
+      summary: Get booking by ID
+      description: Get details of a specific booking
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/bookingId'
+      responses:
+        '200':
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  booking:
+                    $ref: '#/components/schemas/Booking'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update booking
+      description: Update a booking (owner, manager of that location, or admin)
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/bookingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startTime:
+                  type: string
+                  format: date-time
+                endTime:
+                  type: string
+                  format: date-time
+                title:
+                  type: string
+                description:
+                  type: string
+                status:
+                  type: string
+                  enum: [PENDING, CONFIRMED, CANCELLED]
+      responses:
+        '200':
+          description: Booking updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  booking:
+                    $ref: '#/components/schemas/Booking'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Room not available for the new time slot
+
+    delete:
+      summary: Cancel booking
+      description: Cancel a booking (owner, manager of that location, or admin)
+      tags: [Bookings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/bookingId'
+      responses:
+        '200':
+          description: Booking cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Booking cancelled successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/calendar/office/{locationId}.ics:
+    get:
+      summary: Get office calendar feed
+      description: Download iCal calendar feed for all bookings in an office
+      tags: [Calendar]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/locationId'
+      responses:
+        '200':
+          description: iCal calendar feed
+          content:
+            text/calendar:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/calendar/room/{roomId}.ics:
+    get:
+      summary: Get room calendar feed
+      description: Download iCal calendar feed for a specific room
+      tags: [Calendar]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/roomId'
+      responses:
+        '200':
+          description: iCal calendar feed
+          content:
+            text/calendar:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/calendar/user/{userId}.ics:
+    get:
+      summary: Get user calendar feed
+      description: Download iCal calendar feed for a user's bookings
+      tags: [Calendar]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: iCal calendar feed
+          content:
+            text/calendar:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /api/auth/login
+
+  parameters:
+    locationId:
+      name: id
+      in: path
+      required: true
+      description: Location ID
+      schema:
+        type: string
+      example: sf-office
+
+    roomId:
+      name: id
+      in: path
+      required: true
+      description: Room ID
+      schema:
+        type: string
+      example: sf-golden-gate-conference-room
+
+    bookingId:
+      name: id
+      in: path
+      required: true
+      description: Booking ID
+      schema:
+        type: string
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, MANAGER, USER]
+        createdAt:
+          type: string
+          format: date-time
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        timezone:
+          type: string
+          example: America/Los_Angeles
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LocationInput:
+      type: object
+      required: [name, address, city, country]
+      properties:
+        name:
+          type: string
+          example: San Francisco HQ
+        address:
+          type: string
+          example: 123 Market Street
+        city:
+          type: string
+          example: San Francisco
+        country:
+          type: string
+          example: USA
+        timezone:
+          type: string
+          default: UTC
+          example: America/Los_Angeles
+        description:
+          type: string
+          example: Main headquarters in San Francisco
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        locationId:
+          type: string
+        capacity:
+          type: integer
+        description:
+          type: string
+        amenities:
+          type: array
+          items:
+            type: string
+          example: [projector, whiteboard, video_conference]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RoomInput:
+      type: object
+      required: [name, locationId, capacity]
+      properties:
+        name:
+          type: string
+          example: Golden Gate Conference Room
+        locationId:
+          type: string
+          example: sf-office
+        capacity:
+          type: integer
+          minimum: 1
+          example: 10
+        description:
+          type: string
+          example: Large conference room with bay views
+        amenities:
+          type: array
+          items:
+            type: string
+          default: []
+          example: [projector, whiteboard, video_conference, tv]
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        userId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, CANCELLED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BookingInput:
+      type: object
+      required: [roomId, startTime, endTime, title]
+      properties:
+        roomId:
+          type: string
+          example: sf-golden-gate-conference-room
+        startTime:
+          type: string
+          format: date-time
+          example: '2025-10-20T14:00:00Z'
+        endTime:
+          type: string
+          format: date-time
+          example: '2025-10-20T15:30:00Z'
+        title:
+          type: string
+          example: Product Review Meeting
+        description:
+          type: string
+          example: Monthly product review with stakeholders
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Validation error
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              message:
+                type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Invalid or expired token
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Insufficient permissions
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Resource not found
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'

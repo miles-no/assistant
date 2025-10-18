@@ -1,6 +1,10 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import yaml from 'js-yaml';
+import fs from 'fs';
+import path from 'path';
 import { errorHandler } from './middleware/errorHandler';
 
 // Import routes
@@ -12,6 +16,10 @@ import calendarRoutes from './routes/calendar.routes';
 
 // Load environment variables
 dotenv.config();
+
+// Load OpenAPI specification
+const openApiPath = path.join(__dirname, '../openapi.yaml');
+const openApiDocument = yaml.load(fs.readFileSync(openApiPath, 'utf8')) as object;
 
 const app: Application = express();
 
@@ -27,6 +35,12 @@ app.use(
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Miles Booking API Documentation',
+}));
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {

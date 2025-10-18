@@ -57,7 +57,16 @@ npm run dev
 
 The API will be available at `http://localhost:3000`
 
-### 2. Test it
+### 2. View API Documentation
+
+Open your browser and visit:
+```
+http://localhost:3000/api-docs
+```
+
+This provides interactive API documentation where you can explore all endpoints and try them out.
+
+### 3. Test the API
 
 ```bash
 # Health check
@@ -69,7 +78,7 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{"email": "john.doe@miles.com", "password": "password123"}'
 ```
 
-### 3. Explore with Prisma Studio (optional)
+### 4. Explore with Prisma Studio (optional)
 
 ```bash
 npm run prisma:studio
@@ -129,28 +138,32 @@ npm run prisma:studio
 
 ## API Endpoints
 
-### Authentication
+**Complete API documentation**: Visit [http://localhost:3000/api-docs](http://localhost:3000/api-docs) for interactive Swagger UI documentation.
+
+### Quick Reference
+
+**Authentication**
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login
 - `GET /api/auth/me` - Get current user
 
-### Locations
+**Locations**
 - `GET /api/locations` - List all locations
 - `POST /api/locations` - Create location (Admin)
 - `PATCH /api/locations/:id` - Update location (Admin/Manager)
 
-### Rooms
+**Rooms**
 - `GET /api/rooms` - List rooms
 - `GET /api/rooms/:id/availability` - Check availability
 - `POST /api/rooms` - Create room (Admin/Manager)
 
-### Bookings
+**Bookings**
 - `GET /api/bookings` - List bookings
 - `POST /api/bookings` - Create booking
 - `PATCH /api/bookings/:id` - Update booking
 - `DELETE /api/bookings/:id` - Cancel booking
 
-### Calendar Feeds
+**Calendar Feeds**
 - `GET /api/calendar/office/:id.ics` - Office calendar
 - `GET /api/calendar/room/:id.ics` - Room calendar
 - `GET /api/calendar/user/:id.ics` - User calendar
