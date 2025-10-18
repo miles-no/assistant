@@ -23,25 +23,25 @@ async function main() {
   });
 
   const manager1 = await prisma.user.upsert({
-    where: { email: 'manager.sf@miles.com' },
+    where: { email: 'manager.stavanger@miles.com' },
     update: {},
     create: {
-      email: 'manager.sf@miles.com',
+      email: 'manager.stavanger@miles.com',
       password: hashedPassword,
       firstName: 'Sarah',
-      lastName: 'Johnson',
+      lastName: 'Olsen',
       role: 'MANAGER',
     },
   });
 
   const manager2 = await prisma.user.upsert({
-    where: { email: 'manager.ny@miles.com' },
+    where: { email: 'manager.oslo@miles.com' },
     update: {},
     create: {
-      email: 'manager.ny@miles.com',
+      email: 'manager.oslo@miles.com',
       password: hashedPassword,
-      firstName: 'Michael',
-      lastName: 'Chen',
+      firstName: 'Lars',
+      lastName: 'Hansen',
       role: 'MANAGER',
     },
   });
@@ -72,46 +72,102 @@ async function main() {
 
   console.log('✓ Users created');
 
-  // Create locations
-  const sfOffice = await prisma.location.upsert({
-    where: { id: 'sf-office' },
+  // Create Miles office locations
+  const stavanger = await prisma.location.upsert({
+    where: { id: 'stavanger' },
     update: {},
     create: {
-      id: 'sf-office',
-      name: 'San Francisco HQ',
-      address: '123 Market Street',
-      city: 'San Francisco',
-      country: 'USA',
-      timezone: 'America/Los_Angeles',
-      description: 'Main headquarters in San Francisco',
+      id: 'stavanger',
+      name: 'Stavanger',
+      address: 'Nytorget 8',
+      city: 'Stavanger',
+      country: 'Norway',
+      timezone: 'Europe/Oslo',
+      description: 'Miles Stavanger office',
     },
   });
 
-  const nyOffice = await prisma.location.upsert({
-    where: { id: 'ny-office' },
+  const haugesund = await prisma.location.upsert({
+    where: { id: 'haugesund' },
     update: {},
     create: {
-      id: 'ny-office',
-      name: 'New York Office',
-      address: '456 Broadway',
-      city: 'New York',
-      country: 'USA',
-      timezone: 'America/New_York',
-      description: 'East coast office in Manhattan',
+      id: 'haugesund',
+      name: 'Haugesund',
+      address: 'Kaigata 2',
+      city: 'Haugesund',
+      country: 'Norway',
+      timezone: 'Europe/Oslo',
+      description: 'Miles Haugesund office',
     },
   });
 
-  const londonOffice = await prisma.location.upsert({
-    where: { id: 'london-office' },
+  const oslo = await prisma.location.upsert({
+    where: { id: 'oslo' },
     update: {},
     create: {
-      id: 'london-office',
-      name: 'London Office',
-      address: '789 Oxford Street',
-      city: 'London',
-      country: 'UK',
-      timezone: 'Europe/London',
-      description: 'European headquarters',
+      id: 'oslo',
+      name: 'Oslo',
+      address: 'Universitetsgata 2',
+      city: 'Oslo',
+      country: 'Norway',
+      timezone: 'Europe/Oslo',
+      description: 'Miles Oslo office',
+    },
+  });
+
+  const bergen = await prisma.location.upsert({
+    where: { id: 'bergen' },
+    update: {},
+    create: {
+      id: 'bergen',
+      name: 'Bergen',
+      address: 'Strandgaten 3',
+      city: 'Bergen',
+      country: 'Norway',
+      timezone: 'Europe/Oslo',
+      description: 'Miles Bergen office',
+    },
+  });
+
+  const alesund = await prisma.location.upsert({
+    where: { id: 'alesund' },
+    update: {},
+    create: {
+      id: 'alesund',
+      name: 'Ålesund',
+      address: 'Keiser Wilhelms gate 26',
+      city: 'Ålesund',
+      country: 'Norway',
+      timezone: 'Europe/Oslo',
+      description: 'Miles Ålesund office',
+    },
+  });
+
+  const innlandet = await prisma.location.upsert({
+    where: { id: 'innlandet' },
+    update: {},
+    create: {
+      id: 'innlandet',
+      name: 'Innlandet',
+      address: 'Storgate 15',
+      city: 'Lillehammer',
+      country: 'Norway',
+      timezone: 'Europe/Oslo',
+      description: 'Miles Innlandet office',
+    },
+  });
+
+  const lithuania = await prisma.location.upsert({
+    where: { id: 'lithuania' },
+    update: {},
+    create: {
+      id: 'lithuania',
+      name: 'Lithuania',
+      address: 'Gedimino pr. 1',
+      city: 'Vilnius',
+      country: 'Lithuania',
+      timezone: 'Europe/Vilnius',
+      description: 'Miles Lithuania office',
     },
   });
 
@@ -122,13 +178,13 @@ async function main() {
     where: {
       userId_locationId: {
         userId: manager1.id,
-        locationId: sfOffice.id,
+        locationId: stavanger.id,
       },
     },
     update: {},
     create: {
       userId: manager1.id,
-      locationId: sfOffice.id,
+      locationId: stavanger.id,
     },
   });
 
@@ -136,110 +192,60 @@ async function main() {
     where: {
       userId_locationId: {
         userId: manager2.id,
-        locationId: nyOffice.id,
+        locationId: oslo.id,
       },
     },
     update: {},
     create: {
       userId: manager2.id,
-      locationId: nyOffice.id,
+      locationId: oslo.id,
     },
   });
 
   console.log('✓ Manager assignments created');
 
-  // Create rooms for SF office
-  const sfRooms = [
+  // Create rooms for Stavanger office
+  const stavangerRooms = [
     {
-      name: 'Golden Gate Conference Room',
-      capacity: 10,
-      amenities: ['projector', 'whiteboard', 'video_conference', 'tv'],
-      description: 'Large conference room with bay views',
-    },
-    {
-      name: 'Alcatraz Meeting Room',
-      capacity: 6,
-      amenities: ['whiteboard', 'video_conference'],
-      description: 'Medium-sized meeting room',
-    },
-    {
-      name: 'Mission Focus Room',
-      capacity: 4,
-      amenities: ['whiteboard', 'monitor'],
-      description: 'Small room for focused discussions',
-    },
-  ];
-
-  for (const room of sfRooms) {
-    await prisma.room.upsert({
-      where: { id: `sf-${room.name.toLowerCase().replace(/\s+/g, '-')}` },
-      update: {},
-      create: {
-        id: `sf-${room.name.toLowerCase().replace(/\s+/g, '-')}`,
-        ...room,
-        locationId: sfOffice.id,
-      },
-    });
-  }
-
-  // Create rooms for NY office
-  const nyRooms = [
-    {
-      name: 'Empire State Room',
-      capacity: 12,
-      amenities: ['projector', 'whiteboard', 'video_conference', 'tv'],
-      description: 'Large conference room',
-    },
-    {
-      name: 'Central Park Meeting Room',
+      name: 'Teamrommet',
       capacity: 8,
-      amenities: ['whiteboard', 'video_conference'],
-      description: 'Medium-sized meeting room',
+      amenities: ['whiteboard', 'video_conference', 'tv'],
+      description: 'Team collaboration room',
     },
     {
-      name: 'Brooklyn Focus Room',
-      capacity: 4,
-      amenities: ['monitor', 'whiteboard'],
-      description: 'Small focus room',
+      name: 'Tenkeboksen',
+      capacity: 2,
+      amenities: ['whiteboard'],
+      description: 'Quiet space for focused thinking',
     },
-  ];
-
-  for (const room of nyRooms) {
-    await prisma.room.upsert({
-      where: { id: `ny-${room.name.toLowerCase().replace(/\s+/g, '-')}` },
-      update: {},
-      create: {
-        id: `ny-${room.name.toLowerCase().replace(/\s+/g, '-')}`,
-        ...room,
-        locationId: nyOffice.id,
-      },
-    });
-  }
-
-  // Create rooms for London office
-  const londonRooms = [
     {
-      name: 'Thames Conference Room',
+      name: 'Spill & Chill',
+      capacity: 6,
+      amenities: ['tv', 'gaming_console', 'bean_bags'],
+      description: 'Recreation and relaxation room',
+    },
+    {
+      name: 'Skagen',
       capacity: 10,
-      amenities: ['projector', 'whiteboard', 'video_conference'],
+      amenities: ['projector', 'whiteboard', 'video_conference', 'tv'],
       description: 'Main conference room',
     },
     {
-      name: 'Westminster Meeting Room',
-      capacity: 6,
-      amenities: ['whiteboard', 'video_conference'],
-      description: 'Medium meeting room',
+      name: 'På hjørna',
+      capacity: 4,
+      amenities: ['whiteboard', 'monitor'],
+      description: 'Corner meeting room',
     },
   ];
 
-  for (const room of londonRooms) {
+  for (const room of stavangerRooms) {
     await prisma.room.upsert({
-      where: { id: `london-${room.name.toLowerCase().replace(/\s+/g, '-')}` },
+      where: { id: `stavanger-${room.name.toLowerCase().replace(/\s+/g, '-').replace(/å/g, 'a').replace(/ø/g, 'o').replace(/æ/g, 'ae').replace(/&/g, 'and')}` },
       update: {},
       create: {
-        id: `london-${room.name.toLowerCase().replace(/\s+/g, '-')}`,
+        id: `stavanger-${room.name.toLowerCase().replace(/\s+/g, '-').replace(/å/g, 'a').replace(/ø/g, 'o').replace(/æ/g, 'ae').replace(/&/g, 'and')}`,
         ...room,
-        locationId: londonOffice.id,
+        locationId: stavanger.id,
       },
     });
   }
@@ -256,7 +262,7 @@ async function main() {
 
   await prisma.booking.create({
     data: {
-      roomId: 'sf-golden-gate-conference-room',
+      roomId: 'stavanger-skagen',
       userId: user1.id,
       startTime: tomorrow,
       endTime: tomorrowEnd,
@@ -275,12 +281,12 @@ async function main() {
 
   await prisma.booking.create({
     data: {
-      roomId: 'ny-empire-state-room',
+      roomId: 'stavanger-teamrommet',
       userId: user2.id,
       startTime: nextWeek,
       endTime: nextWeekEnd,
-      title: 'Engineering All-Hands',
-      description: 'Monthly engineering team meeting',
+      title: 'Team Standup',
+      description: 'Weekly team sync',
       status: 'CONFIRMED',
     },
   });
@@ -289,10 +295,18 @@ async function main() {
   console.log('\n✓ Seed completed successfully!');
   console.log('\nTest accounts:');
   console.log('  Admin: admin@miles.com / password123');
-  console.log('  Manager (SF): manager.sf@miles.com / password123');
-  console.log('  Manager (NY): manager.ny@miles.com / password123');
+  console.log('  Manager (Stavanger): manager.stavanger@miles.com / password123');
+  console.log('  Manager (Oslo): manager.oslo@miles.com / password123');
   console.log('  User 1: john.doe@miles.com / password123');
   console.log('  User 2: jane.smith@miles.com / password123');
+  console.log('\nOffice locations:');
+  console.log('  - Stavanger (5 rooms)');
+  console.log('  - Haugesund');
+  console.log('  - Oslo');
+  console.log('  - Bergen');
+  console.log('  - Ålesund');
+  console.log('  - Innlandet');
+  console.log('  - Lithuania');
 }
 
 main()

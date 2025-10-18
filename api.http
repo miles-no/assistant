@@ -44,7 +44,7 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/api/locations
 
 ### Get specific location
-GET {{baseUrl}}/api/locations/sf-office
+GET {{baseUrl}}/api/locations/stavanger
 
 ### Create location (Admin only)
 POST {{baseUrl}}/api/locations
@@ -61,7 +61,7 @@ Content-Type: application/json
 }
 
 ### Update location
-PATCH {{baseUrl}}/api/locations/sf-office
+PATCH {{baseUrl}}/api/locations/stavanger
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -77,13 +77,13 @@ Content-Type: application/json
 GET {{baseUrl}}/api/rooms
 
 ### Get rooms by location
-GET {{baseUrl}}/api/rooms?locationId=sf-office
+GET {{baseUrl}}/api/rooms?locationId=stavanger
 
 ### Get specific room
-GET {{baseUrl}}/api/rooms/sf-golden-gate-conference-room
+GET {{baseUrl}}/api/rooms/stavanger-skagen
 
 ### Check room availability
-GET {{baseUrl}}/api/rooms/sf-golden-gate-conference-room/availability?startDate=2025-10-20T00:00:00Z&endDate=2025-10-21T00:00:00Z
+GET {{baseUrl}}/api/rooms/stavanger-skagen/availability?startDate=2025-10-20T00:00:00Z&endDate=2025-10-21T00:00:00Z
 
 ### Create room
 POST {{baseUrl}}/api/rooms
@@ -91,15 +91,15 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "name": "Innovation Lab",
-  "locationId": "sf-office",
+  "name": "Møterom 1",
+  "locationId": "stavanger",
   "capacity": 8,
-  "amenities": ["whiteboard", "video_conference", "standing_desks"],
-  "description": "Creative workspace"
+  "amenities": ["whiteboard", "video_conference", "tv"],
+  "description": "Meeting room 1"
 }
 
 ### Update room
-PATCH {{baseUrl}}/api/rooms/sf-golden-gate-conference-room
+PATCH {{baseUrl}}/api/rooms/stavanger-skagen
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -116,7 +116,7 @@ GET {{baseUrl}}/api/bookings
 Authorization: Bearer {{token}}
 
 ### Get bookings by room
-GET {{baseUrl}}/api/bookings?roomId=sf-golden-gate-conference-room
+GET {{baseUrl}}/api/bookings?roomId=stavanger-skagen
 Authorization: Bearer {{token}}
 
 ### Get bookings by date range
@@ -129,7 +129,7 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "roomId": "sf-golden-gate-conference-room",
+  "roomId": "stavanger-skagen",
   "startTime": "2025-10-22T14:00:00Z",
   "endTime": "2025-10-22T15:30:00Z",
   "title": "Product Review Meeting",
@@ -155,11 +155,11 @@ Authorization: Bearer {{token}}
 ### ============================================
 
 ### Get office calendar
-GET {{baseUrl}}/api/calendar/office/sf-office.ics
+GET {{baseUrl}}/api/calendar/office/stavanger.ics
 Authorization: Bearer {{token}}
 
 ### Get room calendar
-GET {{baseUrl}}/api/calendar/room/sf-golden-gate-conference-room.ics
+GET {{baseUrl}}/api/calendar/room/stavanger-skagen.ics
 Authorization: Bearer {{token}}
 
 ### Get user calendar

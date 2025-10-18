@@ -79,14 +79,14 @@ npm run prisma:seed
 
 This creates:
 - **5 test users** (1 admin, 2 managers, 2 regular users)
-- **3 office locations** (San Francisco, New York, London)
-- **8 rooms** across the offices
+- **7 office locations** (Stavanger, Haugesund, Oslo, Bergen, Ålesund, Innlandet, Lithuania)
+- **5 rooms** in Stavanger office
 - **2 sample bookings**
 
 Test accounts (all passwords: `password123`):
 - Admin: `admin@miles.com`
-- Manager (SF): `manager.sf@miles.com`
-- Manager (NY): `manager.ny@miles.com`
+- Manager (Stavanger): `manager.stavanger@miles.com`
+- Manager (Oslo): `manager.oslo@miles.com`
 - User 1: `john.doe@miles.com`
 - User 2: `jane.smith@miles.com`
 

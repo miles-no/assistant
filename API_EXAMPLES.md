@@ -326,7 +326,7 @@ curl http://localhost:3000/api/calendar/user/YOUR_USER_ID.ics \
 # Login as manager
 MANAGER_TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "manager.sf@miles.com", "password": "password123"}' \
+  -d '{"email": "manager.stavanger@miles.com", "password": "password123"}' \
   | jq -r '.token')
 
 # Create a new room
@@ -334,8 +334,8 @@ curl -X POST http://localhost:3000/api/rooms \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $MANAGER_TOKEN" \
   -d '{
-    "name": "New Meeting Room",
-    "locationId": "sf-office",
+    "name": "Møterom 2",
+    "locationId": "stavanger",
     "capacity": 6,
     "amenities": ["whiteboard"]
   }'
@@ -358,11 +358,11 @@ curl -X POST http://localhost:3000/api/locations \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -d '{
-    "name": "Seattle Office",
-    "address": "456 Pike Street",
-    "city": "Seattle",
-    "country": "USA",
-    "timezone": "America/Los_Angeles"
+    "name": "Trondheim",
+    "address": "Kongens gate 10",
+    "city": "Trondheim",
+    "country": "Norway",
+    "timezone": "Europe/Oslo"
   }'
 
 # Assign a manager to the location

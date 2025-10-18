@@ -29,10 +29,10 @@ This script will:
 
 After running the setup script, you'll have:
 
-- **PostgreSQL database** running in Docker (port 5432)
+- **PostgreSQL database** running in Docker (port 5433)
 - **5 test user accounts** with different roles
-- **3 office locations** (San Francisco, New York, London)
-- **8 meeting rooms** across the offices
+- **7 office locations** (Stavanger, Haugesund, Oslo, Bergen, Ålesund, Innlandet, Lithuania)
+- **5 meeting rooms** in Stavanger office
 - **2 sample bookings**
 
 ### Test Accounts
@@ -42,8 +42,8 @@ All passwords: `password123`
 | Email | Role | Access |
 |-------|------|--------|
 | admin@miles.com | Admin | Full system access |
-| manager.sf@miles.com | Manager | San Francisco office |
-| manager.ny@miles.com | Manager | New York office |
+| manager.stavanger@miles.com | Manager | Stavanger office |
+| manager.oslo@miles.com | Manager | Oslo office |
 | john.doe@miles.com | User | Can book rooms |
 | jane.smith@miles.com | User | Can book rooms |
 

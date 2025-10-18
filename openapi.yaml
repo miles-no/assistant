@@ -18,8 +18,8 @@ info:
     ## Test Accounts
     After running the seed script, you can use these accounts (password: `password123`):
     - `admin@miles.com` - Admin
-    - `manager.sf@miles.com` - Manager (San Francisco)
-    - `manager.ny@miles.com` - Manager (New York)
+    - `manager.stavanger@miles.com` - Manager (Stavanger)
+    - `manager.oslo@miles.com` - Manager (Oslo)
     - `john.doe@miles.com` - Regular user
     - `jane.smith@miles.com` - Regular user
   version: 1.0.0
@@ -935,23 +935,23 @@ components:
       properties:
         name:
           type: string
-          example: San Francisco HQ
+          example: Stavanger
         address:
           type: string
-          example: 123 Market Street
+          example: Nytorget 8
         city:
           type: string
-          example: San Francisco
+          example: Stavanger
         country:
           type: string
-          example: USA
+          example: Norway
         timezone:
           type: string
           default: UTC
-          example: America/Los_Angeles
+          example: Europe/Oslo
         description:
           type: string
-          example: Main headquarters in San Francisco
+          example: Miles Stavanger office
 
     Room:
       type: object
@@ -986,17 +986,17 @@ components:
       properties:
         name:
           type: string
-          example: Golden Gate Conference Room
+          example: Teamrommet
         locationId:
           type: string
-          example: sf-office
+          example: stavanger
         capacity:
           type: integer
           minimum: 1
           example: 10
         description:
           type: string
-          example: Large conference room with bay views
+          example: Team collaboration room
         amenities:
           type: array
           items:
@@ -1039,7 +1039,7 @@ components:
       properties:
         roomId:
           type: string
-          example: sf-golden-gate-conference-room
+          example: stavanger-skagen
         startTime:
           type: string
           format: date-time
