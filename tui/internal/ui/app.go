@@ -18,6 +18,7 @@ const (
 	ViewRooms
 	ViewCalendar
 	ViewBookings
+	ViewBookingForm
 	ViewSearch
 	ViewAdmin
 	ViewHelp
@@ -40,14 +41,15 @@ type App struct {
 	token string
 
 	// Views
-	login     tea.Model
-	dashboard tea.Model
-	locations tea.Model
-	rooms     tea.Model
-	calendar  tea.Model
-	bookings  tea.Model
-	search    tea.Model
-	admin     tea.Model
+	login       tea.Model
+	dashboard   tea.Model
+	locations   tea.Model
+	rooms       tea.Model
+	calendar    tea.Model
+	bookings    tea.Model
+	bookingForm tea.Model
+	search      tea.Model
+	admin       tea.Model
 
 	// UI Components
 	viewport viewport.Model
@@ -108,8 +110,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case RoomSelectMsg:
 		// User selected a room, navigate to booking form
-		// TODO: Initialize booking form with selected room
+		a.state = ViewBookingForm
+		a.bookingForm = NewBookingFormModel(a.client, a.styles, &msg.Room)
+		return a, a.bookingForm.Init()
+
+	case BookingFormCompleteMsg:
+		// Booking created successfully, reload bookings and go back to list
 		a.state = ViewBookings
+		a.bookingForm = nil
+		if a.bookings != nil {
+			// Reload bookings
+			return a, a.bookings.Init()
+		}
+		return a, nil
+
+	case BookingFormCancelMsg:
+		// Form cancelled, go back to previous view
+		a.state = ViewBookings
+		a.bookingForm = nil
 		return a, nil
 
 	case tea.KeyMsg:
@@ -139,6 +157,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			case "4":
 				a.state = ViewCalendar
+				// Initialize calendar view if not already done
+				if a.calendar == nil {
+					a.calendar = NewCalendarModel(a.client, a.styles)
+					return a, a.calendar.Init()
+				}
 				return a, nil
 			case "5":
 				a.state = ViewBookings
@@ -154,6 +177,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "0":
 				if a.user.Role == models.RoleAdmin || a.user.Role == models.RoleManager {
 					a.state = ViewAdmin
+					// Initialize admin view if not already done
+					if a.admin == nil {
+						a.admin = NewAdminModel(a.client, a.user, a.styles)
+						return a, a.admin.Init()
+					}
 				}
 				return a, nil
 			case "?", "f1":
@@ -188,6 +216,8 @@ func (a *App) View() string {
 		return a.renderCalendar()
 	case ViewBookings:
 		return a.renderBookings()
+	case ViewBookingForm:
+		return a.renderBookingForm()
 	case ViewSearch:
 		return a.renderSearch()
 	case ViewAdmin:
@@ -227,6 +257,10 @@ func (a *App) updateCurrentView(msg tea.Msg) tea.Cmd {
 	case ViewBookings:
 		if a.bookings != nil {
 			a.bookings, cmd = a.bookings.Update(msg)
+		}
+	case ViewBookingForm:
+		if a.bookingForm != nil {
+			a.bookingForm, cmd = a.bookingForm.Update(msg)
 		}
 	case ViewSearch:
 		if a.search != nil {
@@ -293,6 +327,14 @@ func (a *App) renderBookings() string {
 	return a.styles.Title.Render("My Bookings") + "\n\n" +
 		a.styles.TextMuted.Render("Coming soon...") + "\n\n" +
 		a.styles.Help.Render("Press 1 to go back to dashboard")
+}
+
+func (a *App) renderBookingForm() string {
+	if a.bookingForm != nil {
+		return a.bookingForm.View()
+	}
+	return a.styles.Title.Render("Create Booking") + "\n\n" +
+		a.styles.TextMuted.Render("Loading form...")
 }
 
 func (a *App) renderSearch() string {

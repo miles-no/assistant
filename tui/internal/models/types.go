@@ -59,9 +59,9 @@ type Booking struct {
 	UserID      string        `json:"userId"`
 	StartTime   time.Time     `json:"startTime"`
 	EndTime     time.Time     `json:"endTime"`
-	Purpose     string        `json:"purpose"`
+	Title       string        `json:"title"` // API uses "title" not "purpose"
+	Description string        `json:"description,omitempty"`
 	Status      BookingStatus `json:"status"`
-	Attendees   int           `json:"attendees,omitempty"`
 	CreatedAt   time.Time     `json:"createdAt"`
 	UpdatedAt   time.Time     `json:"updatedAt"`
 }
@@ -83,18 +83,18 @@ type AuthResponse struct {
 
 // CreateBookingRequest represents a booking creation request
 type CreateBookingRequest struct {
-	RoomID    string    `json:"roomId"`
-	StartTime time.Time `json:"startTime"`
-	EndTime   time.Time `json:"endTime"`
-	Purpose   string    `json:"purpose"`
-	Attendees int       `json:"attendees,omitempty"`
+	RoomID      string    `json:"roomId"`
+	StartTime   time.Time `json:"startTime"`
+	EndTime     time.Time `json:"endTime"`
+	Title       string    `json:"title"`
+	Description string    `json:"description,omitempty"`
 }
 
 // UpdateBookingRequest represents a booking update request
 type UpdateBookingRequest struct {
-	StartTime *time.Time     `json:"startTime,omitempty"`
-	EndTime   *time.Time     `json:"endTime,omitempty"`
-	Purpose   *string        `json:"purpose,omitempty"`
-	Status    *BookingStatus `json:"status,omitempty"`
-	Attendees *int           `json:"attendees,omitempty"`
+	StartTime   *time.Time     `json:"startTime,omitempty"`
+	EndTime     *time.Time     `json:"endTime,omitempty"`
+	Title       *string        `json:"title,omitempty"`
+	Description *string        `json:"description,omitempty"`
+	Status      *BookingStatus `json:"status,omitempty"`
 }

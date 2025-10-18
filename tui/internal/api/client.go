@@ -284,10 +284,12 @@ func (c *Client) GetBooking(id string) (*models.Booking, error) {
 
 // CreateBooking creates a new booking
 func (c *Client) CreateBooking(req models.CreateBookingRequest) (*models.Booking, error) {
-	var booking models.Booking
+	var response struct {
+		Booking models.Booking `json:"booking"`
+	}
 	resp, err := c.http.R().
 		SetBody(req).
-		SetResult(&booking).
+		SetResult(&response).
 		Post("/bookings")
 
 	if err != nil {
@@ -298,7 +300,7 @@ func (c *Client) CreateBooking(req models.CreateBookingRequest) (*models.Booking
 		return nil, fmt.Errorf("failed to create booking: %s", resp.Status())
 	}
 
-	return &booking, nil
+	return &response.Booking, nil
 }
 
 // UpdateBooking updates an existing booking

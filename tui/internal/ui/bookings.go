@@ -143,12 +143,9 @@ func (m *BookingsModel) handleListKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "n":
-		// Create new booking - navigate to rooms view
-		return m, func() tea.Msg {
-			// This would ideally navigate to room selection
-			// For now, show a message
-			return BookingsErrorMsg{Error: "To create a booking, go to Rooms (press 3) and select a room"}
-		}
+		// Create new booking - switch to create mode
+		m.mode = BookingCreateMode
+		return m, nil
 
 	case "up", "k":
 		if m.cursor > 0 {
@@ -413,11 +410,16 @@ func (m *BookingsModel) renderDetails() string {
 	card.WriteString(m.styles.TextMuted.Render(fmt.Sprintf("Duration: %s", utils.FormatDuration(booking.StartTime, booking.EndTime))))
 	card.WriteString("\n\n")
 
-	// Purpose
-	if booking.Purpose != "" {
-		card.WriteString(m.styles.TextBold.Render("Purpose"))
+	// Title and Description
+	card.WriteString(m.styles.TextBold.Render("Title"))
+	card.WriteString("\n")
+	card.WriteString(m.styles.Text.Render(booking.Title))
+	card.WriteString("\n\n")
+
+	if booking.Description != "" {
+		card.WriteString(m.styles.TextBold.Render("Description"))
 		card.WriteString("\n")
-		card.WriteString(m.styles.Text.Render(booking.Purpose))
+		card.WriteString(m.styles.Text.Render(booking.Description))
 		card.WriteString("\n\n")
 	}
 
@@ -455,10 +457,13 @@ func (m *BookingsModel) renderDetails() string {
 	return b.String()
 }
 
-// renderCreate renders the create booking form
+// renderCreate renders the create booking form redirect
 func (m *BookingsModel) renderCreate() string {
+	// Note: This is a placeholder - the actual form is now in booking_form.go
+	// The app will redirect to a separate BookingFormModel
 	return m.styles.Title.Render("Create Booking") + "\n\n" +
-		m.styles.TextMuted.Render("Coming soon...")
+		m.styles.Text.Render("Opening booking form...") + "\n\n" +
+		m.styles.Help.Render("Press 3 to browse rooms, or Esc to cancel")
 }
 
 // renderListHelp renders help for list mode
