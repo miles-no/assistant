@@ -3,10 +3,31 @@
 ## Prerequisites
 
 - Node.js 20+
-- PostgreSQL 14+
+- Docker (for automated setup) OR PostgreSQL 14+
 - npm or yarn
 
-## Quick Start
+## Quick Start (Automated)
+
+**Recommended for local development:**
+
+```bash
+./setup.sh
+```
+
+This automated script will set up everything you need:
+- Install npm dependencies
+- Start PostgreSQL in Docker
+- Configure environment variables
+- Run database migrations
+- Seed with sample data
+
+Then start the server: `npm run dev`
+
+See [QUICKSTART.md](./QUICKSTART.md) for more details.
+
+## Manual Setup
+
+If you prefer manual setup or need to use an existing PostgreSQL instance:
 
 ### 1. Database Setup
 

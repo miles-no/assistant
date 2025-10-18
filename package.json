@@ -4,6 +4,7 @@
   "description": "Room booking system API for Miles office locations",
   "main": "dist/index.js",
   "scripts": {
+    "setup": "./setup.sh",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
@@ -11,6 +12,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
+    "db:start": "docker-compose up -d",
+    "db:stop": "docker-compose stop",
+    "db:logs": "docker-compose logs -f",
     "test": "jest"
   },
   "prisma": {

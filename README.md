@@ -19,45 +19,44 @@ A comprehensive room booking system for Miles office locations with role-based a
 - **Authentication**: JWT
 - **Validation**: Zod
 
-## Getting Started
+## Quick Start
 
-### Prerequisites
+### Automated Setup (Recommended)
 
-- Node.js 20+
-- PostgreSQL 14+
-- npm or yarn
+Get up and running in under 2 minutes:
 
-### Installation
-
-1. Clone the repository
-2. Install dependencies:
 ```bash
-npm install
+./setup.sh
 ```
 
-3. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your database credentials and JWT secret
-```
+This automated script will:
+- Install dependencies
+- Start PostgreSQL in Docker
+- Run migrations and seed data
+- Configure environment variables
 
-4. Run database migrations:
-```bash
-npm run prisma:migrate
-```
-
-5. Generate Prisma Client:
-```bash
-npm run prisma:generate
-```
-
-### Development
+Then start the server:
 
 ```bash
 npm run dev
 ```
 
-The API will be available at `http://localhost:3000`
+See [QUICKSTART.md](./QUICKSTART.md) for details.
+
+### Manual Setup
+
+If you prefer manual setup or have an existing PostgreSQL instance:
+
+**Prerequisites**: Node.js 20+, PostgreSQL 14+, npm
+
+1. Install dependencies: `npm install`
+2. Configure `.env` with your database URL
+3. Run migrations: `npm run prisma:migrate`
+4. Generate Prisma Client: `npm run prisma:generate`
+5. Seed database: `npm run prisma:seed`
+6. Start server: `npm run dev`
+
+See [SETUP.md](./SETUP.md) for detailed instructions.
 
 ## API Documentation
 
