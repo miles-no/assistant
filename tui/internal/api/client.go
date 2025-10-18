@@ -337,13 +337,14 @@ func (c *Client) CancelBooking(id string) error {
 }
 
 // GetMyBookings retrieves the current user's bookings
+// Note: The API automatically filters by user role - regular users only see their own bookings
 func (c *Client) GetMyBookings() ([]models.Booking, error) {
 	var response struct {
 		Bookings []models.Booking `json:"bookings"`
 	}
 	resp, err := c.http.R().
 		SetResult(&response).
-		Get("/bookings/my")
+		Get("/bookings")
 
 	if err != nil {
 		return nil, err
