@@ -46,3 +46,11 @@ prisma/migrations/
 
 # Claude
 .claude/settings.local.json
+
+# Go (TUI)
+tui/miles-booking
+tui/bin/
+*.exe
+*.test
+*.prof
+vendor/

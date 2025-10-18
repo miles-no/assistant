@@ -1,156 +1,203 @@
-# Miles Room Booking API
+# Miles Room Booking System
 
-A comprehensive room booking system for Miles office locations with role-based access control and calendar feed generation.
+A comprehensive room booking system for Miles office locations with a **beautiful Terminal User Interface** (TUI) and REST API.
 
-## Features
+## 🎯 Features
 
-- **Multi-location support**: Manage multiple office locations
-- **Role-based access control**: Admin, Manager, and User roles
-- **Room booking**: Book rooms with conflict detection
-- **Calendar feeds**: Generate iCal feeds per office, room, or user
-- **Timezone support**: Handle bookings across different timezones
+- **🎨 Beautiful TUI** - Gorgeous terminal interface built with Bubble Tea (Go)
+- **🔌 REST API** - Full-featured API with OpenAPI documentation
+- **🏢 Multi-location** - 7 office locations (Norway + Lithuania)
+- **👥 Role-based access** - Admin, Manager, User roles
+- **📅 Real-time booking** - Conflict detection and availability checking
+- **📆 Calendar feeds** - iCal export for Google Calendar, Outlook, etc.
+- **✨ Interactive forms** - Date pickers, time slots, room selection
+- **⚡ Vim keybindings** - Power user features with keyboard shortcuts
 
-## Tech Stack
+## 🚀 Quick Start
 
-- **Runtime**: Node.js 20+ with TypeScript
-- **Framework**: Express
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Authentication**: JWT
-- **Validation**: Zod
+### Prerequisites
 
-## Quick Start
+- **API**: Node.js 20+, PostgreSQL (or Docker)
+- **TUI**: Go 1.21+
 
-### Automated Setup (Recommended)
+### Setup Everything (Automated)
 
-Get up and running in under 2 minutes:
+From the root directory:
 
 ```bash
+# Set up API and database
 ./setup.sh
+
+# Start API (in one terminal)
+cd api && npm run dev
+
+# Build and run TUI (in another terminal)
+cd tui && make run
 ```
 
-This automated script will:
-
-- Install dependencies
-- Start PostgreSQL in Docker
-- Run migrations and seed data
-- Configure environment variables
-
-Then start the server:
+### Or Use Docker
 
 ```bash
-npm run dev
+# Start database and API
+docker-compose up -d
+
+# Run TUI
+cd tui && make run
 ```
 
-See [QUICKSTART.md](./QUICKSTART.md) for details.
+## 📁 Project Structure
 
-### Manual Setup
-
-If you prefer manual setup or have an existing PostgreSQL instance:
-
-**Prerequisites**: Node.js 20+, PostgreSQL 14+, npm
-
-1. Install dependencies: `npm install`
-2. Configure `.env` with your database URL
-3. Run migrations: `npm run prisma:migrate`
-4. Generate Prisma Client: `npm run prisma:generate`
-5. Seed database: `npm run prisma:seed`
-6. Start server: `npm run dev`
-
-See [SETUP.md](./SETUP.md) for detailed instructions.
-
-## API Documentation
-
-**Interactive API Documentation**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
-
-The API includes a complete OpenAPI 3.0 specification with interactive Swagger UI documentation. Start the server and visit `/api-docs` to explore all endpoints, request/response schemas, and try out the API directly from your browser.
-
-**OpenAPI Spec**: [openapi.yaml](./openapi.yaml)
-
-### Quick Reference
-
-#### Authentication
-
-#### Register a new user
-
-```js
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "secure-password",
-  "firstName": "John",
-  "lastName": "Doe"
-}
+```
+booking/
+├── api/              # REST API (Node.js + TypeScript)
+│   ├── src/          # API source code
+│   ├── prisma/       # Database schema and migrations
+│   └── openapi.yaml  # OpenAPI 3.0 specification
+│
+├── tui/              # Terminal UI (Go + Bubble Tea)
+│   ├── cmd/          # Main entry point
+│   ├── internal/     # TUI implementation
+│   │   ├── api/      # API client
+│   │   ├── ui/       # Views (login, dashboard, calendar, etc.)
+│   │   ├── components/ # Reusable UI components
+│   │   └── styles/   # Theming and colors
+│   └── Makefile      # Build commands
+│
+├── docker-compose.yml
+└── setup.sh          # Automated setup script
 ```
 
-#### Login
+## 🎨 TUI Features
 
-```js
-POST /api/auth/login
-Content-Type: application/json
+### Views
+- **Login** - Secure authentication
+- **Dashboard** - Overview of your bookings and quick stats
+- **Locations** - Browse all Miles offices
+- **Rooms** - Filter and search meeting rooms
+- **Calendar** - Visual month/week/day views with booking indicators
+- **Bookings** - Manage your reservations
+- **Search** - Quick find rooms and filter by criteria
+- **Admin Panel** - Manage locations and rooms (Admin/Manager)
 
-{
-  "email": "user@example.com",
-  "password": "secure-password"
-}
+### Keyboard Shortcuts
+- **Navigation**: `j/k` (up/down), `h/l` (left/right), `Tab` (next field)
+- **Actions**: `Enter` (select), `Esc` (back), `q` (quick book)
+- **Search**: `/` or `Ctrl+F`
+- **Help**: `F1` or `?`
+- **Quit**: `Ctrl+C`
+
+## 📚 Documentation
+
+- [API Documentation](./api/README.md)
+- [API Setup Guide](./api/SETUP.md)
+- [API Examples](./api/API_EXAMPLES.md)
+- [TUI Documentation](./tui/README.md)
+- [OpenAPI Spec](./api/openapi.yaml) - Interactive docs at `/api-docs`
+
+## 🏢 Office Locations
+
+After seeding, you'll have access to:
+
+**Norway**
+- Stavanger (5 meeting rooms)
+- Haugesund
+- Oslo
+- Bergen
+- Ålesund
+- Innlandet (Lillehammer)
+
+**International**
+- Lithuania (Vilnius)
+
+## 👥 Test Accounts
+
+All passwords: `password123`
+
+- **Admin**: `admin@miles.com`
+- **Manager (Stavanger)**: `manager.stavanger@miles.com`
+- **Manager (Oslo)**: `manager.oslo@miles.com`
+- **User**: `john.doe@miles.com`
+- **User**: `jane.smith@miles.com`
+
+## 🛠️ Development
+
+### API Development
+
+```bash
+cd api
+npm run dev              # Start dev server
+npm run prisma:studio    # Open database GUI
+npm run build            # Build for production
 ```
 
-### Locations
+### TUI Development
 
-```rb
-GET    /api/locations          - List all locations
-GET    /api/locations/:id      - Get location details
-POST   /api/locations          - Create location (Admin only)
-PATCH  /api/locations/:id      - Update location (Admin/Manager)
-DELETE /api/locations/:id      - Delete location (Admin only)
+```bash
+cd tui
+make dev                 # Run with hot reload
+make build               # Build binary
+make install             # Install to /usr/local/bin
 ```
 
-### Rooms
+### Database
 
-```rb
-GET    /api/rooms              - List rooms (filter by locationId)
-GET    /api/rooms/:id          - Get room details
-POST   /api/rooms              - Create room (Admin/Manager)
-PATCH  /api/rooms/:id          - Update room (Admin/Manager)
-DELETE /api/rooms/:id          - Delete room (Admin/Manager)
+```bash
+cd api
+npm run prisma:migrate   # Run migrations
+npm run prisma:seed      # Seed sample data
+npx prisma migrate reset # Reset database
 ```
 
-### Bookings
+## 🔧 Configuration
 
-```rb
-GET    /api/bookings           - List bookings (filtered by role)
-GET    /api/bookings/:id       - Get booking details
-POST   /api/bookings           - Create booking
-PATCH  /api/bookings/:id       - Update booking (owner/manager/admin)
-DELETE /api/bookings/:id       - Cancel booking (owner/manager/admin)
+### API Configuration
+Edit `api/.env`:
+- `DATABASE_URL` - PostgreSQL connection
+- `JWT_SECRET` - Secret for JWT tokens
+- `PORT` - API server port
+
+### TUI Configuration
+Edit `tui/config.yaml` (auto-created):
+- `api_url` - API endpoint (default: http://localhost:3000)
+- `theme` - Color theme
+- `keybindings` - Custom keyboard shortcuts
+
+## 🐳 Docker
+
+The provided `docker-compose.yml` starts:
+- PostgreSQL database on port 5433
+- API server on port 3000
+
+```bash
+docker-compose up -d     # Start services
+docker-compose logs -f   # View logs
+docker-compose down      # Stop services
 ```
 
-### Calendar Feeds
+## 📦 Building for Production
 
-```rb
-GET /api/calendar/office/:locationId.ics  - Office calendar feed
-GET /api/calendar/room/:roomId.ics        - Room calendar feed
-GET /api/calendar/user/:userId.ics        - User calendar feed
+### API
+```bash
+cd api
+npm run build
+npm start
 ```
 
-## Database Schema
+### TUI
+```bash
+cd tui
+make build
+# Binary at: ./bin/miles-booking
+```
 
-### Roles
+## 🤝 Contributing
 
-- **ADMIN**: Full system access
-- **MANAGER**: Manage assigned locations and their rooms
-- **USER**: Book rooms
+This is a Miles internal project. See individual component READMEs for development guidelines.
 
-### Main Entities
-
-- **User**: System users with roles
-- **Location**: Office locations
-- **Room**: Bookable rooms within locations
-- **Booking**: Room reservations
-- **ManagerLocation**: Manager-to-location assignments
-
-## License
+## 📄 License
 
 MIT
+
+---
+
+Built with ❤️ for Miles

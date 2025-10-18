@@ -20,6 +20,26 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: miles-booking-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/miles_booking?schema=public"
+      PORT: 3000
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+
 volumes:
   postgres_data:
     name: miles-booking-postgres-data
