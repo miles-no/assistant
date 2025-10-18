@@ -146,6 +146,13 @@ main() {
                     rm -f docker-compose.yml.tmp
                     log_success "Updated docker-compose.yml to use port $DB_PORT"
                 fi
+
+                # Remove existing container if it exists with old port config
+                if docker ps -a --format '{{.Names}}' | grep -q "^miles-booking-db$"; then
+                    log_info "Removing existing container with old port configuration..."
+                    docker rm -f miles-booking-db >/dev/null 2>&1
+                    log_success "Existing container removed"
+                fi
                 ;;
             2)
                 log_info "Please stop the service using port 5432 and run this script again."
@@ -168,11 +175,26 @@ main() {
     # Check if container is already running
     if docker ps --format '{{.Names}}' | grep -q "^miles-booking-db$"; then
         log_warning "Database container is already running"
+
+        # Verify it's using the correct port
+        CONTAINER_PORT=$(docker port miles-booking-db 2>/dev/null | grep "0.0.0.0:" | cut -d: -f2 || echo "")
+        if [ -n "$CONTAINER_PORT" ] && [ "$CONTAINER_PORT" != "$DB_PORT" ]; then
+            log_warning "Container is using port $CONTAINER_PORT but we need port $DB_PORT"
+            log_info "Recreating container with correct port..."
+            docker-compose down >/dev/null 2>&1
+            docker-compose up -d
+        fi
     else
         # Check if container exists but is stopped
         if docker ps -a --format '{{.Names}}' | grep -q "^miles-booking-db$"; then
+            # Try to start it
             log_info "Starting existing database container..."
-            docker start miles-booking-db
+            if ! docker start miles-booking-db 2>/dev/null; then
+                # If start fails, remove and recreate
+                log_warning "Failed to start existing container, recreating..."
+                docker rm -f miles-booking-db >/dev/null 2>&1
+                docker-compose up -d
+            fi
         else
             log_info "Creating and starting database container..."
             docker-compose up -d
