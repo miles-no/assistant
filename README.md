@@ -1,24 +1,46 @@
 # Miles Room Booking System
 
-A comprehensive room booking system for Miles office locations with a **beautiful Terminal User Interface** (TUI) and REST API.
+A comprehensive room booking system for Miles office locations with **multiple type-safe clients** and REST API.
+
+## 🔒 Type Safety Across All Clients
+
+All clients maintain complete type safety from the backend API using OpenAPI code generation:
+
+```
+Backend OpenAPI Spec → Generated Types → All Clients
+   (api/openapi.yaml)   (various tools)   (type-safe)
+```
+
+- **Web** (React): `@hey-api/openapi-ts` → TypeScript types
+- **TUI** (Go): `oapi-codegen` → Go types
+- **CLI** (Go): `oapi-codegen` → Go types
+- **Slack Bot** (Node.js): `@hey-api/openapi-ts` → TypeScript types (guide available)
+- **ESP32 Display** (C++): Python script → C++ headers (guide available)
 
 ## 🎯 Features
 
-- **🎨 Beautiful TUI** - Gorgeous terminal interface built with Bubble Tea (Go)
-- **🔌 REST API** - Full-featured API with OpenAPI documentation
+### Core Features
 - **🏢 Multi-location** - 7 office locations (Norway + Lithuania)
 - **👥 Role-based access** - Admin, Manager, User roles
 - **📅 Real-time booking** - Conflict detection and availability checking
 - **📆 Calendar feeds** - iCal export for Google Calendar, Outlook, etc.
-- **✨ Interactive forms** - Date pickers, time slots, room selection
-- **⚡ Vim keybindings** - Power user features with keyboard shortcuts
+- **🔒 Complete Type Safety** - OpenAPI-generated types for all clients
+
+### Multiple Clients
+- **🌐 Web App** - Modern React SPA with shadcn/ui components
+- **🎨 TUI** - Beautiful terminal interface built with Bubble Tea (Go)
+- **⌨️ CLI** - Fast, scriptable command-line interface (Go + Cobra)
+- **📱 Slack Bot** - Interactive Slack integration (implementation guide)
+- **📺 ESP32 Displays** - Room status displays (implementation guide)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - **API**: Node.js 20+, PostgreSQL (or Docker)
-- **TUI**: Go 1.21+
+- **Web**: Node.js 20+
+- **TUI**: Go 1.24.3+
+- **CLI**: Go 1.24.3+
 
 ### Setup Everything (Automated)
 
@@ -31,8 +53,14 @@ From the root directory:
 # Start API (in one terminal)
 cd api && npm run dev
 
-# Build and run TUI (in another terminal)
+# Start Web App (in another terminal)
+cd web && npm run dev  # http://localhost:5173
+
+# Or use the TUI
 cd tui && make run
+
+# Or use the CLI
+cd cli && make build && ./bin/miles --help
 ```
 
 ### Or Use Docker
@@ -41,57 +69,95 @@ cd tui && make run
 # Start database and API
 docker-compose up -d
 
-# Run TUI
-cd tui && make run
+# Then run any client you prefer
 ```
 
 ## 📁 Project Structure
 
 ```
 booking/
-├── api/              # REST API (Node.js + TypeScript)
-│   ├── src/          # API source code
-│   ├── prisma/       # Database schema and migrations
-│   └── openapi.yaml  # OpenAPI 3.0 specification
+├── api/                    # REST API (Node.js + TypeScript)
+│   ├── src/                # API source code
+│   ├── prisma/             # Database schema and migrations
+│   └── openapi.yaml        # ⭐ OpenAPI 3.0 specification (source of truth)
 │
-├── tui/              # Terminal UI (Go + Bubble Tea)
-│   ├── cmd/          # Main entry point
-│   ├── internal/     # TUI implementation
-│   │   ├── api/      # API client
-│   │   ├── ui/       # Views (login, dashboard, calendar, etc.)
-│   │   ├── components/ # Reusable UI components
-│   │   └── styles/   # Theming and colors
-│   └── Makefile      # Build commands
+├── web/                    # Web App (React + TypeScript)
+│   ├── src/
+│   │   ├── components/     # React components (shadcn/ui)
+│   │   ├── lib/
+│   │   │   └── api/        # ⭐ Generated API client
+│   │   └── pages/          # App routes
+│   └── package.json
+│
+├── tui/                    # Terminal UI (Go + Bubble Tea)
+│   ├── cmd/                # Main entry point
+│   ├── internal/
+│   │   ├── generated/      # ⭐ Generated Go types
+│   │   ├── api/            # API client
+│   │   ├── ui/             # Views (login, dashboard, calendar, etc.)
+│   │   └── styles/         # Theming and colors
+│   └── Makefile
+│
+├── cli/                    # CLI (Go + Cobra)
+│   ├── cmd/miles/          # Main entry point
+│   ├── internal/
+│   │   ├── generated/      # ⭐ Generated Go types
+│   │   ├── commands/       # CLI commands
+│   │   └── config/         # API client
+│   └── Makefile
+│
+├── docs/                   # Implementation guides
+│   ├── SLACK_BOT_GUIDE.md  # Slack bot implementation
+│   └── ESP32_DISPLAY_GUIDE.md  # ESP32 display implementation
 │
 ├── docker-compose.yml
-└── setup.sh          # Automated setup script
+└── setup.sh                # Automated setup script
 ```
 
+## 🌐 Web App Features
+- **Modern React SPA** with TypeScript and Vite
+- **Beautiful UI** using shadcn/ui components
+- **Complete Type Safety** with generated API client
+- **Responsive Design** - Works on mobile, tablet, and desktop
+- **Dark Mode** support
+- **Real-time Updates** - Booking status updates
+
 ## 🎨 TUI Features
+- **Interactive Terminal UI** built with Bubble Tea
+- **Vim Keybindings** - Power user features
+- **Views**: Login, Dashboard, Locations, Rooms, Calendar, Bookings, Admin Panel
+- **Keyboard Shortcuts**: `j/k` (navigation), `/` (search), `q` (quick book)
 
-### Views
-- **Login** - Secure authentication
-- **Dashboard** - Overview of your bookings and quick stats
-- **Locations** - Browse all Miles offices
-- **Rooms** - Filter and search meeting rooms
-- **Calendar** - Visual month/week/day views with booking indicators
-- **Bookings** - Manage your reservations
-- **Search** - Quick find rooms and filter by criteria
-- **Admin Panel** - Manage locations and rooms (Admin/Manager)
+## ⌨️ CLI Features
+- **Fast & Scriptable** - Perfect for automation
+- **Commands**: `login`, `rooms`, `book`, `bookings`, `cancel`
+- **Multiple Output Formats** - table, JSON, CSV
+- **Configuration** - Via file, environment variables, or flags
 
-### Keyboard Shortcuts
-- **Navigation**: `j/k` (up/down), `h/l` (left/right), `Tab` (next field)
-- **Actions**: `Enter` (select), `Esc` (back), `q` (quick book)
-- **Search**: `/` or `Ctrl+F`
-- **Help**: `F1` or `?`
-- **Quit**: `Ctrl+C`
+```bash
+# List rooms
+miles rooms --location LOC123 -o json
+
+# Create booking
+miles book -r ROOM123 -s "2025-10-19 14:00" -e "2025-10-19 15:00" -t "Meeting"
+
+# View your bookings
+miles bookings -o csv > bookings.csv
+```
 
 ## 📚 Documentation
 
+### Clients
+- [Web App](./web/README.md) - React frontend documentation
+- [TUI](./tui/README.md) - Terminal UI documentation
+- [CLI](./cli/README.md) - Command-line interface documentation
+- [Slack Bot Guide](./docs/SLACK_BOT_GUIDE.md) - Implementation guide for Slack integration
+- [ESP32 Display Guide](./docs/ESP32_DISPLAY_GUIDE.md) - Implementation guide for room displays
+
+### API
 - [API Documentation](./api/README.md)
 - [API Setup Guide](./api/SETUP.md)
 - [API Examples](./api/API_EXAMPLES.md)
-- [TUI Documentation](./tui/README.md)
 - [OpenAPI Spec](./api/openapi.yaml) - Interactive docs at `/api-docs`
 
 ## 🏢 Office Locations
@@ -125,8 +191,18 @@ All passwords: `password123`
 
 ```bash
 cd api
-npm run dev              # Start dev server
+npm run dev              # Start dev server with hot reload
 npm run prisma:studio    # Open database GUI
+npm run openapi:gen      # Generate OpenAPI types
+npm run build            # Build for production
+```
+
+### Web Development
+
+```bash
+cd web
+npm run dev              # Start Vite dev server
+npm run generate         # Generate API client from OpenAPI
 npm run build            # Build for production
 ```
 
@@ -134,9 +210,20 @@ npm run build            # Build for production
 
 ```bash
 cd tui
-make dev                 # Run with hot reload
+make generate            # Generate Go types from OpenAPI
 make build               # Build binary
-make install             # Install to /usr/local/bin
+make run                 # Run the TUI
+make install             # Install to system
+```
+
+### CLI Development
+
+```bash
+cd cli
+make generate            # Generate Go types from OpenAPI
+make build               # Build binary
+make install             # Install to system
+./bin/miles --help       # Test CLI
 ```
 
 ### Database
@@ -183,11 +270,25 @@ npm run build
 npm start
 ```
 
+### Web
+```bash
+cd web
+npm run build
+# Static files in: ./dist
+```
+
 ### TUI
 ```bash
 cd tui
 make build
 # Binary at: ./bin/miles-booking
+```
+
+### CLI
+```bash
+cd cli
+make build
+# Binary at: ./bin/miles
 ```
 
 ## 🤝 Contributing
