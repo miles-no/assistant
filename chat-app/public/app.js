@@ -279,22 +279,17 @@ function addMessage(content, sender) {
 }
 
 function formatMessage(text) {
-    // Convert markdown-like formatting to HTML
-    text = escapeHtml(text);
+    // Use marked.js to render markdown to HTML
+    // Configure marked for better rendering
+    marked.setOptions({
+        breaks: true, // Convert \n to <br>
+        gfm: true, // GitHub Flavored Markdown (supports tables)
+    });
 
-    // Bold
-    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Parse markdown to HTML
+    const html = marked.parse(text);
 
-    // Code blocks
-    text = text.replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>');
-
-    // Inline code
-    text = text.replace(/`(.*?)`/g, '<code>$1</code>');
-
-    // Line breaks
-    text = text.replace(/\n/g, '<br>');
-
-    return `<div>${text}</div>`;
+    return `<div class="markdown-content">${html}</div>`;
 }
 
 function escapeHtml(text) {
