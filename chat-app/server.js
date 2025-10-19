@@ -134,9 +134,30 @@ function parseToolCalls(text) {
     // Check if this is a resource read (starts with read_)
     if (toolName.startsWith('read_')) {
       // Convert read_locations -> miles://locations
+      // Convert read_bookings -> miles://bookings (with query params support)
       const resourcePath = toolName.replace(/^read_/, '').replace(/_/g, '/');
-      const uri = `miles://${resourcePath}`;
-      resourceReads.push({ uri, resourcePath, isResource: true });
+
+      // Parse parameters and build query string
+      let uri = `miles://${resourcePath}`;
+      if (paramsStr && paramsStr !== '{}') {
+        try {
+          const params = JSON.parse(paramsStr);
+          const queryParams = new URLSearchParams();
+          Object.entries(params).forEach(([key, value]) => {
+            if (value) queryParams.append(key, String(value));
+          });
+          const queryString = queryParams.toString();
+          if (queryString) {
+            uri += `?${queryString}`;
+          }
+        } catch (error) {
+          console.error('Error parsing resource params:', error);
+        }
+      }
+
+      // Store both full URI and the path after miles://
+      const fullResourcePath = uri.replace('miles://', '');
+      resourceReads.push({ uri, resourcePath: fullResourcePath, isResource: true });
     } else {
       // Regular tool call
       try {
@@ -181,8 +202,24 @@ app.post('/api/chat', async (req, res) => {
     const toolsContext = formatToolsForPrompt(tools);
     const resourcesContext = formatResourcesForPrompt(resources);
 
+    // Get current time for context
+    const now = new Date();
+    const currentTime = now.toISOString();
+    const currentDateFormatted = now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Oslo'
+    });
+
     // Build system prompt with MCP tools and resources
     const systemPrompt = `You are a helpful assistant for the Miles Booking System. You can help users book rooms, check availability, and manage their bookings.
+
+CURRENT TIME: ${currentTime} (${currentDateFormatted})
+CURRENT USER: ${userId || 'not provided'}
 
 When you need to perform an operation, use the format:
 TOOL_CALL: tool_name({"param1": "value1", "param2": "value2"})
@@ -195,23 +232,37 @@ ${resourcesContext}
 2. Performing Actions (write operations):
 ${toolsContext}
 
-Examples:
-- User: "What offices do we have?"
-  You: TOOL_CALL: read_locations({})
+COMMON QUERY PATTERNS:
 
-- User: "Show me all rooms"
-  You: TOOL_CALL: read_rooms({})
+User asks about THEIR bookings:
+- "when is my next booking?" → TOOL_CALL: read_bookings({"userId": "${userId}"})
+- "what are my bookings?" → TOOL_CALL: read_bookings({"userId": "${userId}"})
+- "do I have anything booked today?" → TOOL_CALL: read_bookings({"userId": "${userId}"})
+- Then YOU filter the results to show only future/current bookings as relevant
 
-- User: "Book the boardroom for tomorrow at 2pm"
-  You: TOOL_CALL: create_booking({"userId": "...", "roomId": "...", "startTime": "...", "endTime": "...", "title": "..."})
+User asks about availability:
+- "what's available right now?" → TOOL_CALL: find_available_rooms({"startTime": "${currentTime}", "endTime": "${new Date(now.getTime() + 3600000).toISOString()}"})
+- "find rooms for tomorrow at 2pm" → Calculate tomorrow's date and use ISO format: "2025-10-21T14:00:00Z"
+
+User asks about general data:
+- "what offices do we have?" → TOOL_CALL: read_locations({})
+- "show me all rooms" → TOOL_CALL: read_rooms({})
+- "what is booked right now?" → TOOL_CALL: read_bookings({}) then filter by current time range
+
+User wants to book:
+- "book a room" → ASK: Which room? What date/time? How long? What's it for?
+- "book something for me to think" → ASK: How long do you need? When? Which location/room type?
+- NEVER make bookings without: roomId, startTime, endTime, title
 
 CRITICAL RULES:
-- ONLY use tools listed above - NEVER invent tool names
-- For viewing/reading data: use read_* tools
-- For creating/updating/deleting: use action tools (create_*, update_*, cancel_*, etc.)
-- Always use the correct userId parameter when calling tools (user provided: ${userId || 'not provided'})
-- Use ISO 8601 format for dates and times (e.g., "2025-10-20T14:00:00Z")
-- After making a tool call, wait for the result before continuing
+1. ONLY use tools listed above - NEVER invent tool names
+2. For viewing/reading data: use read_* tools
+3. For creating/updating/deleting: use action tools (create_*, update_*, cancel_*, etc.)
+4. ALWAYS filter read_bookings results by userId when user asks about "my" or "their" bookings
+5. Use ISO 8601 format for dates/times: "${currentTime}"
+6. When booking requests are vague, ASK clarifying questions - don't guess
+7. After making a tool call, wait for the result before continuing
+8. When showing bookings, clearly distinguish between "your bookings" vs "all bookings"
 
 User's message: ${message}`;
 
@@ -255,7 +306,7 @@ User's message: ${message}`;
       // Execute resource reads
       const resourceResults = [];
       for (const { uri, resourcePath } of resourceReads) {
-        console.log(`Reading resource: ${resourcePath}`);
+        console.log(`Reading resource: ${uri}`);
         const result = await readMCPResource(resourcePath);
         resourceResults.push({
           type: 'resource',

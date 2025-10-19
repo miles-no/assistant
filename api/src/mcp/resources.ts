@@ -75,28 +75,30 @@ export async function listResources() {
 // Read a specific resource
 export async function readResource(uri: string) {
   const url = new URL(uri);
+  // Get URI without query params for matching
+  const baseUri = `${url.protocol}//${url.hostname}${url.pathname}`;
 
   // Handle different resource types
-  if (uri === "miles://locations") {
+  if (baseUri === "miles://locations") {
     return await getAllLocations();
   }
 
-  if (uri.match(/^miles:\/\/locations\/[^/]+$/)) {
-    const locationId = uri.split("/").pop()!;
+  if (baseUri.match(/^miles:\/\/locations\/[^/]+$/)) {
+    const locationId = baseUri.split("/").pop()!;
     return await getLocationDetails(locationId);
   }
 
-  if (uri === "miles://rooms") {
+  if (baseUri === "miles://rooms") {
     return await getAllRooms();
   }
 
-  if (uri.match(/^miles:\/\/rooms\/[^/]+$/)) {
-    const roomId = uri.split("/").pop()!;
+  if (baseUri.match(/^miles:\/\/rooms\/[^/]+$/)) {
+    const roomId = baseUri.split("/").pop()!;
     return await getRoomDetails(roomId);
   }
 
-  if (uri.match(/^miles:\/\/rooms\/[^/]+\/availability$/)) {
-    const parts = uri.split("/");
+  if (baseUri.match(/^miles:\/\/rooms\/[^/]+\/availability$/)) {
+    const parts = baseUri.split("/");
     const roomId = parts[parts.length - 2];
     // Parse query parameters from URI if present
     const startTime = url.searchParams.get("startTime");
@@ -104,7 +106,7 @@ export async function readResource(uri: string) {
     return await getRoomAvailability(roomId, startTime, endTime);
   }
 
-  if (uri === "miles://bookings") {
+  if (baseUri === "miles://bookings") {
     const userId = url.searchParams.get("userId");
     const locationId = url.searchParams.get("locationId");
     const roomId = url.searchParams.get("roomId");
@@ -112,23 +114,23 @@ export async function readResource(uri: string) {
     return await getBookings(userId, locationId, roomId, status);
   }
 
-  if (uri.match(/^miles:\/\/bookings\/[^/]+$/)) {
-    const bookingId = uri.split("/").pop()!;
+  if (baseUri.match(/^miles:\/\/bookings\/[^/]+$/)) {
+    const bookingId = baseUri.split("/").pop()!;
     return await getBookingDetails(bookingId);
   }
 
-  if (uri.match(/^miles:\/\/calendar\/location\/[^/]+$/)) {
-    const locationId = uri.split("/").pop()!;
+  if (baseUri.match(/^miles:\/\/calendar\/location\/[^/]+$/)) {
+    const locationId = baseUri.split("/").pop()!;
     return await getLocationCalendar(locationId);
   }
 
-  if (uri.match(/^miles:\/\/calendar\/room\/[^/]+$/)) {
-    const roomId = uri.split("/").pop()!;
+  if (baseUri.match(/^miles:\/\/calendar\/room\/[^/]+$/)) {
+    const roomId = baseUri.split("/").pop()!;
     return await getRoomCalendar(roomId);
   }
 
-  if (uri.match(/^miles:\/\/calendar\/user\/[^/]+$/)) {
-    const userId = uri.split("/").pop()!;
+  if (baseUri.match(/^miles:\/\/calendar\/user\/[^/]+$/)) {
+    const userId = baseUri.split("/").pop()!;
     return await getUserCalendar(userId);
   }
 
