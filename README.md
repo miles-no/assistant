@@ -50,17 +50,41 @@ From the root directory:
 # Set up API and database
 ./setup.sh
 
+# Install CLI and TUI to your system (one-time)
+./install.sh
+
 # Start API (in one terminal)
 cd api && npm run dev
 
 # Start Web App (in another terminal)
 cd web && npm run dev  # http://localhost:5173
 
-# Or use the TUI
-cd tui && make run
+# Or use the installed TUI
+miles-booking
 
-# Or use the CLI
-cd cli && make build && ./bin/miles --help
+# Or use the installed CLI
+miles --help
+```
+
+### Install CLI & TUI (Recommended)
+
+The automated installer builds and installs both the CLI and TUI to your system:
+
+```bash
+./install.sh
+```
+
+This will:
+- ✓ Check for Go and required tools
+- ✓ Generate type-safe code from OpenAPI
+- ✓ Build both CLI and TUI
+- ✓ Install to `~/.local/bin` (or custom location via `INSTALL_DIR`)
+- ✓ Verify PATH configuration
+
+After installation:
+```bash
+miles-booking              # Launch TUI
+miles login user@email.com # Use CLI
 ```
 
 ### Or Use Docker
