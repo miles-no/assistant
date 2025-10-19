@@ -1,0 +1,75 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - link "Miles Booking" [ref=e6] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e8]
+          - generic [ref=e12]: Miles Booking
+        - button [ref=e13]:
+          - img [ref=e14]
+      - navigation [ref=e16]:
+        - link "Dashboard" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e18]
+          - generic [ref=e23]: Dashboard
+        - link "Locations" [ref=e24] [cursor=pointer]:
+          - /url: /locations
+          - img [ref=e25]
+          - generic [ref=e28]: Locations
+        - link "Rooms" [ref=e29] [cursor=pointer]:
+          - /url: /rooms
+          - img [ref=e30]
+          - generic [ref=e33]: Rooms
+        - link "My Bookings" [ref=e34] [cursor=pointer]:
+          - /url: /bookings
+          - img [ref=e35]
+          - generic [ref=e37]: My Bookings
+        - link "Settings" [ref=e38] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e39]
+          - generic [ref=e42]: Settings
+      - generic [ref=e44]:
+        - img [ref=e45]
+        - combobox [ref=e48] [cursor=pointer]:
+          - option "English" [selected]
+          - option "Norsk bokmål"
+          - option "Norsk nynorsk"
+          - option "Lietuvių"
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]: TU
+          - generic [ref=e53]:
+            - paragraph [ref=e54]: Test User
+            - generic [ref=e55]: USER
+        - button "Logout" [ref=e56]:
+          - img [ref=e58]
+          - text: Logout
+    - generic [ref=e61]:
+      - banner [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]: Test User
+          - generic [ref=e65]: USER
+      - main [ref=e66]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - heading "My Bookings" [level=1] [ref=e70]
+            - paragraph [ref=e71]: Manage your meeting room reservations (0 total)
+          - generic [ref=e72]:
+            - heading "Upcoming (0)" [level=2] [ref=e73]
+            - generic [ref=e74]:
+              - img [ref=e75]
+              - heading "No upcoming bookings" [level=3] [ref=e77]
+              - paragraph [ref=e78]: You don't have any upcoming reservations.
+              - button "Browse Locations" [ref=e79]
+          - generic [ref=e80]:
+            - heading "Past & Cancelled (0)" [level=2] [ref=e81]
+            - paragraph [ref=e83]: No past or cancelled bookings.
+  - generic [ref=e84]:
+    - img [ref=e86]
+    - button "Open Tanstack query devtools" [ref=e134] [cursor=pointer]:
+      - img [ref=e135]
+```

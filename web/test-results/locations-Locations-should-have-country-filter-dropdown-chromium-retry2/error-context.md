@@ -1,0 +1,77 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - link "Miles Booking" [ref=e6] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e8]
+          - generic [ref=e12]: Miles Booking
+        - button [ref=e13]:
+          - img [ref=e14]
+      - navigation [ref=e16]:
+        - link "Dashboard" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e18]
+          - generic [ref=e23]: Dashboard
+        - link "Locations" [ref=e24] [cursor=pointer]:
+          - /url: /locations
+          - img [ref=e25]
+          - generic [ref=e28]: Locations
+        - link "Rooms" [ref=e29] [cursor=pointer]:
+          - /url: /rooms
+          - img [ref=e30]
+          - generic [ref=e33]: Rooms
+        - link "My Bookings" [ref=e34] [cursor=pointer]:
+          - /url: /bookings
+          - img [ref=e35]
+          - generic [ref=e37]: My Bookings
+        - link "Settings" [ref=e38] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e39]
+          - generic [ref=e42]: Settings
+      - generic [ref=e44]:
+        - img [ref=e45]
+        - combobox [ref=e48] [cursor=pointer]:
+          - option "English" [selected]
+          - option "Norsk bokmål"
+          - option "Norsk nynorsk"
+          - option "Lietuvių"
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]: TU
+          - generic [ref=e53]:
+            - paragraph [ref=e54]: Test User
+            - generic [ref=e55]: USER
+        - button "Logout" [ref=e56]:
+          - img [ref=e58]
+          - text: Logout
+    - generic [ref=e61]:
+      - banner [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]: Test User
+          - generic [ref=e65]: USER
+      - main [ref=e66]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - heading "Office Locations" [level=1] [ref=e70]
+            - paragraph [ref=e71]: Browse our 0 office locations worldwide
+          - generic [ref=e72]:
+            - generic [ref=e75]:
+              - generic:
+                - img
+              - textbox "Search locations, cities..." [ref=e76]
+            - combobox [ref=e78]:
+              - option "All Countries" [selected]
+          - generic [ref=e79]: Showing 0 of 0 locations
+          - generic [ref=e80]:
+            - img [ref=e81]
+            - heading "No locations found" [level=3] [ref=e84]
+            - paragraph [ref=e85]: Try adjusting your search or filter criteria
+  - generic [ref=e86]:
+    - img [ref=e88]
+    - button "Open Tanstack query devtools" [ref=e136] [cursor=pointer]:
+      - img [ref=e137]
+```
