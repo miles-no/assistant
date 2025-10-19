@@ -1,269 +1,214 @@
-# Miles Booking TUI
+# Miles Booking Terminal UI (TUI)
 
-A beautiful Terminal User Interface for the Miles Room Booking System, built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
+A beautiful terminal user interface for the Miles booking system built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
-## Features
+## 🔒 Type Safety
 
-- **Beautiful Interface** - Gorgeous terminal UI with colors, borders, and animations
-- **Vim Keybindings** - Power user features with keyboard shortcuts
-- **Interactive Forms** - Date pickers, time selectors, and room filters
-- **Visual Calendar** - Month, week, and day views with booking indicators
-- **Real-time Updates** - Live availability checking and booking management
-- **Role-based Features** - Admin and manager-specific functionality
-- **Multi-location Support** - Browse and book across all Miles offices
+This TUI has **complete type safety** from the backend API to the Go code using OpenAPI code generation.
 
-## Installation
+### How It Works
+
+```
+Backend OpenAPI Spec → Generated Go Types → TUI Code
+     (api/openapi.yaml)    (internal/generated/)   (type-safe)
+```
+
+All API types are auto-generated from the OpenAPI specification using [`oapi-codegen`](https://github.com/oapi-codegen/oapi-codegen), ensuring:
+- ✅ **Compile-time type safety** - Catch API changes at build time, not runtime
+- ✅ **Auto-generated types** - No manual type definitions to keep in sync
+- ✅ **JSON marshaling** - Proper JSON tags for all fields
+- ✅ **Enum constants** - Type-safe enums for statuses and roles
+- ✅ **Time handling** - Proper `time.Time` types with RFC3339 formatting
+
+### Generated Types
+
+The generated code (`internal/generated/types.gen.go`) includes:
+
+```go
+// Type-safe booking with enums
+type Booking struct {
+    Id          *string        `json:"id,omitempty"`
+    RoomId      *string        `json:"roomId,omitempty"`
+    UserId      *string        `json:"userId,omitempty"`
+    StartTime   *time.Time     `json:"startTime,omitempty"`
+    EndTime     *time.Time     `json:"endTime,omitempty"`
+    Title       *string        `json:"title,omitempty"`
+    Description *string        `json:"description,omitempty"`
+    Status      *BookingStatus `json:"status,omitempty"`
+}
+
+// Type-safe enum
+type BookingStatus string
+const (
+    BookingStatusPENDING   BookingStatus = "PENDING"
+    BookingStatusCONFIRMED BookingStatus = "CONFIRMED"
+    BookingStatusCANCELLED BookingStatus = "CANCELLED"
+)
+
+// Type-safe user roles
+type UserRole string
+const (
+    ADMIN   UserRole = "ADMIN"
+    MANAGER UserRole = "MANAGER"
+    USER    UserRole = "USER"
+)
+```
+
+### Regenerating Types
+
+When the backend API changes:
+
+```bash
+# Regenerate types from OpenAPI spec
+make generate
+
+# Or manually:
+oapi-codegen -config .oapi-codegen.yaml -o internal/generated/types.gen.go ../api/openapi.yaml
+```
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Go 1.21 or higher
-- Running API server (see [../api/README.md](../api/README.md))
+- Go 1.24.3 or later
+- Access to the Miles booking API
 
-### Build from Source
+### Installation
 
 ```bash
-# From the tui/ directory
+# Install dependencies
+go mod download
+
+# Generate type-safe code from OpenAPI spec
+make generate
+
+# Build the application
 make build
 
-# Or install system-wide
-make install
+# Run the TUI
+make run
+# or
+./bin/miles-booking
 ```
 
-## Usage
+## 📦 Features
 
-### Running the TUI
+- **Authentication** - Secure login with JWT tokens
+- **Dashboard** - Overview of your bookings and quick actions
+- **Locations** - Browse office locations
+- **Rooms** - Search and filter meeting rooms
+- **Bookings** - View, create, and cancel bookings
+- **Admin Panel** - Manage locations and rooms (ADMIN only)
+- **Calendar View** - Visual calendar of all bookings
+
+## 🛠️ Development
+
+### Makefile Commands
 
 ```bash
-# Using Make
-make run
-
-# Or directly
-./bin/miles-booking
-
-# If installed system-wide
-miles-booking
+make generate      # Generate type-safe Go code from OpenAPI spec
+make build         # Build the application
+make run           # Run the application
+make test          # Run tests
+make clean         # Clean build artifacts
+make install-tools # Install required code generation tools
+make help          # Show all available commands
 ```
-
-### Default API Connection
-
-The TUI connects to `http://localhost:3000/api` by default. Make sure the API server is running before starting the TUI.
-
-## Configuration
-
-Create `~/.config/miles-booking/config.yaml`:
-
-```yaml
-api:
-  url: http://localhost:3000
-  timeout: 30s
-
-ui:
-  theme: default
-  vim_mode: true
-  animations: true
-
-keybindings:
-  quit: ctrl+c
-  help: "?"
-  search: "/"
-```
-
-## Views
-
-### Login Screen
-- Email and password authentication
-- Remember me option
-- Register new account
-
-### Dashboard
-- Quick stats (upcoming bookings, available rooms)
-- Recent activity
-- Quick actions
-
-### Locations
-- Browse all Miles office locations
-- View location details and available rooms
-- Filter by country/city
-
-### Rooms
-- Browse all meeting rooms
-- Filter by location, capacity, equipment
-- Check real-time availability
-- View room details
-
-### Calendar
-- **Month View** - See bookings across the month
-- **Week View** - Detailed weekly schedule
-- **Day View** - Hourly breakdown of bookings
-- Navigate with vim keys or arrows
-
-### Bookings
-- View your bookings
-- Create new bookings with interactive forms
-- Edit or cancel existing bookings
-- Filter by date range or location
-
-### Search
-- Quick search for rooms
-- Filter by multiple criteria
-- Save favorite searches
-
-### Admin Panel
-*(Admin/Manager only)*
-- Manage locations and rooms
-- View all bookings
-- User management
-
-## Keyboard Shortcuts
-
-### Global
-- `Ctrl+C` - Quit application
-- `?` or `F1` - Show help
-- `Esc` - Go back / Cancel
-- `Tab` - Next field
-- `Shift+Tab` - Previous field
-
-### Navigation
-- `j` / `↓` - Move down
-- `k` / `↑` - Move up
-- `h` / `←` - Move left / Previous
-- `l` / `→` - Move right / Next
-- `g` - Go to top
-- `G` - Go to bottom
-
-### Actions
-- `Enter` - Select / Confirm
-- `Space` - Toggle / Select
-- `/` or `Ctrl+F` - Search
-- `n` - New booking
-- `e` - Edit booking
-- `d` - Delete / Cancel booking
-
-### Views
-- `1` - Dashboard
-- `2` - Locations
-- `3` - Rooms
-- `4` - Calendar
-- `5` - Bookings
-- `6` - Search
-- `0` - Admin (if authorized)
-
-## Development
 
 ### Project Structure
 
 ```
 tui/
-├── cmd/miles-booking/      # Main entry point
+├── cmd/miles-booking/     # Application entry point
 │   └── main.go
 ├── internal/
-│   ├── api/                # API client
+│   ├── generated/         # ⭐ Auto-generated types from OpenAPI
+│   │   └── types.gen.go
+│   ├── api/               # API client
 │   │   └── client.go
-│   ├── ui/                 # Main UI logic
-│   │   ├── app.go          # Application state
-│   │   ├── login.go        # Login view
-│   │   ├── dashboard.go    # Dashboard view
-│   │   ├── locations.go    # Locations view
-│   │   ├── rooms.go        # Rooms view
-│   │   ├── calendar.go     # Calendar view
-│   │   ├── bookings.go     # Bookings view
-│   │   ├── search.go       # Search view
-│   │   └── admin.go        # Admin view
-│   ├── components/         # Reusable UI components
-│   │   ├── table.go
-│   │   ├── datepicker.go
-│   │   ├── timepicker.go
-│   │   └── form.go
-│   ├── styles/             # UI styles and theme
-│   │   └── styles.go
-│   ├── models/             # Data models
+│   ├── models/            # Domain models (can extend generated types)
 │   │   └── types.go
-│   └── utils/              # Helper functions
-│       └── helpers.go
-├── go.mod
-├── go.sum
-├── Makefile
+│   ├── ui/                # UI components
+│   │   ├── app.go
+│   │   ├── login.go
+│   │   ├── dashboard.go
+│   │   ├── locations.go
+│   │   ├── rooms.go
+│   │   ├── bookings.go
+│   │   ├── admin.go
+│   │   └── calendar.go
+│   └── styles/            # UI styling
+│       └── styles.go
+├── .oapi-codegen.yaml     # OpenAPI code generation config
+├── Makefile               # Build automation
 └── README.md
 ```
 
-### Running in Development
+## 🔄 Type Safety Workflow
 
-```bash
-# Run with hot reload (requires air)
-make dev
+1. **Backend changes** are made to `api/openapi.yaml`
+2. **Run `make generate`** to regenerate Go types
+3. **Compiler shows errors** if TUI code needs updates
+4. **Fix the code** based on new types
+5. **Build succeeds** - guaranteed type safety!
 
-# Or just build and run
-make run
+### Example: Adding a New Field
 
-# Format code
-make fmt
+**Backend adds `priority` field to bookings:**
 
-# Run tests
-make test
-
-# Run linter
-make lint
+```yaml
+# api/openapi.yaml
+Booking:
+  properties:
+    priority:
+      type: string
+      enum: [low, medium, high]
 ```
 
-### Installing Air (Hot Reload)
+**Regenerate types:**
 
 ```bash
-go install github.com/air-verse/air@latest
+make generate
 ```
 
-## Dependencies
+**Go compiler immediately shows where to update:**
 
+```go
+// ❌ Compiler error: unknown field 'priority' in struct
+booking := generated.Booking{
+    Title:     "Meeting",
+    StartTime: &startTime,
+    // priority: ???  ← Compiler tells you to add this
+}
+
+// ✅ Fix the code
+booking := generated.Booking{
+    Title:     "Meeting",
+    StartTime: &startTime,
+    Priority:  &priority,  // Now type-safe!
+}
+```
+
+## 🎨 UI Framework
+
+Built with:
 - [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
 - [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
-- [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Style definitions
-- [Huh](https://github.com/charmbracelet/huh) - Interactive forms
-- [Resty](https://github.com/go-resty/resty) - HTTP client
-- [Viper](https://github.com/spf13/viper) - Configuration management
+- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Styling
+- [Huh](https://github.com/charmbracelet/huh) - Forms
 
-## Testing
+## 📝 Configuration
 
-Run the test suite:
+Configuration is loaded from environment variables:
 
 ```bash
-make test
-
-# With coverage
-go test -cover ./...
-
-# Verbose
-go test -v ./...
+API_URL=http://localhost:3000  # Backend API URL
 ```
 
-## Troubleshooting
+## 🔗 Related
 
-### "Cannot connect to API"
-Make sure the API server is running:
-```bash
-cd ../api && npm run dev
-```
+- **API**: `/api` - Node.js/TypeScript backend with Prisma
+- **Web Frontend**: `/web` - React frontend with similar type safety via `@hey-api/openapi-ts`
+- **OpenAPI Spec**: `/api/openapi.yaml` - Single source of truth for all types
 
-### "Terminal too small"
-Resize your terminal to at least 80x24 characters.
-
-### Rendering issues
-Try setting your `TERM` environment variable:
-```bash
-export TERM=xterm-256color
-```
-
-## Contributing
-
-This is a Miles internal project. Follow the development guidelines:
-
-1. Use `make fmt` before committing
-2. Run `make test` to ensure tests pass
-3. Follow Go best practices and conventions
-4. Update documentation for new features
-
-## License
-
-MIT
-
----
-
-Built with ❤️ for Miles using [Charm](https://charm.sh) libraries
+Both the TUI and web frontend use the same OpenAPI spec for type generation, ensuring consistency across all clients!

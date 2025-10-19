@@ -1,65 +1,42 @@
-.PHONY: help build run install clean dev test lint fmt
+.PHONY: generate build run test clean
 
-BINARY_NAME=miles-booking
-BUILD_DIR=bin
-MAIN_PATH=./cmd/miles-booking
+# Generate type-safe Go code from OpenAPI spec
+generate:
+	@echo "Generating type-safe Go code from OpenAPI spec..."
+	@oapi-codegen -config .oapi-codegen.yaml -o internal/generated/types.gen.go ../api/openapi.yaml
+	@echo "✓ Generated internal/generated/types.gen.go"
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-
-build: ## Build the application
+# Build the application
+build:
 	@echo "Building..."
-	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
-	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+	@go build -o bin/miles-booking ./cmd/miles-booking
+	@echo "✓ Built bin/miles-booking"
 
-run: build ## Build and run the application
-	@echo "Running Miles Booking TUI..."
-	@./$(BUILD_DIR)/$(BINARY_NAME)
+# Run the application
+run:
+	@go run ./cmd/miles-booking/main.go
 
-install: build ## Install the binary to /usr/local/bin
-	@echo "Installing to /usr/local/bin..."
-	@cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/
-	@echo "Installed!"
-
-clean: ## Remove build artifacts
-	@echo "Cleaning..."
-	@rm -rf $(BUILD_DIR)
-	@rm -f $(BINARY_NAME)
-	@echo "Clean complete!"
-
-dev: ## Run with hot reload (requires air)
-	@if command -v air >/dev/null 2>&1; then \
-		air; \
-	else \
-		echo "air not found. Install with: go install github.com/air-verse/air@latest"; \
-		echo "Running without hot reload..."; \
-		$(MAKE) run; \
-	fi
-
-test: ## Run tests
-	@echo "Running tests..."
+# Run tests
+test:
 	@go test -v ./...
 
-lint: ## Run linter (requires golangci-lint)
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run; \
-	else \
-		echo "golangci-lint not found. Install from: https://golangci-lint.run/"; \
-	fi
+# Clean build artifacts
+clean:
+	@rm -rf bin/
+	@echo "✓ Cleaned build artifacts"
 
-fmt: ## Format code
-	@echo "Formatting code..."
-	@go fmt ./...
-	@echo "Format complete!"
+# Install required tools
+install-tools:
+	@echo "Installing oapi-codegen..."
+	@go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+	@echo "✓ Installed oapi-codegen"
 
-deps: ## Download dependencies
-	@echo "Downloading dependencies..."
-	@go mod download
-	@go mod tidy
-	@echo "Dependencies updated!"
-
-.DEFAULT_GOAL := help
+# Help
+help:
+	@echo "Available targets:"
+	@echo "  generate      - Generate type-safe Go code from OpenAPI spec"
+	@echo "  build         - Build the application"
+	@echo "  run           - Run the application"
+	@echo "  test          - Run tests"
+	@echo "  clean         - Clean build artifacts"
+	@echo "  install-tools - Install required code generation tools"
