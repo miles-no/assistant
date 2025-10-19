@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -152,8 +153,31 @@ func (c *Client) CreateBooking(req generated.BookingInput) (*generated.Booking, 
 	if resp.StatusCode() != http.StatusCreated {
 		var errResp map[string]interface{}
 		json.Unmarshal(resp.Body(), &errResp)
+
+		// Check if we have an error message
 		if msg, ok := errResp["error"].(string); ok {
-			return nil, fmt.Errorf("create booking failed: %s", msg)
+			// Check if we have validation details
+			if details, ok := errResp["details"].([]interface{}); ok && len(details) > 0 {
+				// Build detailed error message from validation errors
+				var messages []string
+				for _, detail := range details {
+					if detailMap, ok := detail.(map[string]interface{}); ok {
+						if message, ok := detailMap["message"].(string); ok {
+							if path, ok := detailMap["path"].([]interface{}); ok && len(path) > 0 {
+								fieldName := fmt.Sprintf("%v", path[0])
+								messages = append(messages, fmt.Sprintf("%s: %s", fieldName, message))
+							} else {
+								messages = append(messages, message)
+							}
+						}
+					}
+				}
+				if len(messages) > 0 {
+					return nil, fmt.Errorf("%s:\n  - %s", msg, strings.Join(messages, "\n  - "))
+				}
+			}
+			// Just return the error message if no details
+			return nil, fmt.Errorf("%s", msg)
 		}
 		return nil, fmt.Errorf("create booking failed: %s", resp.Status())
 	}
