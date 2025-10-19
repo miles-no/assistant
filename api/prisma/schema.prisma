@@ -39,9 +39,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  bookings         Booking[]
-  managedLocations ManagerLocation[]
-  roomFeedback     RoomFeedback[]
+  bookings              Booking[]
+  managedLocations      ManagerLocation[]
+  roomFeedback          RoomFeedback[]       @relation("FeedbackCreator")
+  resolvedFeedback      RoomFeedback[]       @relation("FeedbackResolver")
 
   @@index([email])
   @@map("users")
@@ -126,20 +127,24 @@ model Booking {
 }
 
 model RoomFeedback {
-  id        String         @id @default(cuid())
-  roomId    String
-  userId    String
-  message   String
-  status    FeedbackStatus @default(OPEN)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  roomId            String
+  userId            String
+  message           String
+  status            FeedbackStatus @default(OPEN)
+  resolvedBy        String?
+  resolutionComment String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   // Relations
-  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room     Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User  @relation("FeedbackCreator", fields: [userId], references: [id], onDelete: Cascade)
+  resolver User? @relation("FeedbackResolver", fields: [resolvedBy], references: [id], onDelete: SetNull)
 
   @@index([roomId])
   @@index([userId])
   @@index([status])
+  @@index([resolvedBy])
   @@map("room_feedback")
 }

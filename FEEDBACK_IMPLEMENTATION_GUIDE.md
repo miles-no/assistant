@@ -9,7 +9,7 @@ This document provides a comprehensive guide for implementing the room feedback 
 - ✅ **Migration** created and applied (`20251019194407_add_room_feedback`)
 - ✅ **MCP Tools** implemented:
   - `create_room_feedback` - Any user can submit feedback
-  - `update_feedback_status` - Managers/admins can update status (OPEN/RESOLVED/DISMISSED)
+  - `update_feedback_status` - Any user can update status (OPEN/RESOLVED/DISMISSED) with required comment
 - ✅ **MCP Resources** implemented:
   - `miles://feedback` - List all feedback with filtering (roomId, locationId, status, userId)
   - `miles://rooms/{roomId}/feedback` - Get feedback for specific room
@@ -22,7 +22,7 @@ This document provides a comprehensive guide for implementing the room feedback 
 ### Chat Assistant
 - ✅ **System prompt** updated with feedback examples
 - ✅ **Tool integration** complete - AI can create and query feedback
-- ✅ **Manager workflows** supported for status updates
+- ✅ **User workflows** supported for creating and resolving feedback (comment required)
 
 ---
 
@@ -54,7 +54,12 @@ interface Feedback {
   message: string;
   status: 'OPEN' | 'RESOLVED' | 'DISMISSED';
   createdAt: string;
+  resolutionComment?: string;
   submittedBy: {
+    name: string;
+    email: string;
+  };
+  resolvedBy?: {
     name: string;
     email: string;
   };
@@ -62,7 +67,7 @@ interface Feedback {
 
 export function FeedbackList({ feedback, onStatusChange }: {
   feedback: Feedback[];
-  onStatusChange?: (id: string, status: string) => void;
+  onStatusChange?: (id: string, status: string, comment: string) => void;
 }) {
   const statusConfig = {
     OPEN: { icon: AlertCircle, color: 'warning', label: 'Open' },
@@ -96,14 +101,30 @@ export function FeedbackList({ feedback, onStatusChange }: {
                   <p className="text-sm text-gray-500 mt-2">
                     Submitted by {item.submittedBy.name}
                   </p>
+                  {item.resolutionComment && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
+                      <p className="text-sm font-medium text-gray-700">Resolution:</p>
+                      <p className="text-sm text-gray-600 mt-1">{item.resolutionComment}</p>
+                      {item.resolvedBy && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Resolved by {item.resolvedBy.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Manager actions */}
-                {onStatusChange && item.status !== 'RESOLVED' && (
+                {/* Any user can resolve with comment */}
+                {onStatusChange && item.status === 'OPEN' && (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => onStatusChange(item.id, 'RESOLVED')}
+                    onClick={() => {
+                      const comment = prompt('Enter resolution comment (required):');
+                      if (comment?.trim()) {
+                        onStatusChange(item.id, 'RESOLVED', comment);
+                      }
+                    }}
                   >
                     Mark Resolved
                   </Button>
@@ -230,14 +251,15 @@ export function useUpdateFeedbackStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ feedbackId, status, userId }: {
+    mutationFn: async ({ feedbackId, status, userId, comment }: {
       feedbackId: string;
       status: string;
       userId: string;
+      comment: string;
     }) => {
       const { data } = await axios.post(
         `${API_URL}/api/mcp/tools/update_feedback_status`,
-        { arguments: { feedbackId, status, userId } }
+        { arguments: { feedbackId, status, userId, comment } }
       );
       return data;
     },
@@ -375,12 +397,18 @@ var feedbackListCmd = &cobra.Command{
 
 var feedbackResolveCmd = &cobra.Command{
     Use:   "resolve [feedback-id]",
-    Short: "Mark feedback as resolved (managers only)",
+    Short: "Mark feedback as resolved with a comment",
     Args:  cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         feedbackID := args[0]
+        comment, _ := cmd.Flags().GetString("comment")
 
-        err := api.UpdateFeedbackStatus(feedbackID, "RESOLVED")
+        if comment == "" {
+            fmt.Printf("Error: --comment is required\n")
+            return
+        }
+
+        err := api.UpdateFeedbackStatus(feedbackID, "RESOLVED", comment)
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             return
@@ -400,6 +428,9 @@ func init() {
 
     feedbackListCmd.Flags().StringP("room", "r", "", "Filter by room name")
     feedbackListCmd.Flags().StringP("status", "s", "", "Filter by status (OPEN, RESOLVED, DISMISSED)")
+
+    feedbackResolveCmd.Flags().StringP("comment", "c", "", "Resolution comment (required)")
+    feedbackResolveCmd.MarkFlagRequired("comment")
 
     rootCmd.AddCommand(feedbackCmd)
 }
@@ -470,12 +501,13 @@ func (c *Client) ListFeedback(roomName, status string) ([]Feedback, error) {
     return result.Feedback, nil
 }
 
-func (c *Client) UpdateFeedbackStatus(feedbackID, status string) error {
+func (c *Client) UpdateFeedbackStatus(feedbackID, status, comment string) error {
     payload := map[string]interface{}{
         "arguments": map[string]string{
             "userId":     c.userID,
             "feedbackId": feedbackID,
             "status":     status,
+            "comment":    comment,
         },
     }
 
@@ -499,8 +531,8 @@ miles feedback list --room "Teamrommet"
 # List only open issues
 miles feedback list --status OPEN
 
-# Mark feedback as resolved (managers)
-miles feedback resolve <feedback-id>
+# Mark feedback as resolved (with required comment)
+miles feedback resolve <feedback-id> -c "Fixed the projector remote"
 ```
 
 ---
@@ -751,7 +783,7 @@ case "Feedback":
 ## 📝 **Notes**
 
 - Email notifications use nodemailer but fall back to console logging if SMTP not configured
-- Permissions: Anyone can create, only MANAGER/ADMIN can update status
+- Permissions: Anyone can create and update status (comment required for updates)
 - Chat assistant automatically looks up room IDs when users mention room names
 - All timestamps in ISO 8601 format
 - Feedback is never deleted, only status updated

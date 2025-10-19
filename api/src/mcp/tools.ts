@@ -71,6 +71,7 @@ const updateFeedbackStatusSchema = z.object({
   feedbackId: z.string(),
   userId: z.string(),
   status: z.enum(["OPEN", "RESOLVED", "DISMISSED"]),
+  comment: z.string().min(1, "Resolution comment is required"),
 });
 
 // Register all tools
@@ -328,7 +329,7 @@ export function registerTools() {
     {
       name: "update_feedback_status",
       description:
-        "Update the status of room feedback (OPEN, RESOLVED, DISMISSED). Only managers of the location or admins can update status.",
+        "Update the status of room feedback (OPEN, RESOLVED, DISMISSED). Anyone can update feedback status. A comment explaining the resolution is required.",
       inputSchema: {
         type: "object",
         properties: {
@@ -338,15 +339,20 @@ export function registerTools() {
           },
           userId: {
             type: "string",
-            description: "ID of the user updating the status (must be manager/admin)",
+            description: "ID of the user updating the status",
           },
           status: {
             type: "string",
             enum: ["OPEN", "RESOLVED", "DISMISSED"],
             description: "New status for the feedback",
           },
+          comment: {
+            type: "string",
+            description:
+              "Comment explaining the resolution or action taken (required)",
+          },
         },
-        required: ["feedbackId", "userId", "status"],
+        required: ["feedbackId", "userId", "status", "comment"],
       },
     },
   ];
@@ -1304,33 +1310,17 @@ async function updateFeedbackStatus(args: any) {
     };
   }
 
-  // Check permissions (only ADMIN or location MANAGER)
-  const isAdmin = user.role === Role.ADMIN;
-  const isManager =
-    user.role === Role.MANAGER &&
-    feedback.room.location.managers.some((m) => m.userId === data.userId);
-
-  if (!isAdmin && !isManager) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            error:
-              "Insufficient permissions. Only admins or location managers can update feedback status.",
-          }),
-        },
-      ],
-    };
-  }
-
   // Store old status for notification
   const oldStatus = feedback.status;
 
-  // Update feedback status
+  // Update feedback status with resolution info
   const updatedFeedback = await prisma.roomFeedback.update({
     where: { id: data.feedbackId },
-    data: { status: data.status as FeedbackStatus },
+    data: {
+      status: data.status as FeedbackStatus,
+      resolvedBy: data.userId,
+      resolutionComment: data.comment,
+    },
     include: {
       room: {
         include: {
@@ -1338,6 +1328,14 @@ async function updateFeedbackStatus(args: any) {
         },
       },
       user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      resolver: {
         select: {
           id: true,
           email: true,
@@ -1373,7 +1371,10 @@ async function updateFeedbackStatus(args: any) {
             message: updatedFeedback.message,
             oldStatus,
             newStatus: updatedFeedback.status,
-            updatedBy: `${user.firstName} ${user.lastName}`,
+            resolutionComment: updatedFeedback.resolutionComment,
+            resolvedBy: updatedFeedback.resolver
+              ? `${updatedFeedback.resolver.firstName} ${updatedFeedback.resolver.lastName}`
+              : null,
             updatedAt: updatedFeedback.updatedAt,
           },
         }),

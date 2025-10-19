@@ -909,6 +909,14 @@ async function getAllFeedback(
           lastName: true,
         },
       },
+      resolver: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -980,6 +988,14 @@ async function getRoomFeedback(roomId: string) {
     where: { roomId },
     include: {
       user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      resolver: {
         select: {
           id: true,
           email: true,

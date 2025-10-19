@@ -340,10 +340,12 @@ User asks about feedback:
 - "show all feedback for San Francisco" → TOOL_CALL: read_feedback({"locationId": "[location ID]"})
 - Anyone can view all feedback (public visibility)
 
-Managers update feedback status:
-- "mark that feedback as resolved" → TOOL_CALL: update_feedback_status({"feedbackId": "[ID]", "userId": "${userId}", "status": "RESOLVED"})
-- Only ADMIN or location MANAGER roles can update status
+Anyone can update feedback status (with required comment):
+- "mark that feedback as resolved - fixed the projector" → TOOL_CALL: update_feedback_status({"feedbackId": "[ID]", "userId": "${userId}", "status": "RESOLVED", "comment": "Fixed the projector"})
+- "dismiss this feedback - not relevant" → TOOL_CALL: update_feedback_status({"feedbackId": "[ID]", "userId": "${userId}", "status": "DISMISSED", "comment": "Not relevant to our facilities"})
+- ALWAYS require a comment explaining the resolution/action taken
 - Status options: OPEN, RESOLVED, DISMISSED
+- Any user can update feedback status
 
 CRITICAL RULES:
 
