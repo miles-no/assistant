@@ -128,8 +128,8 @@ func runInteractiveBook(client *config.Client) error {
 		return err
 	}
 
-	// Step 3: Select start time
-	startTime, err := selectTime("start", time.Time{})
+	// Step 3: Select start time (with availability checking)
+	startTime, err := selectStartTimeWithAvailability(client, room)
 	if err != nil {
 		return err
 	}
@@ -500,6 +500,113 @@ func nextWeekday(from time.Time, weekday time.Weekday, hour, minute int) time.Ti
 	return time.Date(next.Year(), next.Month(), next.Day(), hour, minute, 0, 0, time.Local)
 }
 
+// selectStartTimeWithAvailability suggests start times with availability checking
+func selectStartTimeWithAvailability(client *config.Client, roomID string) (time.Time, error) {
+	now := time.Now()
+
+	// Generate common start time suggestions
+	suggestions := []struct {
+		Label string
+		Time  time.Time
+	}{
+		{
+			Label: fmt.Sprintf("Next hour (%s)", now.Add(time.Hour).Truncate(time.Hour).Format("15:04")),
+			Time:  now.Add(time.Hour).Truncate(time.Hour),
+		},
+		{
+			Label: fmt.Sprintf("Tomorrow at 9 AM (%s)", now.AddDate(0, 0, 1).Format("2006-01-02")+" 09:00"),
+			Time:  time.Date(now.Year(), now.Month(), now.Day()+1, 9, 0, 0, 0, time.Local),
+		},
+		{
+			Label: fmt.Sprintf("Next Monday at 9 AM"),
+			Time:  nextWeekday(now, time.Monday, 9, 0),
+		},
+	}
+
+	// Check availability for each suggestion
+	for i := range suggestions {
+		if suggestions[i].Time.IsZero() {
+			continue
+		}
+
+		// Fetch bookings for this day
+		dayStart := time.Date(suggestions[i].Time.Year(), suggestions[i].Time.Month(), suggestions[i].Time.Day(), 0, 0, 0, 0, suggestions[i].Time.Location()).UTC()
+		dayEnd := dayStart.Add(24 * time.Hour)
+
+		bookings, err := client.GetRoomAvailability(roomID, dayStart, dayEnd)
+		if err != nil {
+			// If we can't check, don't mark as unavailable
+			continue
+		}
+
+		// Check if this start time conflicts
+		hasConflict := false
+		for _, booking := range bookings {
+			if booking.Status != nil && *booking.Status == "CANCELLED" {
+				continue
+			}
+			if booking.StartTime == nil || booking.EndTime == nil {
+				continue
+			}
+
+			bStart := booking.StartTime.Local()
+			bEnd := booking.EndTime.Local()
+
+			// Conflict if the suggested start time overlaps with this booking
+			if !bStart.After(suggestions[i].Time) && !bEnd.Before(suggestions[i].Time) {
+				hasConflict = true
+				break
+			}
+		}
+
+		// Mark as unavailable if there's a conflict
+		if hasConflict {
+			suggestions[i].Label = suggestions[i].Label + " ⚠ unavailable"
+		}
+	}
+
+	// Add custom option
+	suggestions = append(suggestions, struct {
+		Label string
+		Time  time.Time
+	}{
+		Label: "Custom time (enter manually)",
+		Time:  time.Time{},
+	})
+
+	// Build items for prompt
+	items := make([]string, len(suggestions))
+	for i, s := range suggestions {
+		items[i] = s.Label
+	}
+
+	prompt := promptui.Select{
+		Label: "Select start time",
+		Items: items,
+		Size:  len(items),
+	}
+
+	idx, _, err := prompt.Run()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("time selection cancelled")
+	}
+
+	// If custom time selected, prompt for input
+	if suggestions[idx].Time.IsZero() {
+		customTime, err := promptString(
+			"start time",
+			`Format: "2025-10-19 14:00" or "15:00"`,
+			true,
+		)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return parseTime(customTime)
+	}
+
+	return suggestions[idx].Time, nil
+}
+
 // selectEndTimeWithAvailability suggests end times based on room availability
 func selectEndTimeWithAvailability(client *config.Client, roomID string, startTime time.Time) (time.Time, error) {
 	// Set date range to cover the entire day (start of day to end of day in UTC)
@@ -523,9 +630,7 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 	}
 	roomBookings = activeBookings
 
-	// Check if there's a booking currently in progress (started before but hasn't ended)
-	// or a booking that starts at or after our start time
-	var conflictingBooking *generated.Booking
+	// Find the next booking after our start time
 	var nextAvailableTime *time.Time
 
 	// Helper function to check if a proposed end time conflicts with any booking
@@ -548,35 +653,19 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 		return false
 	}
 
-	// Find the earliest available end time (right before the next booking)
+	// Find the next booking after our start time
 	for _, booking := range roomBookings {
 		if booking.StartTime == nil || booking.EndTime == nil {
 			continue
 		}
 		bStart := booking.StartTime.Local()
-		bEnd := booking.EndTime.Local()
 
-		// Check if this booking affects our start time
-		// Conflict if: booking starts at or before our start AND ends at or after our start
-		// Note: This includes bookings that end exactly when we start (touching not allowed)
-		if !bStart.After(startTime) && !bEnd.Before(startTime) {
-			// There's a booking in progress, starting now, or ending now - we can't start at this time
-			conflictingBooking = &booking
-			break
-		} else if bStart.After(startTime) {
-			// This booking starts after our start time
+		// Find bookings that start after our start time
+		if bStart.After(startTime) {
 			if nextAvailableTime == nil || bStart.Before(*nextAvailableTime) {
 				nextAvailableTime = &bStart
 			}
 		}
-	}
-
-	// If there's a conflict at start time, show error message
-	if conflictingBooking != nil {
-		fmt.Printf("\n⚠ Cannot start at %s - room is already booked until %s\n",
-			startTime.Format("15:04"),
-			conflictingBooking.EndTime.Local().Format("15:04"))
-		return time.Time{}, fmt.Errorf("selected start time conflicts with existing booking")
 	}
 
 	// Build smart suggestions based on availability
