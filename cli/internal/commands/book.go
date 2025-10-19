@@ -68,12 +68,26 @@ func runBook(cmd *cobra.Command, args []string) error {
 	// Create API client
 	client := config.NewClient(getAPIURL(), token)
 
-	// Check if we need interactive mode (any required field is missing)
-	needsInteractive := bookRoomID == "" || bookStartTime == "" || bookEndTime == "" || bookTitle == ""
+	// Determine if any flags were provided
+	anyFlagsProvided := bookRoomID != "" || bookStartTime != "" || bookEndTime != "" || bookTitle != ""
 
-	if needsInteractive {
-		// Interactive mode
+	// If no flags provided, enter interactive mode
+	if !anyFlagsProvided {
 		return runInteractiveBook(client)
+	}
+
+	// If any flags provided, require all required flags
+	if bookRoomID == "" {
+		return fmt.Errorf("room ID is required. Use -r flag or run 'miles book' without flags for interactive mode")
+	}
+	if bookStartTime == "" {
+		return fmt.Errorf("start time is required. Use -s flag or run 'miles book' without flags for interactive mode")
+	}
+	if bookEndTime == "" {
+		return fmt.Errorf("end time is required. Use -e flag or run 'miles book' without flags for interactive mode")
+	}
+	if bookTitle == "" {
+		return fmt.Errorf("title is required. Use -t flag or run 'miles book' without flags for interactive mode")
 	}
 
 	// Flag-based mode - proceed with existing logic
