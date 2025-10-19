@@ -523,20 +523,60 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 	}
 	roomBookings = activeBookings
 
-	// Find the next booking after our start time
-	var nextBookingStart *time.Time
+	// Check if there's a booking currently in progress (started before but hasn't ended)
+	// or a booking that starts at or after our start time
+	var conflictingBooking *generated.Booking
+	var nextAvailableTime *time.Time
+
+	// Helper function to check if a proposed end time conflicts with any booking
+	hasConflict := func(proposedEnd time.Time) bool {
+		for _, booking := range roomBookings {
+			if booking.StartTime == nil || booking.EndTime == nil {
+				continue
+			}
+			bStart := booking.StartTime.Local()
+			bEnd := booking.EndTime.Local()
+
+			// Check for overlap: our booking overlaps if:
+			// - We start at or before their booking ends AND
+			// - We end at or after their booking starts
+			// Note: This includes touching bookings (end == start) which the API rejects
+			if !startTime.After(bEnd) && !proposedEnd.Before(bStart) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Find the earliest available end time (right before the next booking)
 	for _, booking := range roomBookings {
-		if booking.StartTime != nil && booking.StartTime.After(startTime) {
-			if nextBookingStart == nil || booking.StartTime.Before(*nextBookingStart) {
-				nextBookingStart = booking.StartTime
+		if booking.StartTime == nil || booking.EndTime == nil {
+			continue
+		}
+		bStart := booking.StartTime.Local()
+		bEnd := booking.EndTime.Local()
+
+		// Check if this booking affects our start time
+		// Conflict if: booking starts at or before our start AND ends at or after our start
+		// Note: This includes bookings that end exactly when we start (touching not allowed)
+		if !bStart.After(startTime) && !bEnd.Before(startTime) {
+			// There's a booking in progress, starting now, or ending now - we can't start at this time
+			conflictingBooking = &booking
+			break
+		} else if bStart.After(startTime) {
+			// This booking starts after our start time
+			if nextAvailableTime == nil || bStart.Before(*nextAvailableTime) {
+				nextAvailableTime = &bStart
 			}
 		}
 	}
 
-	// Convert next booking time to local timezone for display
-	if nextBookingStart != nil {
-		localTime := nextBookingStart.Local()
-		nextBookingStart = &localTime
+	// If there's a conflict at start time, show error message
+	if conflictingBooking != nil {
+		fmt.Printf("\n⚠ Cannot start at %s - room is already booked until %s\n",
+			startTime.Format("15:04"),
+			conflictingBooking.EndTime.Local().Format("15:04"))
+		return time.Time{}, fmt.Errorf("selected start time conflicts with existing booking")
 	}
 
 	// Build smart suggestions based on availability
@@ -558,11 +598,8 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 	for _, dur := range durations {
 		endTime := startTime.Add(time.Duration(dur.minutes) * time.Minute)
 
-		// Check if this duration would conflict (including equality)
-		available := true
-		if nextBookingStart != nil && !endTime.Before(*nextBookingStart) {
-			available = false
-		}
+		// Check if this duration would conflict
+		available := !hasConflict(endTime)
 
 		// Build label with availability indicator
 		label := fmt.Sprintf("%s (%s)", dur.label, endTime.Format("15:04"))
@@ -580,11 +617,11 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 	}
 
 	// If there's a next booking, suggest ending 1 minute before it
-	if nextBookingStart != nil {
-		duration := nextBookingStart.Sub(startTime)
+	if nextAvailableTime != nil {
+		duration := nextAvailableTime.Sub(startTime)
 		if duration > time.Minute && duration < 3*time.Hour {
 			// End 1 minute before the next booking to avoid conflicts
-			suggestedEnd := nextBookingStart.Add(-1 * time.Minute)
+			suggestedEnd := nextAvailableTime.Add(-1 * time.Minute)
 			label := fmt.Sprintf("Until next booking (%s) ✓ available", suggestedEnd.Format("15:04"))
 			suggestions = append([]struct {
 				Label string
