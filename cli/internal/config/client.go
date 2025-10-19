@@ -122,10 +122,22 @@ func (c *Client) GetRooms(locationID string) ([]generated.Room, error) {
 
 // GetBookings retrieves bookings for the authenticated user
 func (c *Client) GetBookings() ([]generated.Booking, error) {
+	return c.GetBookingsFiltered("", "")
+}
+
+// GetBookingsFiltered retrieves bookings with optional filters
+func (c *Client) GetBookingsFiltered(roomID, locationID string) ([]generated.Booking, error) {
 	var response BookingsResponse
-	resp, err := c.http.R().
-		SetResult(&response).
-		Get("/api/bookings")
+	req := c.http.R().SetResult(&response)
+
+	if roomID != "" {
+		req.SetQueryParam("roomId", roomID)
+	}
+	if locationID != "" {
+		req.SetQueryParam("locationId", locationID)
+	}
+
+	resp, err := req.Get("/api/bookings")
 
 	if err != nil {
 		return nil, fmt.Errorf("get bookings failed: %w", err)
@@ -133,6 +145,26 @@ func (c *Client) GetBookings() ([]generated.Booking, error) {
 
 	if resp.StatusCode() != http.StatusOK {
 		return nil, fmt.Errorf("get bookings failed: %s", resp.Status())
+	}
+
+	return response.Bookings, nil
+}
+
+// GetRoomAvailability checks availability for a room within a date range
+func (c *Client) GetRoomAvailability(roomID string, startDate, endDate time.Time) ([]generated.Booking, error) {
+	var response BookingsResponse
+	resp, err := c.http.R().
+		SetQueryParam("startDate", startDate.Format(time.RFC3339)).
+		SetQueryParam("endDate", endDate.Format(time.RFC3339)).
+		SetResult(&response).
+		Get(fmt.Sprintf("/api/rooms/%s/availability", roomID))
+
+	if err != nil {
+		return nil, fmt.Errorf("get room availability failed: %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("get room availability failed: %s", resp.Status())
 	}
 
 	return response.Bookings, nil

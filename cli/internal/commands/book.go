@@ -502,35 +502,26 @@ func nextWeekday(from time.Time, weekday time.Weekday, hour, minute int) time.Ti
 
 // selectEndTimeWithAvailability suggests end times based on room availability
 func selectEndTimeWithAvailability(client *config.Client, roomID string, startTime time.Time) (time.Time, error) {
-	// Fetch all bookings to check availability
-	allBookings, err := client.GetBookings()
+	// Set date range to cover the entire day (start of day to end of day in UTC)
+	dayStart := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, startTime.Location()).UTC()
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	// Fetch all bookings for this room on this day using availability endpoint
+	roomBookings, err := client.GetRoomAvailability(roomID, dayStart, dayEnd)
 	if err != nil {
-		// If we can't fetch bookings, fall back to regular time selection
+		// If we can't fetch availability, fall back to regular time selection
 		fmt.Println("⚠ Could not check availability, showing all options")
 		return selectTime("end", startTime)
 	}
 
-	// Filter bookings for this room on this day
-	var roomBookings []generated.Booking
-	startDate := startTime.Format("2006-01-02")
-
-	for _, booking := range allBookings {
-		// Skip cancelled bookings
-		if booking.Status != nil && *booking.Status == "CANCELLED" {
-			continue
-		}
-
-		// Check if booking is for this room
-		if booking.RoomId != nil && *booking.RoomId == roomID {
-			// Check if booking is on the same day (convert to local time for comparison)
-			if booking.StartTime != nil {
-				bookingDate := booking.StartTime.Local().Format("2006-01-02")
-				if bookingDate == startDate {
-					roomBookings = append(roomBookings, booking)
-				}
-			}
+	// Filter out cancelled bookings
+	var activeBookings []generated.Booking
+	for _, booking := range roomBookings {
+		if booking.Status == nil || *booking.Status != "CANCELLED" {
+			activeBookings = append(activeBookings, booking)
 		}
 	}
+	roomBookings = activeBookings
 
 	// Find the next booking after our start time
 	var nextBookingStart *time.Time
