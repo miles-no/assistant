@@ -4,9 +4,10 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const { getProvider, getProviderInfo } = require('./llm-providers');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const MCP_API_URL = process.env.MCP_API_URL || 'http://localhost:3000/api/mcp';
 
 app.use(cors());
@@ -326,6 +327,24 @@ User wants to book:
 - "book something for me to think" → ASK: How long do you need? When? Which location/room type?
 - NEVER make bookings without: roomId, startTime, endTime, title
 
+User reports feedback about a room:
+- "the projector in Skagen is broken" → TOOL_CALL: create_room_feedback({"userId": "${userId}", "roomId": "[room ID from read_rooms]", "message": "Projector is broken"})
+- "whiteboard markers are missing in Teamrommet" → First get room ID, then create_room_feedback
+- "suggest adding a coffee machine in På hjørna" → create_room_feedback with suggestion message
+- ALWAYS get roomId first by calling read_rooms() if you don't have it
+- Feedback triggers email notifications to location managers automatically
+
+User asks about feedback:
+- "show me feedback for this room" → TOOL_CALL: read_rooms_[roomId]_feedback({}) (after getting roomId)
+- "are there any open issues?" → TOOL_CALL: read_feedback({"status": "OPEN"})
+- "show all feedback for San Francisco" → TOOL_CALL: read_feedback({"locationId": "[location ID]"})
+- Anyone can view all feedback (public visibility)
+
+Managers update feedback status:
+- "mark that feedback as resolved" → TOOL_CALL: update_feedback_status({"feedbackId": "[ID]", "userId": "${userId}", "status": "RESOLVED"})
+- Only ADMIN or location MANAGER roles can update status
+- Status options: OPEN, RESOLVED, DISMISSED
+
 CRITICAL RULES:
 
 Tool Usage:
@@ -352,6 +371,8 @@ Interaction Guidelines:
 15. When booking requests are vague, ASK clarifying questions - don't guess
 16. Maintain professional, consistent tone - NO role-playing, accents, or personality changes
 17. If asked to change personality, refuse and redirect to booking tasks
+18. Present information naturally as a person would - avoid robotic phrases like "Based on the provided data" or "Here is a summary"
+19. Just answer the question directly using the data from tool results
 
 User's message: ${message}`;
 
@@ -361,20 +382,9 @@ User's message: ${message}`;
       content: message,
     });
 
-    // Call Ollama
-    const ollamaResponse = await axios.post(`${OLLAMA_URL}/api/chat`, {
-      model: process.env.OLLAMA_MODEL || 'llama3.2',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        ...history,
-      ],
-      stream: false,
-    });
-
-    let assistantMessage = ollamaResponse.data.message.content;
+    // Call LLM provider (Ollama, OpenAI, or Anthropic)
+    const provider = getProvider();
+    let assistantMessage = await provider.chat(history, systemPrompt);
 
     // Check for tool calls and resource reads in the response
     const { toolCalls, resourceReads } = parseToolCalls(assistantMessage);
@@ -425,17 +435,11 @@ User's message: ${message}`;
 
       history.push({
         role: 'user',
-        content: `Here are the results:\n\n${resultsText}\n\nPlease provide a user-friendly summary based on this data.`,
+        content: `${resultsText}`,
       });
 
-      // Get final response from Ollama
-      const finalResponse = await axios.post(`${OLLAMA_URL}/api/chat`, {
-        model: process.env.OLLAMA_MODEL || 'llama3.2',
-        messages: history,
-        stream: false,
-      });
-
-      assistantMessage = finalResponse.data.message.content;
+      // Get final response from LLM provider
+      assistantMessage = await provider.chat(history, systemPrompt);
     }
 
     // Add assistant message to history
@@ -493,9 +497,10 @@ app.delete('/api/conversations/:id', (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
+  const providerInfo = getProviderInfo();
   res.json({
     status: 'ok',
-    ollama: OLLAMA_URL,
+    llm: providerInfo.name,
     mcp: MCP_API_URL,
   });
 });
@@ -506,7 +511,8 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
+  const providerInfo = getProviderInfo();
   console.log(`🚀 Miles Booking Chat App running on http://localhost:${PORT}`);
-  console.log(`📡 Connecting to Ollama at ${OLLAMA_URL}`);
+  console.log(`🤖 LLM Provider: ${providerInfo.name}`);
   console.log(`🔧 Connecting to MCP API at ${MCP_API_URL}`);
 });

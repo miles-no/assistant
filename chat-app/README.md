@@ -1,12 +1,12 @@
 # Miles Booking Chat Assistant
 
-An AI-powered chat interface that connects Ollama with the Miles Booking System via the Model Context Protocol (MCP).
+An AI-powered chat interface that connects various LLM providers with the Miles Booking System via the Model Context Protocol (MCP).
 
 ## Features
 
 - 🤖 **Natural Language Interface** - Chat naturally with AI to manage bookings
 - 🔧 **MCP Integration** - Direct connection to Miles Booking API tools and resources
-- 🦙 **Ollama Powered** - Uses local Ollama models (llama3.2 by default)
+- 🌐 **Multiple LLM Providers** - Use Ollama (local), OpenAI (ChatGPT), or Anthropic (Claude)
 - 🎨 **Modern UI** - Clean, responsive chat interface
 - ⚡ **Real-time** - Instant responses and tool execution
 - 🛠️ **Smart Tools** - Automatically executes booking operations based on conversation
@@ -21,17 +21,10 @@ Before running this app, make sure you have:
    npm run dev
    ```
 
-2. **Ollama** installed and running with the production model
-   ```bash
-   # Install Ollama (if not already installed)
-   # Visit: https://ollama.ai
-
-   # Pull the production-ready model (tested and verified)
-   ollama pull qwen2.5:7b
-
-   # Verify Ollama is running
-   curl http://localhost:11434/api/tags
-   ```
+2. **LLM Provider** - Choose one:
+   - **Ollama** (local, free) - Recommended for development
+   - **OpenAI** (cloud, requires API key) - ChatGPT models
+   - **Anthropic** (cloud, requires API key) - Claude models
 
 3. **Node.js** (v16 or higher)
 
@@ -49,21 +42,62 @@ cp .env.example .env
 
 ## Configuration
 
-Edit `.env` file to customize:
+### Choosing an LLM Provider
+
+Edit `.env` file to configure your preferred provider:
+
+#### Option 1: Ollama (Local, Free)
+
+**Best for**: Development, privacy, no API costs
 
 ```env
-# Server Configuration
-PORT=3001
-
-# Ollama Configuration
+LLM_PROVIDER=ollama
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:7b
-
-# MCP API Configuration
-MCP_API_URL=http://localhost:3000/api/mcp
 ```
 
-### Choosing the Right Model
+**Setup**:
+```bash
+# Install Ollama: https://ollama.ai
+ollama pull qwen2.5:7b
+ollama serve
+```
+
+#### Option 2: OpenAI (Cloud, Paid)
+
+**Best for**: Production, reliable performance, GPT-4 access
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-your-key-here
+OPENAI_MODEL=gpt-4o-mini
+```
+
+**Get API Key**: https://platform.openai.com/api-keys
+
+**Available models**:
+- `gpt-4o-mini` - Fast, cost-effective (recommended)
+- `gpt-4o` - Most capable, higher cost
+- `gpt-3.5-turbo` - Fastest, cheapest (may hallucinate)
+
+#### Option 3: Anthropic (Cloud, Paid)
+
+**Best for**: Production, advanced reasoning, Claude access
+
+```env
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+```
+
+**Get API Key**: https://console.anthropic.com/settings/keys
+
+**Available models**:
+- `claude-3-5-sonnet-20241022` - Best balance (recommended)
+- `claude-3-5-haiku-20241022` - Fast, cost-effective
+- `claude-3-opus-20240229` - Most capable, higher cost
+
+### Choosing the Right Ollama Model
 
 **Production Recommendation: qwen2.5:7b** (4.7GB)
 
