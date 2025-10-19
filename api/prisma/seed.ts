@@ -292,6 +292,45 @@ async function main() {
   });
 
   console.log('✓ Sample bookings created');
+
+  // Create sample feedback
+  await prisma.roomFeedback.create({
+    data: {
+      roomId: 'stavanger-skagen',
+      userId: user1.id,
+      message: 'The projector remote is missing. We had to use the buttons on the projector itself.',
+      status: 'OPEN',
+    },
+  });
+
+  await prisma.roomFeedback.create({
+    data: {
+      roomId: 'stavanger-teamrommet',
+      userId: user2.id,
+      message: 'Whiteboard markers are running low. Please restock soon.',
+      status: 'OPEN',
+    },
+  });
+
+  await prisma.roomFeedback.create({
+    data: {
+      roomId: 'stavanger-pa-hjorna',
+      userId: user1.id,
+      message: 'Would be great to have a coffee machine in this room for longer meetings!',
+      status: 'OPEN',
+    },
+  });
+
+  await prisma.roomFeedback.create({
+    data: {
+      roomId: 'stavanger-tenkeboksen',
+      userId: user2.id,
+      message: 'The AC is too cold in here. Can we adjust the temperature?',
+      status: 'RESOLVED',
+    },
+  });
+
+  console.log('✓ Sample feedback created');
   console.log('\n✓ Seed completed successfully!');
   console.log('\nTest accounts:');
   console.log('  Admin: admin@miles.com / password123');

@@ -1,5 +1,5 @@
 import prisma from "../utils/prisma.js";
-import { BookingStatus } from "@prisma/client";
+import { BookingStatus, FeedbackStatus } from "@prisma/client";
 import ical from "ics";
 
 // List all resources
@@ -69,6 +69,20 @@ export async function listResources() {
       description: "iCalendar feed for a user's bookings",
       mimeType: "text/calendar",
     },
+    {
+      uri: "miles://feedback",
+      name: "All Feedback",
+      description:
+        "List of room feedback (query params: roomId, locationId, status, userId). Public: all users can view all feedback.",
+      mimeType: "application/json",
+    },
+    {
+      uri: "miles://rooms/{roomId}/feedback",
+      name: "Room Feedback",
+      description:
+        "All feedback for a specific room. Public: all users can view.",
+      mimeType: "application/json",
+    },
   ];
 }
 
@@ -132,6 +146,20 @@ export async function readResource(uri: string) {
   if (baseUri.match(/^miles:\/\/calendar\/user\/[^/]+$/)) {
     const userId = baseUri.split("/").pop()!;
     return await getUserCalendar(userId);
+  }
+
+  if (baseUri === "miles://feedback") {
+    const roomId = url.searchParams.get("roomId");
+    const locationId = url.searchParams.get("locationId");
+    const status = url.searchParams.get("status");
+    const userId = url.searchParams.get("userId");
+    return await getAllFeedback(roomId, locationId, status, userId);
+  }
+
+  if (baseUri.match(/^miles:\/\/rooms\/[^/]+\/feedback$/)) {
+    const parts = baseUri.split("/");
+    const roomId = parts[parts.length - 2];
+    return await getRoomFeedback(roomId);
   }
 
   throw new Error(`Unknown resource URI: ${uri}`);
@@ -830,6 +858,171 @@ async function getUserCalendar(userId: string) {
         uri: `miles://calendar/user/${userId}`,
         mimeType: "text/calendar",
         text: value || "",
+      },
+    ],
+  };
+}
+
+async function getAllFeedback(
+  roomId: string | null,
+  locationId: string | null,
+  status: string | null,
+  userId: string | null
+) {
+  const where: any = {};
+
+  if (roomId) {
+    where.roomId = roomId;
+  } else if (locationId) {
+    where.room = {
+      locationId,
+    };
+  }
+
+  if (status) {
+    where.status = status as FeedbackStatus;
+  }
+
+  if (userId) {
+    where.userId = userId;
+  }
+
+  const feedback = await prisma.roomFeedback.findMany({
+    where,
+    include: {
+      room: {
+        include: {
+          location: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+            },
+          },
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return {
+    contents: [
+      {
+        uri: "miles://feedback",
+        mimeType: "application/json",
+        text: JSON.stringify(
+          {
+            success: true,
+            count: feedback.length,
+            filters: {
+              roomId,
+              locationId,
+              status,
+              userId,
+            },
+            feedback: feedback.map((f) => ({
+              id: f.id,
+              message: f.message,
+              status: f.status,
+              createdAt: f.createdAt,
+              updatedAt: f.updatedAt,
+              room: {
+                id: f.room.id,
+                name: f.room.name,
+                location: f.room.location,
+              },
+              submittedBy: {
+                id: f.user.id,
+                name: `${f.user.firstName} ${f.user.lastName}`,
+                email: f.user.email,
+              },
+            })),
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  };
+}
+
+async function getRoomFeedback(roomId: string) {
+  const room = await prisma.room.findUnique({
+    where: { id: roomId },
+    include: {
+      location: true,
+    },
+  });
+
+  if (!room) {
+    return {
+      contents: [
+        {
+          uri: `miles://rooms/${roomId}/feedback`,
+          mimeType: "application/json",
+          text: JSON.stringify({ error: "Room not found" }),
+        },
+      ],
+    };
+  }
+
+  const feedback = await prisma.roomFeedback.findMany({
+    where: { roomId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return {
+    contents: [
+      {
+        uri: `miles://rooms/${roomId}/feedback`,
+        mimeType: "application/json",
+        text: JSON.stringify(
+          {
+            success: true,
+            room: {
+              id: room.id,
+              name: room.name,
+              location: room.location,
+            },
+            feedbackCount: feedback.length,
+            feedback: feedback.map((f) => ({
+              id: f.id,
+              message: f.message,
+              status: f.status,
+              createdAt: f.createdAt,
+              updatedAt: f.updatedAt,
+              submittedBy: {
+                id: f.user.id,
+                name: `${f.user.firstName} ${f.user.lastName}`,
+                email: f.user.email,
+              },
+            })),
+          },
+          null,
+          2
+        ),
       },
     ],
   };

@@ -22,6 +22,12 @@ enum BookingStatus {
   CANCELLED
 }
 
+enum FeedbackStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -35,6 +41,7 @@ model User {
   // Relations
   bookings         Booking[]
   managedLocations ManagerLocation[]
+  roomFeedback     RoomFeedback[]
 
   @@index([email])
   @@map("users")
@@ -87,8 +94,9 @@ model Room {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  bookings Booking[]
+  location     Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+  roomFeedback RoomFeedback[]
 
   @@index([locationId])
   @@index([isActive])
@@ -115,4 +123,23 @@ model Booking {
   @@index([userId])
   @@index([startTime, endTime])
   @@map("bookings")
+}
+
+model RoomFeedback {
+  id        String         @id @default(cuid())
+  roomId    String
+  userId    String
+  message   String
+  status    FeedbackStatus @default(OPEN)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  // Relations
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([userId])
+  @@index([status])
+  @@map("room_feedback")
 }

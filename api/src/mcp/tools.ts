@@ -1,6 +1,7 @@
 import { z } from "zod";
 import prisma from "../utils/prisma.js";
-import { Role, BookingStatus } from "@prisma/client";
+import { Role, BookingStatus, FeedbackStatus } from "@prisma/client";
+import { sendFeedbackNotification, sendFeedbackStatusUpdate } from "../utils/email.js";
 
 // Tool schemas
 const createBookingSchema = z.object({
@@ -58,6 +59,18 @@ const suggestBookingTimeSchema = z.object({
   roomId: z.string(),
   duration: z.number(), // Duration in minutes
   preferredDate: z.string().optional(),
+});
+
+const createRoomFeedbackSchema = z.object({
+  userId: z.string(),
+  roomId: z.string(),
+  message: z.string(),
+});
+
+const updateFeedbackStatusSchema = z.object({
+  feedbackId: z.string(),
+  userId: z.string(),
+  status: z.enum(["OPEN", "RESOLVED", "DISMISSED"]),
 });
 
 // Register all tools
@@ -289,6 +302,53 @@ export function registerTools() {
         required: ["roomId", "duration"],
       },
     },
+    {
+      name: "create_room_feedback",
+      description:
+        "Submit feedback about a room (e.g., something broken, missing, needs fixing, or a suggestion). Any user can report feedback. Managers will be notified via email.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          userId: {
+            type: "string",
+            description: "ID of the user submitting the feedback",
+          },
+          roomId: {
+            type: "string",
+            description: "ID of the room the feedback is about",
+          },
+          message: {
+            type: "string",
+            description: "Free-form feedback message describing the issue or suggestion",
+          },
+        },
+        required: ["userId", "roomId", "message"],
+      },
+    },
+    {
+      name: "update_feedback_status",
+      description:
+        "Update the status of room feedback (OPEN, RESOLVED, DISMISSED). Only managers of the location or admins can update status.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          feedbackId: {
+            type: "string",
+            description: "ID of the feedback to update",
+          },
+          userId: {
+            type: "string",
+            description: "ID of the user updating the status (must be manager/admin)",
+          },
+          status: {
+            type: "string",
+            enum: ["OPEN", "RESOLVED", "DISMISSED"],
+            description: "New status for the feedback",
+          },
+        },
+        required: ["feedbackId", "userId", "status"],
+      },
+    },
   ];
 }
 
@@ -309,6 +369,10 @@ export async function callTool(name: string, args: any) {
       return await findAvailableRooms(args);
     case "suggest_booking_time":
       return await suggestBookingTime(args);
+    case "create_room_feedback":
+      return await createRoomFeedback(args);
+    case "update_feedback_status":
+      return await updateFeedbackStatus(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -1079,6 +1143,239 @@ async function suggestBookingTime(args: any) {
         text: JSON.stringify({
           error:
             "Could not find an available time slot within the next 100 time windows",
+        }),
+      },
+    ],
+  };
+}
+
+async function createRoomFeedback(args: any) {
+  const data = createRoomFeedbackSchema.parse(args);
+
+  // Verify user exists
+  const user = await prisma.user.findUnique({
+    where: { id: data.userId },
+  });
+  if (!user) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ error: "User not found" }),
+        },
+      ],
+    };
+  }
+
+  // Verify room exists and get location with managers
+  const room = await prisma.room.findUnique({
+    where: { id: data.roomId },
+    include: {
+      location: {
+        include: {
+          managers: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!room) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ error: "Room not found" }),
+        },
+      ],
+    };
+  }
+
+  // Create feedback
+  const feedback = await prisma.roomFeedback.create({
+    data: {
+      userId: data.userId,
+      roomId: data.roomId,
+      message: data.message,
+      status: FeedbackStatus.OPEN,
+    },
+    include: {
+      room: {
+        include: {
+          location: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+
+  // Send email notifications to location managers (async, don't block response)
+  const managers = room.location.managers.map((m) => m.user);
+  if (managers.length > 0) {
+    // Fire and forget - don't await
+    sendFeedbackNotification(feedback, managers).catch((err) => {
+      console.error("Failed to send feedback notification:", err);
+    });
+  }
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({
+          success: true,
+          feedback: {
+            id: feedback.id,
+            roomId: feedback.roomId,
+            roomName: feedback.room.name,
+            location: feedback.room.location.name,
+            message: feedback.message,
+            status: feedback.status,
+            submittedBy: `${feedback.user.firstName} ${feedback.user.lastName}`,
+            submittedAt: feedback.createdAt,
+            managersNotified: managers.length,
+          },
+        }),
+      },
+    ],
+  };
+}
+
+async function updateFeedbackStatus(args: any) {
+  const data = updateFeedbackStatusSchema.parse(args);
+
+  // Get feedback with all relations
+  const feedback = await prisma.roomFeedback.findUnique({
+    where: { id: data.feedbackId },
+    include: {
+      room: {
+        include: {
+          location: {
+            include: {
+              managers: true,
+            },
+          },
+        },
+      },
+      user: true,
+    },
+  });
+
+  if (!feedback) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ error: "Feedback not found" }),
+        },
+      ],
+    };
+  }
+
+  // Get user making the update
+  const user = await prisma.user.findUnique({
+    where: { id: data.userId },
+  });
+
+  if (!user) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ error: "User not found" }),
+        },
+      ],
+    };
+  }
+
+  // Check permissions (only ADMIN or location MANAGER)
+  const isAdmin = user.role === Role.ADMIN;
+  const isManager =
+    user.role === Role.MANAGER &&
+    feedback.room.location.managers.some((m) => m.userId === data.userId);
+
+  if (!isAdmin && !isManager) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            error:
+              "Insufficient permissions. Only admins or location managers can update feedback status.",
+          }),
+        },
+      ],
+    };
+  }
+
+  // Store old status for notification
+  const oldStatus = feedback.status;
+
+  // Update feedback status
+  const updatedFeedback = await prisma.roomFeedback.update({
+    where: { id: data.feedbackId },
+    data: { status: data.status as FeedbackStatus },
+    include: {
+      room: {
+        include: {
+          location: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+
+  // Send status update notification to original reporter (async, don't block)
+  sendFeedbackStatusUpdate(
+    updatedFeedback,
+    feedback.user,
+    user,
+    oldStatus,
+    data.status
+  ).catch((err) => {
+    console.error("Failed to send status update notification:", err);
+  });
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({
+          success: true,
+          feedback: {
+            id: updatedFeedback.id,
+            roomId: updatedFeedback.roomId,
+            roomName: updatedFeedback.room.name,
+            location: updatedFeedback.room.location.name,
+            message: updatedFeedback.message,
+            oldStatus,
+            newStatus: updatedFeedback.status,
+            updatedBy: `${user.firstName} ${user.lastName}`,
+            updatedAt: updatedFeedback.updatedAt,
+          },
         }),
       },
     ],
