@@ -39,9 +39,14 @@ async function getMCPResources() {
 }
 
 // Execute MCP tool
-async function executeMCPTool(toolName, params) {
+async function executeMCPTool(toolName, params, authToken) {
   try {
-    const response = await axios.post(`${MCP_API_URL}/tools/${toolName}`, params);
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    const response = await axios.post(`${MCP_API_URL}/tools/${toolName}`, params, { headers });
     return response.data;
   } catch (error) {
     console.error(`Error executing tool ${toolName}:`, error.message);
@@ -152,8 +157,16 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { message, conversationId = 'default', userId } = req.body;
 
+    // Extract auth token from Authorization header
+    const authHeader = req.headers.authorization;
+    const authToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
     // Get or create conversation history
@@ -231,7 +244,7 @@ User's message: ${message}`;
       const toolResults = [];
       for (const { toolName, params } of toolCalls) {
         console.log(`Executing tool: ${toolName}`, params);
-        const result = await executeMCPTool(toolName, params);
+        const result = await executeMCPTool(toolName, params, authToken);
         toolResults.push({
           type: 'tool',
           toolName,

@@ -87,6 +87,42 @@ header p {
     margin-bottom: 1rem;
 }
 
+.user-info {
+    background: rgba(139, 92, 246, 0.1);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.user-info p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.error-message {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 4px;
+}
+
+.test-accounts {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(139, 92, 246, 0.1);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.test-accounts small {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
 .form-group label {
     display: block;
     font-size: 0.85rem;

@@ -1,6 +1,8 @@
 // Configuration
 const API_BASE = window.location.origin;
-let userId = localStorage.getItem('milesUserId') || '';
+const API_URL = 'http://localhost:3000'; // API server URL
+let authToken = localStorage.getItem('milesAuthToken') || '';
+let currentUser = JSON.parse(localStorage.getItem('milesUser') || 'null');
 let conversationId = generateId();
 
 // Initialize
@@ -9,10 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-    // Load saved user ID
-    if (userId) {
-        document.getElementById('userId').value = userId;
-    }
+    // Check authentication state
+    updateAuthUI();
 
     // Check server status
     checkStatus();
@@ -20,7 +20,8 @@ function initializeApp() {
 
     // Set up event listeners
     document.getElementById('chat-form').addEventListener('submit', handleSendMessage);
-    document.getElementById('save-config').addEventListener('click', saveConfig);
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('logout-button').addEventListener('click', handleLogout);
 
     // Suggestion buttons
     document.querySelectorAll('.suggestion-btn').forEach(btn => {
@@ -31,23 +32,111 @@ function initializeApp() {
         });
     });
 
-    // Focus input
-    document.getElementById('message-input').focus();
+    // Focus input or email field
+    if (currentUser) {
+        document.getElementById('message-input').focus();
+    } else {
+        document.getElementById('email').focus();
+    }
+}
+
+function updateAuthUI() {
+    const loginContainer = document.getElementById('login-form-container');
+    const profileContainer = document.getElementById('user-profile');
+
+    if (currentUser) {
+        // Show profile, hide login
+        loginContainer.style.display = 'none';
+        profileContainer.style.display = 'block';
+
+        // Update profile info
+        document.getElementById('user-name').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+        document.getElementById('user-email').textContent = currentUser.email;
+        document.getElementById('user-role').textContent = currentUser.role;
+    } else {
+        // Show login, hide profile
+        loginContainer.style.display = 'block';
+        profileContainer.style.display = 'none';
+    }
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('login-error');
+
+    try {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Login failed');
+        }
+
+        const data = await response.json();
+
+        // Save auth state
+        authToken = data.token;
+        currentUser = data.user;
+        localStorage.setItem('milesAuthToken', authToken);
+        localStorage.setItem('milesUser', JSON.stringify(currentUser));
+
+        // Update UI
+        updateAuthUI();
+        errorDiv.style.display = 'none';
+
+        // Clear form
+        document.getElementById('login-form').reset();
+
+        // Focus on chat input
+        document.getElementById('message-input').focus();
+
+        showNotification(`Welcome, ${currentUser.firstName}!`, 'success');
+    } catch (error) {
+        console.error('Login error:', error);
+        errorDiv.textContent = error.message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+function handleLogout() {
+    // Clear auth state
+    authToken = '';
+    currentUser = null;
+    localStorage.removeItem('milesAuthToken');
+    localStorage.removeItem('milesUser');
+
+    // Clear conversation
+    conversationId = generateId();
+
+    // Update UI
+    updateAuthUI();
+
+    // Clear chat history
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.innerHTML = `
+        <div class="message bot-message">
+            <div class="message-content">
+                <strong>Miles Assistant:</strong>
+                <p>Hello! Please login to start booking rooms.</p>
+            </div>
+        </div>
+    `;
+
+    showNotification('Logged out successfully', 'success');
 }
 
 function generateId() {
     return 'conv_' + Math.random().toString(36).substring(2, 15);
 }
 
-function saveConfig() {
-    userId = document.getElementById('userId').value.trim();
-    if (userId) {
-        localStorage.setItem('milesUserId', userId);
-        showNotification('Configuration saved!', 'success');
-    } else {
-        showNotification('Please enter a user ID', 'error');
-    }
-}
+// Removed saveConfig - no longer needed with authentication
 
 async function checkStatus() {
     try {
@@ -103,6 +192,12 @@ async function handleSendMessage(e) {
 
     if (!message) return;
 
+    // Check if user is logged in
+    if (!currentUser) {
+        showNotification('Please login first to use the chat assistant', 'error');
+        return;
+    }
+
     // Clear input
     input.value = '';
 
@@ -121,11 +216,12 @@ async function handleSendMessage(e) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
             },
             body: JSON.stringify({
                 message,
                 conversationId,
-                userId,
+                userId: currentUser.id,
             }),
         });
 
