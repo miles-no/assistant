@@ -97,25 +97,54 @@ ${params}`;
     .join('\n\n');
 }
 
+// Format resources for Ollama system prompt (as pseudo-tools for simplicity)
+function formatResourcesForPrompt(resources) {
+  return resources
+    .map((resource) => {
+      // Convert miles://path to a tool-like name (e.g., "read_locations")
+      const resourcePath = resource.uri.replace('miles://', '').replace(/[{}]/g, '');
+      const toolName = 'read_' + resourcePath.replace(/\//g, '_');
+
+      return `### ${toolName}
+${resource.description}
+
+Parameters: None (just call it to read the data)`;
+    })
+    .join('\n\n');
+}
+
 // Parse tool calls from Ollama response
 function parseToolCalls(text) {
   const toolCalls = [];
+  const resourceReads = [];
 
-  // Look for tool call patterns like: TOOL_CALL: tool_name({"param": "value"})
+  // Look for tool call patterns like: TOOL_CALL: tool_name({"param": "value"}) or TOOL_CALL: read_resource_name({})
   const toolCallRegex = /TOOL_CALL:\s*(\w+)\((.*?)\)/gs;
   let match;
 
   while ((match = toolCallRegex.exec(text)) !== null) {
     const toolName = match[1];
-    try {
-      const params = JSON.parse(match[2]);
-      toolCalls.push({ toolName, params });
-    } catch (error) {
-      console.error('Error parsing tool call params:', error);
+    const paramsStr = match[2].trim();
+
+    // Check if this is a resource read (starts with read_)
+    if (toolName.startsWith('read_')) {
+      // Convert read_locations -> miles://locations
+      const resourcePath = toolName.replace(/^read_/, '').replace(/_/g, '/');
+      const uri = `miles://${resourcePath}`;
+      resourceReads.push({ uri, resourcePath, isResource: true });
+    } else {
+      // Regular tool call
+      try {
+        // Handle empty params: (), {}, or empty string
+        const params = (paramsStr === '' || paramsStr === '{}') ? {} : JSON.parse(paramsStr);
+        toolCalls.push({ toolName, params, isResource: false });
+      } catch (error) {
+        console.error('Error parsing tool call params:', error, 'paramsStr:', paramsStr);
+      }
     }
   }
 
-  return toolCalls;
+  return { toolCalls, resourceReads };
 }
 
 // Chat endpoint
@@ -133,23 +162,42 @@ app.post('/api/chat', async (req, res) => {
     }
     const history = conversations.get(conversationId);
 
-    // Get MCP tools for context
+    // Get MCP tools and resources for context
     const tools = await getMCPTools();
+    const resources = await getMCPResources();
     const toolsContext = formatToolsForPrompt(tools);
+    const resourcesContext = formatResourcesForPrompt(resources);
 
-    // Build system prompt with MCP tools
+    // Build system prompt with MCP tools and resources
     const systemPrompt = `You are a helpful assistant for the Miles Booking System. You can help users book rooms, check availability, and manage their bookings.
 
-When you need to perform an action, use the available tools by responding with:
+When you need to perform an operation, use the format:
 TOOL_CALL: tool_name({"param1": "value1", "param2": "value2"})
 
-Available Tools:
+Available operations are divided into two categories:
+
+1. Reading Data (read operations):
+${resourcesContext}
+
+2. Performing Actions (write operations):
 ${toolsContext}
 
-Important:
+Examples:
+- User: "What offices do we have?"
+  You: TOOL_CALL: read_locations({})
+
+- User: "Show me all rooms"
+  You: TOOL_CALL: read_rooms({})
+
+- User: "Book the boardroom for tomorrow at 2pm"
+  You: TOOL_CALL: create_booking({"userId": "...", "roomId": "...", "startTime": "...", "endTime": "...", "title": "..."})
+
+CRITICAL RULES:
+- ONLY use tools listed above - NEVER invent tool names
+- For viewing/reading data: use read_* tools
+- For creating/updating/deleting: use action tools (create_*, update_*, cancel_*, etc.)
 - Always use the correct userId parameter when calling tools (user provided: ${userId || 'not provided'})
 - Use ISO 8601 format for dates and times (e.g., "2025-10-20T14:00:00Z")
-- Be helpful and conversational
 - After making a tool call, wait for the result before continuing
 
 User's message: ${message}`;
@@ -175,27 +223,45 @@ User's message: ${message}`;
 
     let assistantMessage = ollamaResponse.data.message.content;
 
-    // Check for tool calls in the response
-    const toolCalls = parseToolCalls(assistantMessage);
+    // Check for tool calls and resource reads in the response
+    const { toolCalls, resourceReads } = parseToolCalls(assistantMessage);
 
-    if (toolCalls.length > 0) {
+    if (toolCalls.length > 0 || resourceReads.length > 0) {
       // Execute tool calls
       const toolResults = [];
-
       for (const { toolName, params } of toolCalls) {
         console.log(`Executing tool: ${toolName}`, params);
         const result = await executeMCPTool(toolName, params);
         toolResults.push({
+          type: 'tool',
           toolName,
           result,
         });
       }
 
-      // Add tool results to context and get final response
-      const toolResultsText = toolResults
-        .map(({ toolName, result }) => {
-          const text = result.content?.[0]?.text || JSON.stringify(result);
-          return `Tool ${toolName} result: ${text}`;
+      // Execute resource reads
+      const resourceResults = [];
+      for (const { uri, resourcePath } of resourceReads) {
+        console.log(`Reading resource: ${resourcePath}`);
+        const result = await readMCPResource(resourcePath);
+        resourceResults.push({
+          type: 'resource',
+          uri,
+          result,
+        });
+      }
+
+      // Combine all results
+      const allResults = [...toolResults, ...resourceResults];
+      const resultsText = allResults
+        .map((item) => {
+          if (item.type === 'tool') {
+            const text = item.result.content?.[0]?.text || JSON.stringify(item.result);
+            return `Tool ${item.toolName} result: ${text}`;
+          } else {
+            const text = item.result.contents?.[0]?.text || JSON.stringify(item.result);
+            return `Resource ${item.uri} data: ${text}`;
+          }
         })
         .join('\n\n');
 
@@ -206,7 +272,7 @@ User's message: ${message}`;
 
       history.push({
         role: 'user',
-        content: `Here are the tool execution results:\n\n${toolResultsText}\n\nPlease provide a user-friendly summary of what happened.`,
+        content: `Here are the results:\n\n${resultsText}\n\nPlease provide a user-friendly summary based on this data.`,
       });
 
       // Get final response from Ollama
@@ -234,6 +300,7 @@ User's message: ${message}`;
       message: assistantMessage,
       conversationId,
       toolsExecuted: toolCalls.length,
+      resourcesRead: resourceReads.length,
     });
   } catch (error) {
     console.error('Chat error:', error);

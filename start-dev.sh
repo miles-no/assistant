@@ -12,6 +12,9 @@ echo -e "${BLUE}  Miles Booking System - Development Startup${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
 echo ""
 
+# Create logs directory if it doesn't exist
+mkdir -p logs
+
 # Function to check if a port is in use
 check_port() {
     lsof -i :$1 > /dev/null 2>&1
@@ -36,6 +39,27 @@ wait_for_service() {
     done
 
     echo -e "${RED}✗ $name failed to start${NC}"
+    return 1
+}
+
+# Function to wait for PostgreSQL using Docker health check
+wait_for_postgres() {
+    local container_name=$1
+    local max_attempts=30
+    local attempt=1
+
+    echo -e "${YELLOW}⏳ Waiting for PostgreSQL to be ready...${NC}"
+    while [ $attempt -le $max_attempts ]; do
+        local health_status=$(docker inspect --format='{{.State.Health.Status}}' "$container_name" 2>/dev/null)
+        if [ "$health_status" = "healthy" ]; then
+            echo -e "${GREEN}✓ PostgreSQL is ready!${NC}"
+            return 0
+        fi
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+
+    echo -e "${RED}✗ PostgreSQL failed to start${NC}"
     return 1
 }
 
@@ -73,10 +97,22 @@ echo ""
 # Start PostgreSQL in Docker
 echo -e "${BLUE}2. Starting PostgreSQL database...${NC}"
 docker-compose up -d postgres
-if ! wait_for_service "http://localhost:5433" "PostgreSQL"; then
+if ! wait_for_postgres "miles-booking-db"; then
     echo -e "${RED}Failed to start database${NC}"
     exit 1
 fi
+
+# Check if database needs to be seeded
+echo -e "${BLUE}3. Checking database...${NC}"
+cd api
+if ! npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM \"User\";" > /dev/null 2>&1; then
+    echo -e "${YELLOW}Database is empty. Running migrations and seed...${NC}"
+    npx prisma migrate reset --force --skip-generate > /dev/null 2>&1
+    echo -e "${GREEN}✓ Database migrated and seeded${NC}"
+else
+    echo -e "${GREEN}✓ Database is ready${NC}"
+fi
+cd ..
 echo ""
 
 # Check if API port is already in use
@@ -96,7 +132,7 @@ if check_port 3001; then
 fi
 
 # Start API
-echo -e "${BLUE}3. Starting API server...${NC}"
+echo -e "${BLUE}4. Starting API server...${NC}"
 cd api
 npm run dev > ../logs/api.log 2>&1 &
 API_PID=$!
@@ -111,7 +147,7 @@ fi
 echo ""
 
 # Start Chat App
-echo -e "${BLUE}4. Starting Chat Assistant...${NC}"
+echo -e "${BLUE}5. Starting Chat Assistant...${NC}"
 cd chat-app
 npm start > ../logs/chat-app.log 2>&1 &
 CHAT_PID=$!
