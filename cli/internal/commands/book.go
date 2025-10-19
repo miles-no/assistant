@@ -183,10 +183,15 @@ func runInteractiveBook(client *config.Client) error {
 }
 
 func createBooking(client *config.Client, roomID string, startTime, endTime time.Time, title, description string) error {
+	// Keep local times for display
+	displayStart := startTime
+	displayEnd := endTime
+
+	// Convert times to UTC for API
 	req := generated.BookingInput{
 		RoomId:      roomID,
-		StartTime:   startTime,
-		EndTime:     endTime,
+		StartTime:   startTime.UTC(),
+		EndTime:     endTime.UTC(),
 		Title:       title,
 		Description: &description,
 	}
@@ -196,12 +201,12 @@ func createBooking(client *config.Client, roomID string, startTime, endTime time
 		return err
 	}
 
-	// Output result
+	// Output result (using local times for display)
 	fmt.Printf("\n✓ Booking created successfully!\n\n")
 	fmt.Printf("Room:        %s\n", roomID)
 	fmt.Printf("Title:       %s\n", title)
-	fmt.Printf("Start:       %s\n", startTime.Format("2006-01-02 15:04"))
-	fmt.Printf("End:         %s\n", endTime.Format("2006-01-02 15:04"))
+	fmt.Printf("Start:       %s\n", displayStart.Format("2006-01-02 15:04"))
+	fmt.Printf("End:         %s\n", displayEnd.Format("2006-01-02 15:04"))
 
 	// Show optional details if returned by API
 	if booking.Id != nil {
@@ -220,7 +225,8 @@ func parseTime(timeStr string) (time.Time, error) {
 	// Try simple format first - most human-friendly (2025-10-19 14:00)
 	t, err := time.Parse("2006-01-02 15:04", timeStr)
 	if err == nil {
-		return t, nil
+		// Convert to local timezone for consistency
+		return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, time.Local), nil
 	}
 
 	// Try time only (15:00) - use today's date
