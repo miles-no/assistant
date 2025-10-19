@@ -134,8 +134,8 @@ func runInteractiveBook(client *config.Client) error {
 		return err
 	}
 
-	// Step 4: Select end time (relative to start time)
-	endTime, err := selectTime("end", startTime)
+	// Step 4: Select end time (relative to start time, checking availability)
+	endTime, err := selectEndTimeWithAvailability(client, room, startTime)
 	if err != nil {
 		return err
 	}
@@ -498,4 +498,142 @@ func nextWeekday(from time.Time, weekday time.Weekday, hour, minute int) time.Ti
 	}
 	next := from.AddDate(0, 0, daysUntil)
 	return time.Date(next.Year(), next.Month(), next.Day(), hour, minute, 0, 0, time.Local)
+}
+
+// selectEndTimeWithAvailability suggests end times based on room availability
+func selectEndTimeWithAvailability(client *config.Client, roomID string, startTime time.Time) (time.Time, error) {
+	// Fetch all bookings to check availability
+	allBookings, err := client.GetBookings()
+	if err != nil {
+		// If we can't fetch bookings, fall back to regular time selection
+		fmt.Println("⚠ Could not check availability, showing all options")
+		return selectTime("end", startTime)
+	}
+
+	// Filter bookings for this room on this day
+	var roomBookings []generated.Booking
+	startDate := startTime.Format("2006-01-02")
+
+	for _, booking := range allBookings {
+		// Skip cancelled bookings
+		if booking.Status != nil && *booking.Status == "CANCELLED" {
+			continue
+		}
+
+		// Check if booking is for this room
+		if booking.RoomId != nil && *booking.RoomId == roomID {
+			// Check if booking is on the same day
+			if booking.StartTime != nil {
+				bookingDate := booking.StartTime.Format("2006-01-02")
+				if bookingDate == startDate {
+					roomBookings = append(roomBookings, booking)
+				}
+			}
+		}
+	}
+
+	// Find the next booking after our start time
+	var nextBookingStart *time.Time
+	for _, booking := range roomBookings {
+		if booking.StartTime != nil && booking.StartTime.After(startTime) {
+			if nextBookingStart == nil || booking.StartTime.Before(*nextBookingStart) {
+				nextBookingStart = booking.StartTime
+			}
+		}
+	}
+
+	// Build smart suggestions based on availability
+	var suggestions []struct {
+		Label string
+		Time  time.Time
+	}
+
+	// Common durations to check
+	durations := []struct {
+		minutes int
+		label   string
+	}{
+		{30, "30 minutes"},
+		{60, "1 hour"},
+		{120, "2 hours"},
+	}
+
+	for _, dur := range durations {
+		endTime := startTime.Add(time.Duration(dur.minutes) * time.Minute)
+
+		// Check if this duration would conflict
+		available := true
+		if nextBookingStart != nil && endTime.After(*nextBookingStart) {
+			available = false
+		}
+
+		// Build label with availability indicator
+		label := fmt.Sprintf("%s (%s)", dur.label, endTime.Format("15:04"))
+		if !available {
+			label = fmt.Sprintf("%s (%s) ⚠ conflicts", dur.label, endTime.Format("15:04"))
+		}
+
+		suggestions = append(suggestions, struct {
+			Label string
+			Time  time.Time
+		}{
+			Label: label,
+			Time:  endTime,
+		})
+	}
+
+	// If there's a next booking, suggest ending right before it
+	if nextBookingStart != nil {
+		duration := nextBookingStart.Sub(startTime)
+		if duration > 0 && duration < 3*time.Hour {
+			label := fmt.Sprintf("Until next booking (%s) ✓ available", nextBookingStart.Format("15:04"))
+			suggestions = append([]struct {
+				Label string
+				Time  time.Time
+			}{
+				{Label: label, Time: *nextBookingStart},
+			}, suggestions...)
+		}
+	}
+
+	// Add custom option
+	suggestions = append(suggestions, struct {
+		Label string
+		Time  time.Time
+	}{
+		Label: "Custom time (enter manually)",
+		Time:  time.Time{},
+	})
+
+	// Build items for prompt
+	items := make([]string, len(suggestions))
+	for i, s := range suggestions {
+		items[i] = s.Label
+	}
+
+	prompt := promptui.Select{
+		Label: "Select end time",
+		Items: items,
+		Size:  len(items),
+	}
+
+	idx, _, err := prompt.Run()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("time selection cancelled")
+	}
+
+	// If custom time selected, prompt for input
+	if suggestions[idx].Time.IsZero() {
+		customTime, err := promptString(
+			"end time",
+			`Format: "2025-10-19 14:00" or "15:00"`,
+			true,
+		)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return parseTime(customTime)
+	}
+
+	return suggestions[idx].Time, nil
 }
