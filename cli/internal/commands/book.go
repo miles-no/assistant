@@ -55,6 +55,9 @@ func init() {
 	bookCmd.Flags().StringVarP(&bookTitle, "title", "t", "", "meeting title (optional in interactive mode)")
 	bookCmd.Flags().StringVarP(&bookDescription, "description", "d", "", "meeting description (optional)")
 
+	// Register autocomplete for room flag
+	bookCmd.RegisterFlagCompletionFunc("room", completeRoomIDs)
+
 	// Flags are optional - if missing, interactive mode is triggered
 }
 

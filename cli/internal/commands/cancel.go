@@ -8,15 +8,16 @@ import (
 )
 
 var cancelCmd = &cobra.Command{
-	Use:   "cancel [booking-id]",
-	Short: "Cancel a booking",
-	Long: `Cancel an existing booking by its ID.
+	Use:               "cancel [booking-id]",
+	Short:             "Cancel a booking",
+	Long:              `Cancel an existing booking by its ID.
 
 Examples:
   miles cancel BOOK123
   miles cancel --id BOOK123`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runCancel,
+	Args:              cobra.MaximumNArgs(1),
+	RunE:              runCancel,
+	ValidArgsFunction: completeBookingIDs,
 }
 
 var cancelID string

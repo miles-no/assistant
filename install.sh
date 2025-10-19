@@ -81,6 +81,90 @@ install_component "TUI" "tui" "miles-booking" "build"
 # Install CLI
 install_component "CLI" "cli" "miles" "build"
 
+# Setup shell completions
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}Setting up shell completions...${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+# Detect current shell
+CURRENT_SHELL=$(basename "$SHELL")
+
+case "$CURRENT_SHELL" in
+    zsh)
+        echo -e "${YELLOW}→ Detected zsh shell${NC}"
+        COMPLETION_DIR="$HOME/.zsh/completion"
+        COMPLETION_FILE="$COMPLETION_DIR/_miles"
+        SHELL_RC="$HOME/.zshrc"
+
+        # Create completion directory
+        mkdir -p "$COMPLETION_DIR"
+
+        # Generate completion script
+        "${INSTALL_DIR}/miles" completion zsh > "$COMPLETION_FILE"
+
+        # Add to fpath if not already there
+        if ! grep -q "fpath=($COMPLETION_DIR" "$SHELL_RC" 2>/dev/null; then
+            echo "" >> "$SHELL_RC"
+            echo "# Miles CLI completion" >> "$SHELL_RC"
+            echo "fpath=($COMPLETION_DIR \$fpath)" >> "$SHELL_RC"
+            echo "autoload -Uz compinit && compinit" >> "$SHELL_RC"
+            echo -e "${GREEN}✓ Added completion to $SHELL_RC${NC}"
+            echo -e "${YELLOW}  Run: source ~/.zshrc${NC}"
+        else
+            echo -e "${GREEN}✓ Completion already configured in $SHELL_RC${NC}"
+        fi
+        ;;
+
+    bash)
+        echo -e "${YELLOW}→ Detected bash shell${NC}"
+        COMPLETION_DIR="$HOME/.bash_completion.d"
+        COMPLETION_FILE="$COMPLETION_DIR/miles"
+        SHELL_RC="$HOME/.bashrc"
+
+        # Create completion directory
+        mkdir -p "$COMPLETION_DIR"
+
+        # Generate completion script
+        "${INSTALL_DIR}/miles" completion bash > "$COMPLETION_FILE"
+
+        # Add sourcing if not already there
+        if ! grep -q "bash_completion.d/miles" "$SHELL_RC" 2>/dev/null; then
+            echo "" >> "$SHELL_RC"
+            echo "# Miles CLI completion" >> "$SHELL_RC"
+            echo "[ -f ~/.bash_completion.d/miles ] && source ~/.bash_completion.d/miles" >> "$SHELL_RC"
+            echo -e "${GREEN}✓ Added completion to $SHELL_RC${NC}"
+            echo -e "${YELLOW}  Run: source ~/.bashrc${NC}"
+        else
+            echo -e "${GREEN}✓ Completion already configured in $SHELL_RC${NC}"
+        fi
+        ;;
+
+    fish)
+        echo -e "${YELLOW}→ Detected fish shell${NC}"
+        COMPLETION_DIR="$HOME/.config/fish/completions"
+        COMPLETION_FILE="$COMPLETION_DIR/miles.fish"
+
+        # Create completion directory
+        mkdir -p "$COMPLETION_DIR"
+
+        # Generate completion script
+        "${INSTALL_DIR}/miles" completion fish > "$COMPLETION_FILE"
+
+        echo -e "${GREEN}✓ Fish completion installed${NC}"
+        echo -e "${YELLOW}  Completions will be available in new fish sessions${NC}"
+        ;;
+
+    *)
+        echo -e "${YELLOW}⚠ Shell not detected or unsupported: $CURRENT_SHELL${NC}"
+        echo -e "${YELLOW}  You can manually set up completions with:${NC}"
+        echo -e "  ${BLUE}miles completion zsh > ~/.zsh/completion/_miles${NC}"
+        echo -e "  ${BLUE}miles completion bash > ~/.bash_completion.d/miles${NC}"
+        echo -e "  ${BLUE}miles completion fish > ~/.config/fish/completions/miles.fish${NC}"
+        ;;
+esac
+
+echo ""
+
 # Check if install directory is in PATH
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}✓ Installation Complete!${NC}"
@@ -124,16 +208,29 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "Quick Start:"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "1. Start the API server:"
+echo -e "1. Reload your shell to enable completions:"
+case "$CURRENT_SHELL" in
+    zsh)
+        echo -e "   ${BLUE}source ~/.zshrc${NC}"
+        ;;
+    bash)
+        echo -e "   ${BLUE}source ~/.bashrc${NC}"
+        ;;
+    fish)
+        echo -e "   ${BLUE}(completions active in new sessions)${NC}"
+        ;;
+esac
+echo ""
+echo -e "2. Start the API server:"
 echo -e "   ${BLUE}cd api && npm run dev${NC}"
 echo ""
-echo -e "2. Use the TUI (interactive):"
+echo -e "3. Use the TUI (interactive):"
 echo -e "   ${BLUE}miles-booking${NC}"
 echo ""
-echo -e "3. Or use the CLI (scriptable):"
+echo -e "4. Or use the CLI with autocomplete:"
 echo -e "   ${BLUE}miles login user@example.com${NC}"
 echo -e "   ${BLUE}miles rooms${NC}"
-echo -e "   ${BLUE}miles book -r ROOM123 -s \"2025-10-19 14:00\" -e \"15:00\" -t \"Meeting\"${NC}"
+echo -e "   ${BLUE}miles book -r <TAB>  # Autocompletes room IDs!${NC}"
 echo ""
 echo -e "${GREEN}Happy booking! 🎉${NC}"
 echo ""

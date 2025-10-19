@@ -30,6 +30,9 @@ var roomsLocationID string
 
 func init() {
 	roomsCmd.Flags().StringVarP(&roomsLocationID, "location", "l", "", "filter by location ID")
+
+	// Register autocomplete for location flag
+	roomsCmd.RegisterFlagCompletionFunc("location", completeLocationIDs)
 }
 
 func runRooms(cmd *cobra.Command, args []string) error {
