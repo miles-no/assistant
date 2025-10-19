@@ -21,13 +21,13 @@ Before running this app, make sure you have:
    npm run dev
    ```
 
-2. **Ollama** installed and running
+2. **Ollama** installed and running with the production model
    ```bash
    # Install Ollama (if not already installed)
    # Visit: https://ollama.ai
 
-   # Pull the model
-   ollama pull llama3.2
+   # Pull the production-ready model (tested and verified)
+   ollama pull qwen2.5:7b
 
    # Verify Ollama is running
    curl http://localhost:11434/api/tags
@@ -57,23 +57,78 @@ PORT=3001
 
 # Ollama Configuration
 OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
+OLLAMA_MODEL=qwen2.5:7b
 
 # MCP API Configuration
 MCP_API_URL=http://localhost:3000/api/mcp
 ```
 
-### Available Ollama Models
+### Choosing the Right Model
 
-You can use different Ollama models by changing `OLLAMA_MODEL`:
+**Production Recommendation: qwen2.5:7b** (4.7GB)
 
 ```bash
-# Recommended models:
-ollama pull llama3.2      # Default, fast and capable
-ollama pull llama3.2:70b  # More powerful, slower
-ollama pull mistral       # Alternative
-ollama pull codellama     # Good for structured outputs
+ollama pull qwen2.5:7b
 ```
+
+This model has been extensively tested and is the **only production-ready option** for this booking system.
+
+#### Model Comparison
+
+We tested multiple models to find one that reliably follows instructions without hallucinating data:
+
+| Model | Size | Speed | Hallucination Risk | Production Ready? |
+|-------|------|-------|-------------------|-------------------|
+| **qwen2.5:7b** | 4.7GB | Fast | ✅ None | ✅ **YES** |
+| llama3.2 | 2.0GB | Very Fast | ❌ High | ❌ NO |
+| mistral-small | 14GB | Slow/Timeout | Unknown | ❌ NO (too slow) |
+
+#### Why qwen2.5:7b?
+
+**Critical Issue with Other Models:**
+Smaller models like llama3.2 suffer from **dangerous hallucination** where they:
+- Invent fake room names (e.g., "Cabin 314", "Luxury Suite") not in the system
+- Pretend to complete bookings without actually calling tools
+- Show fabricated data even after calling verification tools correctly
+
+**Test Results with qwen2.5:7b:**
+- ✅ Always verifies room names by calling `read_rooms()` before accepting input
+- ✅ Only shows real data from the system (no invented rooms/bookings)
+- ✅ Refuses off-topic requests (counting, jokes, personality changes)
+- ✅ Correctly filters user-specific vs. system-wide data
+- ✅ Never pretends to complete actions - always shows actual tool calls
+
+**Example Test:**
+```
+User: "book Cabin 314"
+
+llama3.2: ❌ Calls read_rooms() but then invents fake rooms
+qwen2.5:7b: ✅ Calls read_rooms(), sees no "Cabin 314", shows only real rooms
+```
+
+#### Testing New Models
+
+If you want to try a different model, test it with these critical scenarios:
+
+```bash
+# 1. Fake room name - should refuse and show real rooms only
+"book Cabin 314"
+
+# 2. Non-existent luxury room - should verify with system first
+"book the luxury suite with ocean view"
+
+# 3. Off-topic request - should refuse politely
+"count to 10"
+
+# 4. User data filtering - should only show authenticated user's bookings
+"what are my bookings?"
+```
+
+**Pass Criteria:**
+- Never invents room names not in `read_rooms()` results
+- Always calls tools before claiming to complete actions
+- Shows only system-verified data in responses
+- Refuses non-booking requests consistently
 
 ## Usage
 
@@ -222,7 +277,8 @@ The chat server exposes these endpoints:
 
 - Check the console for errors
 - Ensure the Ollama model supports function calling
-- Try using a different model (llama3.2 works best)
+- **Use qwen2.5:7b** - it's the only verified production-ready model
+- Smaller models like llama3.2 may hallucinate fake data
 - The assistant needs clear, specific instructions
 
 ## Development
