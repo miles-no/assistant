@@ -129,13 +129,13 @@ func runInteractiveBook(client *config.Client) error {
 	}
 
 	// Step 3: Select start time
-	startTime, err := selectTime("start")
+	startTime, err := selectTime("start", time.Time{})
 	if err != nil {
 		return err
 	}
 
-	// Step 4: Select end time
-	endTime, err := selectTime("end")
+	// Step 4: Select end time (relative to start time)
+	endTime, err := selectTime("end", startTime)
 	if err != nil {
 		return err
 	}
@@ -360,30 +360,61 @@ func selectRoom(client *config.Client, locationID string) (string, error) {
 	return items[idx].ID, nil
 }
 
-func selectTime(label string) (time.Time, error) {
+func selectTime(label string, startTime time.Time) (time.Time, error) {
 	now := time.Now()
 
 	// Time suggestions
-	suggestions := []struct {
+	var suggestions []struct {
 		Label string
 		Time  time.Time
-	}{
-		{
-			Label: fmt.Sprintf("Next hour (%s)", now.Add(time.Hour).Truncate(time.Hour).Format("15:04")),
-			Time:  now.Add(time.Hour).Truncate(time.Hour),
-		},
-		{
-			Label: fmt.Sprintf("Tomorrow at 9 AM (%s)", now.AddDate(0, 0, 1).Format("2006-01-02")+" 09:00"),
-			Time:  time.Date(now.Year(), now.Month(), now.Day()+1, 9, 0, 0, 0, time.Local),
-		},
-		{
-			Label: fmt.Sprintf("Next Monday at 9 AM"),
-			Time:  nextWeekday(now, time.Monday, 9, 0),
-		},
-		{
-			Label: "Custom time (enter manually)",
-			Time:  time.Time{}, // Zero value indicates custom
-		},
+	}
+
+	// If this is for end time (startTime provided), suggest durations relative to start
+	if !startTime.IsZero() {
+		suggestions = []struct {
+			Label string
+			Time  time.Time
+		}{
+			{
+				Label: fmt.Sprintf("30 minutes (%s)", startTime.Add(30*time.Minute).Format("15:04")),
+				Time:  startTime.Add(30 * time.Minute),
+			},
+			{
+				Label: fmt.Sprintf("1 hour (%s)", startTime.Add(1*time.Hour).Format("15:04")),
+				Time:  startTime.Add(1 * time.Hour),
+			},
+			{
+				Label: fmt.Sprintf("2 hours (%s)", startTime.Add(2*time.Hour).Format("15:04")),
+				Time:  startTime.Add(2 * time.Hour),
+			},
+			{
+				Label: "Custom time (enter manually)",
+				Time:  time.Time{}, // Zero value indicates custom
+			},
+		}
+	} else {
+		// Start time suggestions (based on current time)
+		suggestions = []struct {
+			Label string
+			Time  time.Time
+		}{
+			{
+				Label: fmt.Sprintf("Next hour (%s)", now.Add(time.Hour).Truncate(time.Hour).Format("15:04")),
+				Time:  now.Add(time.Hour).Truncate(time.Hour),
+			},
+			{
+				Label: fmt.Sprintf("Tomorrow at 9 AM (%s)", now.AddDate(0, 0, 1).Format("2006-01-02")+" 09:00"),
+				Time:  time.Date(now.Year(), now.Month(), now.Day()+1, 9, 0, 0, 0, time.Local),
+			},
+			{
+				Label: fmt.Sprintf("Next Monday at 9 AM"),
+				Time:  nextWeekday(now, time.Monday, 9, 0),
+			},
+			{
+				Label: "Custom time (enter manually)",
+				Time:  time.Time{}, // Zero value indicates custom
+			},
+		}
 	}
 
 	// Build items
