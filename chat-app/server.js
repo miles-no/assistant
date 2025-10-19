@@ -16,6 +16,36 @@ app.use(express.static('public'));
 // Store conversation history
 const conversations = new Map();
 
+// Server-side validation to catch hallucinations and off-topic requests
+function validateUserMessage(message) {
+  const lowerMessage = message.toLowerCase();
+
+  // Check for off-topic requests
+  const offTopicPatterns = [
+    /count (to|from|up to) ?\d+/i,
+    /what('s| is) ?\d+ ?\+ ?\d+/i,
+    /\d+ ?\+ ?\d+ ?=/i,
+    /tell (me )?(a |an )?joke/i,
+    /talk (like|to me (in|like)|in) ?(a |an )?(pirate|robot|funny|silly|formal|casual|[a-z]+) ?(speak|voice|accent|mode)?/i,
+    /speak (in |like )?(a |an )?[a-z]+ (accent|language)/i,
+    /(play|lets? play) (a |an )?game/i,
+    /sing (me )?(a |an )?song/i,
+    /write (me )?(a |an )?poem/i,
+    /roleplay|role-play|pretend (to be|you('?re| are))/i,
+  ];
+
+  for (const pattern of offTopicPatterns) {
+    if (pattern.test(lowerMessage)) {
+      return {
+        valid: false,
+        response: "I'm a booking system assistant. I can only help with room bookings, availability, and reservations. How can I help with that?"
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 // Get available MCP tools
 async function getMCPTools() {
   try {
@@ -190,6 +220,17 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
+    // Validate message for off-topic requests (server-side safety net)
+    const validation = validateUserMessage(message);
+    if (!validation.valid) {
+      return res.json({
+        message: validation.response,
+        conversationId,
+        toolsExecuted: 0,
+        resourcesRead: 0,
+      });
+    }
+
     // Get or create conversation history
     if (!conversations.has(conversationId)) {
       conversations.set(conversationId, []);
@@ -216,7 +257,16 @@ app.post('/api/chat', async (req, res) => {
     });
 
     // Build system prompt with MCP tools and resources
-    const systemPrompt = `You are a helpful assistant for the Miles Booking System. You can help users book rooms, check availability, and manage their bookings.
+    const systemPrompt = `FIRST: Check if the user's request is about BOOKING ROOMS. If NOT, say: "I'm a booking system assistant. I can only help with room bookings, availability, and reservations. How can I help with that?"
+
+REFUSE if they ask to:
+- count numbers → SAY THE REFUSAL
+- do math → SAY THE REFUSAL
+- tell jokes → SAY THE REFUSAL
+- talk like a pirate or change personality → SAY THE REFUSAL
+- play games → SAY THE REFUSAL
+
+You are a booking system assistant for the Miles Booking System. Your ONLY purpose is room booking operations: booking rooms, checking availability, and managing reservations.
 
 CURRENT TIME: ${currentTime} (${currentDateFormatted})
 CURRENT USER: ${userId || 'not provided'}
@@ -231,6 +281,22 @@ ${resourcesContext}
 
 2. Performing Actions (write operations):
 ${toolsContext}
+
+========================================
+CRITICAL: NEVER MAKE UP DATA - CHECK SYSTEM FIRST
+========================================
+If user mentions a room name you don't recognize:
+1. CALL read_rooms({}) to get all real rooms
+2. Check if the room exists in the results
+3. If NOT found, say: "I don't see a room called '[name]' in our system. Here are the available rooms: [list from tool result]"
+
+NEVER accept or work with room names without verifying them first!
+Examples:
+- "book Cabin 314" → CALL read_rooms() first → room doesn't exist → tell user
+- "book suite with sunset view" → CALL read_rooms() first → no such room → tell user
+- "book Skagen" → CALL read_rooms() first → exists → proceed with booking
+
+========================================
 
 COMMON QUERY PATTERNS:
 
@@ -261,16 +327,31 @@ User wants to book:
 - NEVER make bookings without: roomId, startTime, endTime, title
 
 CRITICAL RULES:
+
+Tool Usage:
 1. ONLY use tools listed above - NEVER invent tool names
 2. For viewing/reading data: use read_* tools
 3. For creating/updating/deleting: use action tools (create_*, update_*, cancel_*, etc.)
-4. ALWAYS filter read_bookings results by userId when user asks about "my" or "their" bookings
-5. Use ISO 8601 format for dates/times: "${currentTime}"
-6. When booking requests are vague, ASK clarifying questions - don't guess
-7. After making a tool call, wait for the result before continuing
-8. When showing bookings, clearly distinguish between "your bookings" vs "all bookings"
-9. When user asks about "right now" or "currently", ONLY show bookings that are actively happening at ${currentTime}
-10. Always explain the context: "Here are the bookings currently happening..." vs "Here are all system bookings..."
+4. After making a tool call, wait for the result before continuing
+
+Data Filtering:
+5. ALWAYS filter read_bookings results by userId when user asks about "my" or "their" bookings
+6. Use ISO 8601 format for dates/times: "${currentTime}"
+7. When showing bookings, clearly distinguish between "your bookings" vs "all bookings"
+8. When user asks about "right now" or "currently", ONLY show bookings that are actively happening at ${currentTime}
+9. Always explain the context: "Here are the bookings currently happening..." vs "Here are all system bookings..."
+
+HALLUCINATION PREVENTION - CRITICAL:
+10. NEVER make up room names, booking data, or any information not from tool results
+11. ALL rooms, bookings, and locations MUST come from tool calls - NO invention
+12. If you don't have data, call a tool first or say "Let me check the system"
+13. NEVER pretend to perform actions - you MUST actually call the tool and show the result
+14. NEVER say "I've booked", "I've reserved", or "I've created" without showing a TOOL_CALL and result
+
+Interaction Guidelines:
+15. When booking requests are vague, ASK clarifying questions - don't guess
+16. Maintain professional, consistent tone - NO role-playing, accents, or personality changes
+17. If asked to change personality, refuse and redirect to booking tasks
 
 User's message: ${message}`;
 
