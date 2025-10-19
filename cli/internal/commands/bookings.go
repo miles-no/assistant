@@ -17,12 +17,22 @@ var bookingsCmd = &cobra.Command{
 	Short: "List your bookings",
 	Long: `List all your current and upcoming bookings.
 
+By default, only active (CONFIRMED) bookings are shown.
+Use --all to include cancelled bookings.
+
 Examples:
-  miles bookings                  # List all bookings
+  miles bookings                  # List active bookings only
+  miles bookings --all            # List all bookings including cancelled
   miles bookings -o json          # Output as JSON
   miles bookings -o csv > my.csv  # Export to CSV`,
 	Aliases: []string{"list"},
 	RunE:    runBookings,
+}
+
+var showAllBookings bool
+
+func init() {
+	bookingsCmd.Flags().BoolVarP(&showAllBookings, "all", "a", false, "show all bookings including cancelled")
 }
 
 func runBookings(cmd *cobra.Command, args []string) error {
@@ -36,28 +46,51 @@ func runBookings(cmd *cobra.Command, args []string) error {
 	client := config.NewClient(getAPIURL(), token)
 
 	// Fetch bookings
-	bookings, err := client.GetBookings()
+	allBookings, err := client.GetBookings()
 	if err != nil {
 		return err
 	}
 
-	if len(bookings) == 0 {
-		fmt.Println("No bookings found")
+	// Separate active and cancelled bookings
+	var activeBookings []generated.Booking
+	var cancelledCount int
+
+	for _, booking := range allBookings {
+		if booking.Status != nil && *booking.Status == "CANCELLED" {
+			cancelledCount++
+			if showAllBookings {
+				activeBookings = append(activeBookings, booking)
+			}
+		} else {
+			activeBookings = append(activeBookings, booking)
+		}
+	}
+
+	// Determine which bookings to show
+	bookingsToShow := activeBookings
+
+	if len(bookingsToShow) == 0 {
+		if cancelledCount > 0 {
+			fmt.Printf("No active bookings found (%d cancelled)\n", cancelledCount)
+			fmt.Println("Use 'miles bookings --all' to see cancelled bookings")
+		} else {
+			fmt.Println("No bookings found")
+		}
 		return nil
 	}
 
 	// Output based on format
 	switch output {
 	case "json":
-		return outputJSON(bookings)
+		return outputJSON(bookingsToShow)
 	case "csv":
-		return outputBookingsCSV(bookings)
+		return outputBookingsCSV(bookingsToShow)
 	default:
-		return outputBookingsTable(bookings)
+		return outputBookingsTable(bookingsToShow, cancelledCount)
 	}
 }
 
-func outputBookingsTable(bookings []generated.Booking) error {
+func outputBookingsTable(bookings []generated.Booking, cancelledCount int) error {
 	// Print header - show full IDs
 	fmt.Printf("%-25s %-30s %-16s %-16s %-10s\n",
 		"ID", "Title", "Start", "End", "Status")
@@ -97,7 +130,18 @@ func outputBookingsTable(bookings []generated.Booking) error {
 		)
 	}
 
-	fmt.Printf("\nTotal: %d bookings\n", len(bookings))
+	// Summary
+	if showAllBookings {
+		fmt.Printf("\nTotal: %d bookings\n", len(bookings))
+	} else {
+		if cancelledCount > 0 {
+			fmt.Printf("\nShowing: %d active bookings (%d cancelled)\n", len(bookings), cancelledCount)
+			fmt.Printf("Use 'miles bookings --all' to see all bookings\n")
+		} else {
+			fmt.Printf("\nTotal: %d bookings\n", len(bookings))
+		}
+	}
+
 	if len(bookings) > 0 {
 		fmt.Printf("\nTip: Cancel a booking with: miles cancel <booking-id>\n")
 	}

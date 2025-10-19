@@ -50,6 +50,8 @@ func runCancel(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("✓ Booking %s cancelled successfully\n", bookingID)
+	fmt.Printf("✓ Booking %s has been cancelled\n\n", bookingID)
+	fmt.Println("The booking no longer appears in your active bookings.")
+	fmt.Println("Use 'miles bookings --all' to see all bookings including cancelled ones.")
 	return nil
 }
