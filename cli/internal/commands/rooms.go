@@ -65,8 +65,8 @@ func runRooms(cmd *cobra.Command, args []string) error {
 }
 
 func outputRoomsTable(rooms []generated.Room) error {
-	// Print header
-	fmt.Printf("%-12s %-30s %-20s %-10s\n", "ID", "Name", "Location", "Capacity")
+	// Print header - wider ID column to show full IDs
+	fmt.Printf("%-25s %-30s %-12s %-8s\n", "ID", "Name", "Location", "Capacity")
 	fmt.Println(strings.Repeat("-", 80))
 
 	// Print rooms
@@ -88,15 +88,24 @@ func outputRoomsTable(rooms []generated.Room) error {
 			locationId = *room.LocationId
 		}
 
-		fmt.Printf("%-12s %-30s %-20s %-10d\n",
-			truncate(id, 12),
+		// Show full ID, truncate name if needed
+		fmt.Printf("%-25s %-30s %-12s %-8d\n",
+			id,
 			truncate(name, 30),
-			truncate(locationId, 20),
+			locationId,
 			capacity,
 		)
 	}
 
 	fmt.Printf("\nTotal: %d rooms\n", len(rooms))
+	fmt.Printf("\nTip: Use -o json to see all details, or copy an ID for booking:\n")
+	fmt.Printf("     miles book -r %s -s \"2025-10-19 14:00\" -e \"15:00\" -t \"Meeting\"\n",
+		func() string {
+			if len(rooms) > 0 && rooms[0].Id != nil {
+				return *rooms[0].Id
+			}
+			return "ROOM_ID"
+		}())
 	return nil
 }
 

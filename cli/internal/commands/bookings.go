@@ -58,10 +58,10 @@ func runBookings(cmd *cobra.Command, args []string) error {
 }
 
 func outputBookingsTable(bookings []generated.Booking) error {
-	// Print header
-	fmt.Printf("%-12s %-30s %-12s %-20s %-20s %-10s\n",
-		"ID", "Title", "Room", "Start", "End", "Status")
-	fmt.Println(strings.Repeat("-", 120))
+	// Print header - show full IDs
+	fmt.Printf("%-25s %-30s %-16s %-16s %-10s\n",
+		"ID", "Title", "Start", "End", "Status")
+	fmt.Println(strings.Repeat("-", 100))
 
 	// Print bookings
 	for _, booking := range bookings {
@@ -72,10 +72,6 @@ func outputBookingsTable(bookings []generated.Booking) error {
 		title := ""
 		if booking.Title != nil {
 			title = *booking.Title
-		}
-		roomId := ""
-		if booking.RoomId != nil {
-			roomId = *booking.RoomId
 		}
 		status := ""
 		if booking.Status != nil {
@@ -91,10 +87,10 @@ func outputBookingsTable(bookings []generated.Booking) error {
 			endStr = booking.EndTime.Format("2006-01-02 15:04")
 		}
 
-		fmt.Printf("%-12s %-30s %-12s %-20s %-20s %-10s\n",
-			truncate(id, 12),
+		// Show full ID, truncate title if needed
+		fmt.Printf("%-25s %-30s %-16s %-16s %-10s\n",
+			id,
 			truncate(title, 30),
-			truncate(roomId, 12),
 			startStr,
 			endStr,
 			status,
@@ -102,6 +98,9 @@ func outputBookingsTable(bookings []generated.Booking) error {
 	}
 
 	fmt.Printf("\nTotal: %d bookings\n", len(bookings))
+	if len(bookings) > 0 {
+		fmt.Printf("\nTip: Cancel a booking with: miles cancel <booking-id>\n")
+	}
 	return nil
 }
 
