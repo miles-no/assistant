@@ -40,6 +40,19 @@ type LoginResponse struct {
 	User  *generated.User `json:"user,omitempty"`
 }
 
+// API response wrappers - the API returns data wrapped in objects
+type LocationsResponse struct {
+	Locations []generated.Location `json:"locations"`
+}
+
+type RoomsResponse struct {
+	Rooms []generated.Room `json:"rooms"`
+}
+
+type BookingsResponse struct {
+	Bookings []generated.Booking `json:"bookings"`
+}
+
 // Login authenticates a user and returns a token
 func (c *Client) Login(email, password string) (*LoginResponse, error) {
 	var result LoginResponse
@@ -69,9 +82,9 @@ func (c *Client) Login(email, password string) (*LoginResponse, error) {
 
 // GetLocations retrieves all locations
 func (c *Client) GetLocations() ([]generated.Location, error) {
-	var result []generated.Location
+	var response LocationsResponse
 	resp, err := c.http.R().
-		SetResult(&result).
+		SetResult(&response).
 		Get("/api/locations")
 
 	if err != nil {
@@ -82,13 +95,13 @@ func (c *Client) GetLocations() ([]generated.Location, error) {
 		return nil, fmt.Errorf("get locations failed: %s", resp.Status())
 	}
 
-	return result, nil
+	return response.Locations, nil
 }
 
 // GetRooms retrieves rooms, optionally filtered by location
 func (c *Client) GetRooms(locationID string) ([]generated.Room, error) {
-	var result []generated.Room
-	req := c.http.R().SetResult(&result)
+	var response RoomsResponse
+	req := c.http.R().SetResult(&response)
 
 	if locationID != "" {
 		req.SetQueryParam("locationId", locationID)
@@ -103,14 +116,14 @@ func (c *Client) GetRooms(locationID string) ([]generated.Room, error) {
 		return nil, fmt.Errorf("get rooms failed: %s", resp.Status())
 	}
 
-	return result, nil
+	return response.Rooms, nil
 }
 
 // GetBookings retrieves bookings for the authenticated user
 func (c *Client) GetBookings() ([]generated.Booking, error) {
-	var result []generated.Booking
+	var response BookingsResponse
 	resp, err := c.http.R().
-		SetResult(&result).
+		SetResult(&response).
 		Get("/api/bookings")
 
 	if err != nil {
@@ -121,7 +134,7 @@ func (c *Client) GetBookings() ([]generated.Booking, error) {
 		return nil, fmt.Errorf("get bookings failed: %s", resp.Status())
 	}
 
-	return result, nil
+	return response.Bookings, nil
 }
 
 // CreateBooking creates a new booking
