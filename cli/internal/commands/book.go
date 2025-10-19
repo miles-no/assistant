@@ -522,9 +522,9 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 
 		// Check if booking is for this room
 		if booking.RoomId != nil && *booking.RoomId == roomID {
-			// Check if booking is on the same day
+			// Check if booking is on the same day (convert to local time for comparison)
 			if booking.StartTime != nil {
-				bookingDate := booking.StartTime.Format("2006-01-02")
+				bookingDate := booking.StartTime.Local().Format("2006-01-02")
 				if bookingDate == startDate {
 					roomBookings = append(roomBookings, booking)
 				}
@@ -567,9 +567,9 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 	for _, dur := range durations {
 		endTime := startTime.Add(time.Duration(dur.minutes) * time.Minute)
 
-		// Check if this duration would conflict
+		// Check if this duration would conflict (including equality)
 		available := true
-		if nextBookingStart != nil && endTime.After(*nextBookingStart) {
+		if nextBookingStart != nil && !endTime.Before(*nextBookingStart) {
 			available = false
 		}
 
@@ -588,16 +588,18 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 		})
 	}
 
-	// If there's a next booking, suggest ending right before it
+	// If there's a next booking, suggest ending 1 minute before it
 	if nextBookingStart != nil {
 		duration := nextBookingStart.Sub(startTime)
-		if duration > 0 && duration < 3*time.Hour {
-			label := fmt.Sprintf("Until next booking (%s) ✓ available", nextBookingStart.Format("15:04"))
+		if duration > time.Minute && duration < 3*time.Hour {
+			// End 1 minute before the next booking to avoid conflicts
+			suggestedEnd := nextBookingStart.Add(-1 * time.Minute)
+			label := fmt.Sprintf("Until next booking (%s) ✓ available", suggestedEnd.Format("15:04"))
 			suggestions = append([]struct {
 				Label string
 				Time  time.Time
 			}{
-				{Label: label, Time: *nextBookingStart},
+				{Label: label, Time: suggestedEnd},
 			}, suggestions...)
 		}
 	}
