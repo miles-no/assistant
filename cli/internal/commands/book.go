@@ -542,6 +542,12 @@ func selectEndTimeWithAvailability(client *config.Client, roomID string, startTi
 		}
 	}
 
+	// Convert next booking time to local timezone for display
+	if nextBookingStart != nil {
+		localTime := nextBookingStart.Local()
+		nextBookingStart = &localTime
+	}
+
 	// Build smart suggestions based on availability
 	var suggestions []struct {
 		Label string
