@@ -36,9 +36,27 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./api:/app
-      - /app/node_modules
+    # No volumes in production - everything is baked into the image
+
+  chat-app:
+    build:
+      context: ./chat-app
+      dockerfile: Dockerfile
+    container_name: miles-booking-chat
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      # Connect to host's Ollama (use host.docker.internal on Mac/Windows)
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      # Connect to API service
+      MCP_API_URL: http://api:3000/api/mcp
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:

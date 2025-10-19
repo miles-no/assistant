@@ -28,6 +28,7 @@ Backend OpenAPI Spec → Generated Types → All Clients
 
 ### Multiple Clients
 - **🌐 Web App** - Modern React SPA with shadcn/ui components
+- **💬 Chat Assistant** - AI-powered chat interface with Ollama + MCP
 - **🎨 TUI** - Beautiful terminal interface built with Bubble Tea (Go)
 - **⌨️ CLI** - Fast, scriptable command-line interface (Go + Cobra)
 - **📱 Slack Bot** - Interactive Slack integration (implementation guide)
@@ -58,6 +59,9 @@ cd api && npm run dev
 
 # Start Web App (in another terminal)
 cd web && npm run dev  # http://localhost:5173
+
+# Or start the Chat Assistant (requires Ollama)
+cd chat-app && npm start  # http://localhost:3001
 
 # Or use the installed TUI
 miles-booking
@@ -102,6 +106,7 @@ docker-compose up -d
 booking/
 ├── api/                    # REST API (Node.js + TypeScript)
 │   ├── src/                # API source code
+│   │   └── mcp/            # ⭐ Model Context Protocol server
 │   ├── prisma/             # Database schema and migrations
 │   └── openapi.yaml        # ⭐ OpenAPI 3.0 specification (source of truth)
 │
@@ -112,6 +117,11 @@ booking/
 │   │   │   └── api/        # ⭐ Generated API client
 │   │   └── pages/          # App routes
 │   └── package.json
+│
+├── chat-app/               # AI Chat Assistant (Node.js + Ollama)
+│   ├── public/             # Frontend (HTML/CSS/JS)
+│   ├── server.js           # Backend (Express + MCP client)
+│   └── README.md           # Chat assistant documentation
 │
 ├── tui/                    # Terminal UI (Go + Bubble Tea)
 │   ├── cmd/                # Main entry point
@@ -146,6 +156,13 @@ booking/
 - **Dark Mode** support
 - **Real-time Updates** - Booking status updates
 
+## 💬 Chat Assistant Features
+- **Natural Language Interface** - Talk to your booking system
+- **AI-Powered** - Uses Ollama (llama3.2) for intelligent conversations
+- **MCP Integration** - Direct access to all booking tools and resources
+- **Smart Suggestions** - Find available rooms, suggest times, make bookings
+- **Modern Chat UI** - Beautiful, responsive chat interface
+
 ## 🎨 TUI Features
 - **Interactive Terminal UI** built with Bubble Tea
 - **Vim Keybindings** - Power user features
@@ -173,6 +190,7 @@ miles bookings -o csv > bookings.csv
 
 ### Clients
 - [Web App](./web/README.md) - React frontend documentation
+- [Chat Assistant](./chat-app/README.md) - AI-powered chat interface
 - [TUI](./tui/README.md) - Terminal UI documentation
 - [CLI](./cli/README.md) - Command-line interface documentation
 - [Slack Bot Guide](./docs/SLACK_BOT_GUIDE.md) - Implementation guide for Slack integration
@@ -182,6 +200,7 @@ miles bookings -o csv > bookings.csv
 - [API Documentation](./api/README.md)
 - [API Setup Guide](./api/SETUP.md)
 - [API Examples](./api/API_EXAMPLES.md)
+- [MCP Integration](./api/MCP_README.md) - Model Context Protocol documentation
 - [OpenAPI Spec](./api/openapi.yaml) - Interactive docs at `/api-docs`
 
 ## 🏢 Office Locations
@@ -210,6 +229,40 @@ All passwords: `password123`
 - **User**: `jane.smith@miles.com`
 
 ## 🛠️ Development
+
+### Local Development (Recommended)
+
+For the best development experience, use the provided automation scripts to run the API and Chat App locally with the database in Docker:
+
+```bash
+# Start all services (database in Docker, API + chat-app locally)
+./start-dev.sh
+
+# Check status of all services
+./status.sh
+
+# View logs (interactive menu)
+./logs.sh
+
+# Stop all services
+./stop-dev.sh
+```
+
+**What `start-dev.sh` does:**
+- ✓ Checks prerequisites (Docker, Ollama)
+- ✓ Pulls llama3.2 model if needed
+- ✓ Starts PostgreSQL in Docker
+- ✓ Starts API on port 3000 with hot reload
+- ✓ Starts Chat App on port 3001
+- ✓ Performs health checks on all services
+- ✓ Saves logs to `logs/` directory
+- ✓ Displays service URLs and process IDs
+
+**Services after startup:**
+- Database: `localhost:5433` (Docker)
+- API: `http://localhost:3000` (local)
+- API Docs: `http://localhost:3000/api-docs` (local)
+- Chat App: `http://localhost:3001` (local)
 
 ### API Development
 
@@ -278,12 +331,18 @@ Edit `tui/config.yaml` (auto-created):
 The provided `docker-compose.yml` starts:
 - PostgreSQL database on port 5433
 - API server on port 3000
+- Chat Assistant on port 3001 (requires Ollama on host)
 
 ```bash
 docker-compose up -d     # Start services
 docker-compose logs -f   # View logs
 docker-compose down      # Stop services
+
+# For development with hot-reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
+
+**Note for Chat Assistant:** Ollama must be running on your host machine for the chat-app container to work.
 
 ## 📦 Building for Production
 

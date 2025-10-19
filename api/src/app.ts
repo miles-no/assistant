@@ -13,6 +13,7 @@ import locationRoutes from './routes/location.routes';
 import roomRoutes from './routes/room.routes';
 import bookingRoutes from './routes/booking.routes';
 import calendarRoutes from './routes/calendar.routes';
+import mcpRoutes from './routes/mcp.routes';
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +54,7 @@ app.use('/api/locations', locationRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/mcp', mcpRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

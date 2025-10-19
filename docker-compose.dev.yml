@@ -1,0 +1,25 @@
+# Development docker-compose with additional services
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./api
+    environment:
+      NODE_ENV: development
+    command: npm run dev
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+
+  chat-app:
+    build:
+      context: ./chat-app
+    environment:
+      NODE_ENV: development
+    command: npm run dev
+    volumes:
+      - ./chat-app:/app
+      - /app/node_modules

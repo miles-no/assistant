@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miles Booking Chat Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏢 Miles Booking Assistant</h1>
+            <p>Chat with AI to book rooms, check availability, and manage your bookings</p>
+            <div class="status">
+                <span id="ollama-status" class="status-indicator">●</span> Ollama
+                <span id="mcp-status" class="status-indicator">●</span> MCP Server
+            </div>
+        </header>
+
+        <aside class="sidebar">
+            <div class="user-config">
+                <h3>Configuration</h3>
+                <div class="form-group">
+                    <label for="userId">Your User ID:</label>
+                    <input type="text" id="userId" placeholder="Enter your user ID" />
+                    <small>Required for making bookings</small>
+                </div>
+                <button id="save-config" class="btn btn-secondary">Save</button>
+            </div>
+
+            <div class="mcp-info">
+                <h3>Available Tools</h3>
+                <div id="tools-list" class="info-content">
+                    <p class="loading">Loading...</p>
+                </div>
+            </div>
+
+            <div class="suggestions">
+                <h3>Try asking:</h3>
+                <button class="suggestion-btn" data-message="Show me all available locations">Show me all locations</button>
+                <button class="suggestion-btn" data-message="Find available rooms for tomorrow at 2 PM for 1 hour">Find rooms for tomorrow 2 PM</button>
+                <button class="suggestion-btn" data-message="What rooms are available in the San Francisco office?">Rooms in SF office</button>
+                <button class="suggestion-btn" data-message="Book a room with a projector for tomorrow at 3 PM">Book room with projector</button>
+            </div>
+        </aside>
+
+        <main class="chat-container">
+            <div id="chat-messages" class="chat-messages">
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <strong>Miles Assistant:</strong>
+                        <p>Hello! I'm your Miles Booking assistant. I can help you:</p>
+                        <ul>
+                            <li>Find available rooms</li>
+                            <li>Check room availability</li>
+                            <li>Create and manage bookings</li>
+                            <li>View locations and their details</li>
+                        </ul>
+                        <p>What would you like to do today?</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div id="typing-indicator" class="typing-indicator" style="display: none;">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <form id="chat-form">
+                    <input
+                        type="text"
+                        id="message-input"
+                        placeholder="Ask me about room bookings..."
+                        autocomplete="off"
+                        required
+                    />
+                    <button type="submit" id="send-button">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
