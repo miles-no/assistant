@@ -1,0 +1,7 @@
+# oapi-codegen configuration for generating type-safe Go code from OpenAPI spec
+package: generated
+generate:
+  models: true        # Generate type definitions
+  embedded-spec: true # Embed the OpenAPI spec in the generated code
+output-options:
+  skip-prune: true    # Keep all generated types

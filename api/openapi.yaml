@@ -777,7 +777,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /api/calendar/office/{locationId}.ics:
+  /api/calendar/office/{id}.ics:
     get:
       summary: Get office calendar feed
       description: Download iCal calendar feed for all bookings in an office
@@ -799,7 +799,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/calendar/room/{roomId}.ics:
+  /api/calendar/room/{id}.ics:
     get:
       summary: Get room calendar feed
       description: Download iCal calendar feed for a specific room
