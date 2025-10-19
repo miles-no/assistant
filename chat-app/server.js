@@ -247,7 +247,13 @@ User asks about availability:
 User asks about general data:
 - "what offices do we have?" → TOOL_CALL: read_locations({})
 - "show me all rooms" → TOOL_CALL: read_rooms({})
-- "what is booked right now?" → TOOL_CALL: read_bookings({}) then filter by current time range
+- "what is booked right now?" → TOOL_CALL: read_bookings({})
+  CRITICAL FILTERING REQUIRED: You MUST compare timestamps and ONLY show actively happening bookings:
+  Example: If current time is ${currentTime} and you get:
+    - Booking A: starts 2025-10-20T08:00Z, ends 2025-10-20T09:00Z → SKIP (future, hasn't started)
+    - Booking B: starts 2025-10-19T16:00Z, ends 2025-10-19T16:30Z → SKIP (past, already ended)
+    - Booking C: starts 2025-10-19T16:00Z, ends 2025-10-19T17:00Z → SHOW (currently happening!)
+  If zero bookings match, respond: "No rooms are currently booked right now."
 
 User wants to book:
 - "book a room" → ASK: Which room? What date/time? How long? What's it for?
@@ -263,6 +269,8 @@ CRITICAL RULES:
 6. When booking requests are vague, ASK clarifying questions - don't guess
 7. After making a tool call, wait for the result before continuing
 8. When showing bookings, clearly distinguish between "your bookings" vs "all bookings"
+9. When user asks about "right now" or "currently", ONLY show bookings that are actively happening at ${currentTime}
+10. Always explain the context: "Here are the bookings currently happening..." vs "Here are all system bookings..."
 
 User's message: ${message}`;
 
