@@ -500,6 +500,20 @@ func nextWeekday(from time.Time, weekday time.Weekday, hour, minute int) time.Ti
 	return time.Date(next.Year(), next.Month(), next.Day(), hour, minute, 0, 0, time.Local)
 }
 
+// formatDuration formats a duration in a human-readable way
+func formatDuration(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+
+	if hours > 0 && minutes > 0 {
+		return fmt.Sprintf("%dh %dm", hours, minutes)
+	} else if hours > 0 {
+		return fmt.Sprintf("%dh", hours)
+	} else {
+		return fmt.Sprintf("%dm", minutes)
+	}
+}
+
 // selectStartTimeWithAvailability suggests start times with availability checking
 func selectStartTimeWithAvailability(client *config.Client, roomID string) (time.Time, error) {
 	now := time.Now()
@@ -523,28 +537,35 @@ func selectStartTimeWithAvailability(client *config.Client, roomID string) (time
 		},
 	}
 
-	// Check availability for each suggestion
+	// Fetch today's bookings to check availability
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UTC()
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	todayBookings, err := client.GetRoomAvailability(roomID, dayStart, dayEnd)
+	var activeBookings []generated.Booking
+	if err == nil {
+		// Filter out cancelled bookings
+		for _, booking := range todayBookings {
+			if booking.Status == nil || *booking.Status != "CANCELLED" {
+				activeBookings = append(activeBookings, booking)
+			}
+		}
+	}
+
+	// Check availability for each suggestion and find next available slot
+	var nextAvailableSlot *struct {
+		Start    time.Time
+		Duration time.Duration
+	}
+
 	for i := range suggestions {
 		if suggestions[i].Time.IsZero() {
 			continue
 		}
 
-		// Fetch bookings for this day
-		dayStart := time.Date(suggestions[i].Time.Year(), suggestions[i].Time.Month(), suggestions[i].Time.Day(), 0, 0, 0, 0, suggestions[i].Time.Location()).UTC()
-		dayEnd := dayStart.Add(24 * time.Hour)
-
-		bookings, err := client.GetRoomAvailability(roomID, dayStart, dayEnd)
-		if err != nil {
-			// If we can't check, don't mark as unavailable
-			continue
-		}
-
 		// Check if this start time conflicts
 		hasConflict := false
-		for _, booking := range bookings {
-			if booking.Status != nil && *booking.Status == "CANCELLED" {
-				continue
-			}
+		for _, booking := range activeBookings {
 			if booking.StartTime == nil || booking.EndTime == nil {
 				continue
 			}
@@ -563,6 +584,82 @@ func selectStartTimeWithAvailability(client *config.Client, roomID string) (time
 		if hasConflict {
 			suggestions[i].Label = suggestions[i].Label + " ⚠ unavailable"
 		}
+	}
+
+	// Find the next available time slot after now
+	if err == nil {
+		// Find if there's a booking in progress or starting soon
+		var conflictingBooking *generated.Booking
+		for _, booking := range activeBookings {
+			if booking.StartTime == nil || booking.EndTime == nil {
+				continue
+			}
+			bStart := booking.StartTime.Local()
+			bEnd := booking.EndTime.Local()
+
+			// Check if this booking overlaps with "now"
+			if !bStart.After(now) && bEnd.After(now) {
+				// Booking in progress
+				if conflictingBooking == nil || bEnd.After(conflictingBooking.EndTime.Local()) {
+					conflictingBooking = &booking
+				}
+			}
+		}
+
+		// If there's a conflict now, find the next available slot
+		if conflictingBooking != nil {
+			nextStart := conflictingBooking.EndTime.Local()
+
+			// Find when the next booking after this starts
+			var nextBookingStart *time.Time
+			for _, booking := range activeBookings {
+				if booking.StartTime == nil {
+					continue
+				}
+				bStart := booking.StartTime.Local()
+				if bStart.After(nextStart) {
+					if nextBookingStart == nil || bStart.Before(*nextBookingStart) {
+						nextBookingStart = &bStart
+					}
+				}
+			}
+
+			// Calculate available duration
+			var duration time.Duration
+			if nextBookingStart != nil {
+				duration = nextBookingStart.Sub(nextStart)
+			} else {
+				// Rest of the day is free (assume until 6 PM or end of day)
+				endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 18, 0, 0, 0, now.Location())
+				if nextStart.Before(endOfDay) {
+					duration = endOfDay.Sub(nextStart)
+				}
+			}
+
+			nextAvailableSlot = &struct {
+				Start    time.Time
+				Duration time.Duration
+			}{
+				Start:    nextStart,
+				Duration: duration,
+			}
+		}
+	}
+
+	// Add next available slot suggestion if found
+	if nextAvailableSlot != nil && nextAvailableSlot.Duration > 0 {
+		durationStr := formatDuration(nextAvailableSlot.Duration)
+		label := fmt.Sprintf("Next available: %s (%s free)",
+			nextAvailableSlot.Start.Format("15:04"),
+			durationStr)
+
+		// Insert as first suggestion
+		suggestions = append([]struct {
+			Label string
+			Time  time.Time
+		}{
+			{Label: label, Time: nextAvailableSlot.Start},
+		}, suggestions...)
 	}
 
 	// Add custom option
