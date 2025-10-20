@@ -1,0 +1,30 @@
+{
+  "name": "miles-iris",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "IRIS - Miles' retro-futuristic AI assistant with HAL-like terminal interface",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "ai",
+    "assistant",
+    "terminal",
+    "retro",
+    "hal",
+    "booking",
+    "mcp"
+  ],
+  "author": "Miles",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.9.1",
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "openai": "^4.20.1"
+  }
+}

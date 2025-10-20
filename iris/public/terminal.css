@@ -1,0 +1,458 @@
+/* HAL-9000 Inspired Retro-Futuristic Terminal */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --hal-red: #ff0000;
+    --hal-red-glow: rgba(255, 0, 0, 0.8);
+    --hal-dark: #0a0a0a;
+    --terminal-bg: #000000;
+    --terminal-text: #ff0000;
+    --terminal-text-dim: #880000;
+    --terminal-glow: rgba(255, 0, 0, 0.5);
+    --scanline-color: rgba(255, 0, 0, 0.05);
+}
+
+body {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    background: var(--terminal-bg);
+    color: var(--terminal-text);
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Scanline CRT Effect */
+.scanlines {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 2px,
+        var(--scanline-color) 2px,
+        var(--scanline-color) 4px
+    );
+    animation: scanline-flicker 0.15s infinite;
+}
+
+@keyframes scanline-flicker {
+    0% { opacity: 0.1; }
+    50% { opacity: 0.15; }
+    100% { opacity: 0.1; }
+}
+
+/* HAL Eye */
+.hal-eye-container {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 100;
+}
+
+.hal-eye {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 15px;
+    position: relative;
+    animation: hal-pulse 2s ease-in-out infinite;
+}
+
+.hal-eye-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%,
+        #ff0000 0%,
+        #cc0000 30%,
+        #880000 60%,
+        #440000 100%
+    );
+    box-shadow:
+        0 0 20px var(--hal-red-glow),
+        0 0 40px var(--hal-red-glow),
+        0 0 60px var(--hal-red-glow),
+        inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.hal-eye-glow {
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    right: -20px;
+    bottom: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--hal-red-glow) 0%, transparent 70%);
+    opacity: 0.6;
+    animation: hal-glow 2s ease-in-out infinite;
+}
+
+@keyframes hal-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes hal-glow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+
+.hal-eye.thinking {
+    animation: hal-thinking 0.8s ease-in-out infinite;
+}
+
+@keyframes hal-thinking {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.7; }
+}
+
+.hal-status {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--terminal-text-dim);
+    text-transform: uppercase;
+    text-shadow: 0 0 5px var(--terminal-glow);
+}
+
+/* Terminal Container */
+.terminal-container {
+    position: absolute;
+    top: 160px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 900px;
+    height: calc(100vh - 200px);
+}
+
+/* Login Screen */
+.login-screen {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-box {
+    text-align: center;
+    padding: 40px;
+    border: 2px solid var(--hal-red);
+    border-radius: 4px;
+    box-shadow:
+        0 0 20px var(--terminal-glow),
+        inset 0 0 20px rgba(255, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.8);
+    max-width: 500px;
+    width: 100%;
+}
+
+.ascii-art {
+    font-size: 10px;
+    line-height: 1;
+    color: var(--hal-red);
+    text-shadow: 0 0 10px var(--terminal-glow);
+    margin-bottom: 20px;
+}
+
+.tagline {
+    font-size: 18px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 5px var(--terminal-glow);
+}
+
+.sub-tagline {
+    font-size: 12px;
+    color: var(--terminal-text-dim);
+    margin-bottom: 30px;
+    font-style: italic;
+}
+
+.login-form {
+    text-align: left;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--hal-red);
+    color: var(--hal-red);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.form-group input:focus {
+    box-shadow: 0 0 10px var(--terminal-glow);
+    border-color: var(--hal-red);
+}
+
+.form-group input::placeholder {
+    color: var(--terminal-text-dim);
+    opacity: 0.5;
+}
+
+.terminal-button {
+    width: 100%;
+    padding: 12px;
+    background: rgba(255, 0, 0, 0.1);
+    border: 2px solid var(--hal-red);
+    color: var(--hal-red);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 2px;
+}
+
+.terminal-button:hover {
+    background: rgba(255, 0, 0, 0.2);
+    box-shadow: 0 0 15px var(--terminal-glow);
+}
+
+.button-bracket {
+    font-weight: 600;
+}
+
+.login-error {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid var(--hal-red);
+    border-radius: 2px;
+    font-size: 12px;
+    display: none;
+}
+
+.login-error.show {
+    display: block;
+}
+
+/* Terminal Interface */
+.terminal {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 2px solid var(--hal-red);
+    border-radius: 4px;
+    box-shadow:
+        0 0 30px var(--terminal-glow),
+        inset 0 0 30px rgba(255, 0, 0, 0.05);
+    background: rgba(0, 0, 0, 0.9);
+}
+
+.terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--hal-red);
+    background: rgba(255, 0, 0, 0.05);
+}
+
+.terminal-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-shadow: 0 0 5px var(--terminal-glow);
+}
+
+.terminal-info {
+    font-size: 11px;
+    color: var(--terminal-text-dim);
+}
+
+.terminal-logout {
+    padding: 5px 10px;
+    background: transparent;
+    border: 1px solid var(--hal-red);
+    color: var(--hal-red);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.terminal-logout:hover {
+    background: rgba(255, 0, 0, 0.1);
+    box-shadow: 0 0 10px var(--terminal-glow);
+}
+
+.terminal-output {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.terminal-output::-webkit-scrollbar {
+    width: 8px;
+}
+
+.terminal-output::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.terminal-output::-webkit-scrollbar-thumb {
+    background: var(--hal-red);
+    border-radius: 4px;
+}
+
+.terminal-line {
+    margin-bottom: 8px;
+    animation: terminal-fade-in 0.3s ease-out;
+}
+
+@keyframes terminal-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.terminal-line.user-input {
+    color: var(--hal-red);
+}
+
+.terminal-line.system-output {
+    color: var(--terminal-text-dim);
+}
+
+.terminal-line.error {
+    color: #ff6666;
+}
+
+.terminal-line.success {
+    color: #ff0000;
+    font-weight: 600;
+}
+
+.terminal-input-line {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    border-top: 1px solid var(--hal-red);
+    background: rgba(255, 0, 0, 0.05);
+}
+
+.terminal-prompt {
+    margin-right: 10px;
+    font-weight: 600;
+    text-shadow: 0 0 5px var(--terminal-glow);
+    animation: cursor-blink 1s infinite;
+}
+
+@keyframes cursor-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0.3; }
+}
+
+.terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--hal-red);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    caret-color: var(--hal-red);
+}
+
+.terminal-input::placeholder {
+    color: var(--terminal-text-dim);
+    opacity: 0.5;
+}
+
+/* Typing indicator when HAL is thinking */
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.typing-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--hal-red);
+    border-radius: 50%;
+    animation: typing-bounce 1.4s infinite ease-in-out;
+    box-shadow: 0 0 5px var(--terminal-glow);
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing-bounce {
+    0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .terminal-container {
+        width: 95%;
+    }
+
+    .login-box {
+        padding: 30px 20px;
+    }
+
+    .ascii-art {
+        font-size: 8px;
+    }
+}
+
+/* Glitch effect for errors */
+@keyframes glitch {
+    0%, 100% {
+        text-shadow: 0 0 5px var(--terminal-glow);
+    }
+    25% {
+        text-shadow: -2px 0 var(--terminal-glow), 2px 0 var(--hal-red-glow);
+    }
+    50% {
+        text-shadow: 2px 0 var(--terminal-glow), -2px 0 var(--hal-red-glow);
+    }
+    75% {
+        text-shadow: -2px 0 var(--hal-red-glow), 2px 0 var(--terminal-glow);
+    }
+}
+
+.glitch {
+    animation: glitch 0.3s infinite;
+}
