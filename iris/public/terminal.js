@@ -477,6 +477,11 @@ async function handleRoomsCommand(parts) {
         addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         stopThinking();
         addOutput(`[ERROR] ${error.message}`, 'error');
     }
@@ -522,6 +527,11 @@ async function handleBookingsCommand(parts) {
         addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         stopThinking();
         addOutput(`[ERROR] ${error.message}`, 'error');
     }
@@ -549,6 +559,11 @@ async function handleCancelCommand(parts) {
         addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         stopThinking();
         addOutput(`[ERROR] ${error.message}`, 'error');
     }
@@ -730,6 +745,11 @@ Booking operation complete.`;
         addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         stopThinking();
         addOutput(`[ERROR] ${error.message}`, 'error');
     }
@@ -904,6 +924,11 @@ async function handleBulkCancelCommand(params) {
         addMarkdownOutput(markdown, successCount === 0 ? 'error' : 'system-output');
 
     } catch (error) {
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         stopThinking();
         addOutput(`[ERROR] ${error.message}`, 'error');
     }
@@ -964,6 +989,11 @@ Operation history cleared.`;
         lastBulkOperation = null;
 
     } catch (error) {
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         stopThinking();
         addOutput(`[ERROR] ${error.message}`, 'error');
     }
@@ -1084,6 +1114,11 @@ async function handleAvailabilityCommand(params) {
         addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         stopThinking();
         addOutput(`[ERROR] ${error.message}`, 'error');
     }
