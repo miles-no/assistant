@@ -13,6 +13,7 @@ export default defineConfig({
     baseURL: 'http://localhost:3002',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    headless: true, // Run in headless mode to avoid blocking browser windows
   },
 
   projects: [

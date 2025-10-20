@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getProvider } from './llm-providers.js';
 import { logInteraction } from './database.js';
+import { fuzzyReplaceRoomNames, getConfidenceLevel } from './fuzzy-match.js';
 
 dotenv.config();
 
@@ -63,16 +64,15 @@ EXECUTION BEHAVIOR
 CAPABILITIES
 ========================================
 You have access to the Miles booking system through MCP tools:
-- getRooms: List all available rooms
-- createBooking: Book a room for a user
-- getUserBookings: View user's bookings
-- cancelBooking: Cancel a booking
-- getRoomAvailability: Check room availability
-- getAllBookings: View all system bookings (admin/manager)
-- getUserRole: Check user's role/permissions
-- getRoomFeedback: View feedback for rooms
-- submitRoomFeedback: Submit feedback about rooms
-- updateFeedbackStatus: Resolve/dismiss feedback (requires comment)
+- create_booking: Book a room for a user
+- update_booking: Update an existing booking
+- cancel_booking: Cancel a booking
+- create_room: Create a new room (admin only)
+- update_room: Update room details (admin only)
+- find_available_rooms: Find rooms available for specific time/capacity
+- suggest_booking_time: Suggest alternative times when room is unavailable
+- create_room_feedback: Submit feedback about rooms
+- update_feedback_status: Resolve/dismiss feedback (requires comment)
 
 You also have access to resources:
 - rooms:// - Room details
@@ -135,10 +135,19 @@ TOOL USAGE
 3. Present results clearly in ASCII format
 4. Suggest next actions when helpful
 
+IMPORTANT - When a booking attempt FAILS due to unavailability:
+1. Immediately call suggest_booking_time tool with:
+   - roomId: The room that was unavailable
+   - startTime: The requested start time
+   - duration: Requested duration in minutes
+2. Present alternative available times in an ASCII table
+3. Format: "Room unavailable at requested time. Alternative slots:"
+4. ALWAYS suggest alternatives - never just say "unavailable"
+
 When showing availability or booking conflicts:
-- Check getRoomAvailability first
+- Use find_available_rooms to check availability first
 - Present times in user-friendly format
-- Suggest alternative times if unavailable
+- AUTOMATICALLY suggest alternative times using suggest_booking_time
 - Use tables for multiple options
 
 ========================================
@@ -198,6 +207,20 @@ async function executeMCPTool(toolName, args, authToken) {
         console.error(`  ✗ Tool execution failed:`, error.response?.data || error.message);
         throw error;
     }
+}
+
+// Get available room names for fuzzy matching
+// TODO: Fetch dynamically from MCP API when resource endpoint is clarified
+function getRoomNames() {
+    // Known room names from the Miles booking system
+    // These are relatively stable - hardcoded for performance
+    return [
+        'Conference Room A',
+        'Focus Pod B',
+        'Meeting Room C',
+        'Virtual Lab D',
+        'Presentation Suite'
+    ];
 }
 
 // Parse tool calls from LLM response
@@ -403,6 +426,21 @@ app.post('/api/command', async (req, res) => {
     const startTime = Date.now(); // Track request start time for error logging
 
     try {
+        // Apply fuzzy matching to correct room names before LLM processing
+        let processedCommand = command;
+        const roomNames = getRoomNames();
+
+        const fuzzyResult = fuzzyReplaceRoomNames(command, roomNames);
+
+        if (fuzzyResult.replacements.length > 0) {
+            processedCommand = fuzzyResult.correctedInput;
+            console.log('🔍 Fuzzy Matching Applied:');
+            fuzzyResult.replacements.forEach(replacement => {
+                console.log(`   "${replacement.original}" → "${replacement.replacement}" (${replacement.confidence.toFixed(1)}% confidence)`);
+            });
+            console.log(`   Overall confidence: ${fuzzyResult.confidence}`);
+        }
+
         // Fetch MCP schema
         const schema = await fetchMCPSchema(authToken);
 
@@ -437,7 +475,7 @@ ${resourcesDescription}
 USER COMMAND
 ========================================
 User ID: ${userId}
-Command: ${command}
+Command: ${processedCommand}
 
 IMPORTANT: For simple data queries, ALWAYS call the appropriate tool immediately:
 - "rooms" → Call getRooms with {"tool": "getRooms", "arguments": {}}
