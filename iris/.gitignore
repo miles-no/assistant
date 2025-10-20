@@ -1,1 +1,8 @@
+# SQLite database files
 iris-logs.db
+iris-logs.db-shm
+iris-logs.db-wal
+
+# Playwright test artifacts
+playwright-report/
+test-results/

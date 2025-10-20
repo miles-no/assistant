@@ -57,6 +57,7 @@ IRIS is a HAL-9000 inspired terminal interface for the Miles booking system. It 
   - 🧠 Anthropic (Claude)
 - **Context-Aware**: Understands booking system context and user permissions
 - **Tool Integration**: Direct access to Miles MCP booking tools
+- **Interaction Logging**: SQLite database logs all interactions for troubleshooting
 
 ### 🏢 Booking Features
 - View available rooms with capacity and amenities
@@ -338,15 +339,21 @@ Optional screen shake or glitch effect
 iris/
 ├── server.js              # Main Express server
 ├── llm-providers.js       # LLM abstraction layer
+├── database.js            # SQLite interaction logging
 ├── package.json           # Dependencies
+├── playwright.config.js   # Playwright test configuration
 ├── .env                   # Configuration
 ├── .env.example          # Configuration template
+├── .gitignore            # Git ignore patterns
 ├── README.md             # This file
-└── public/
-    ├── index.html        # Terminal UI structure
-    ├── terminal.css      # HAL-9000 styling
-    ├── terminal.js       # Terminal logic & commands
-    └── animations.js     # Visual effects
+├── public/
+│   ├── index.html        # Terminal UI structure
+│   ├── terminal.css      # HAL-9000 styling
+│   ├── terminal.js       # Terminal logic & commands
+│   └── iris-eye.js       # HAL eye animations
+└── tests/
+    ├── iris.spec.js           # Terminal UI tests (16 tests)
+    └── booking-flow.spec.js   # Booking workflow tests (14 tests)
 ```
 
 ### Running in Development
@@ -370,6 +377,68 @@ if (cmd === 'mycommand') {
     return;
 }
 ```
+
+---
+
+## 🧪 Testing
+
+IRIS includes comprehensive end-to-end tests using Playwright.
+
+### Test Suite
+
+**30 tests covering:**
+- 🔐 Authentication and login flows
+- 💬 Terminal commands (built-in and LLM-powered)
+- 🏢 Room booking workflows
+- 📅 Availability checking
+- ❌ Cancellation flows
+- 🌍 Natural language processing
+- 🇳🇴 Norwegian date parsing
+- 📜 Command history
+- 🎨 UI interactions
+
+### Running Tests
+
+```bash
+# Run all tests (headless)
+npm test
+
+# Run tests with UI (watch mode)
+npm run test:ui
+
+# Run tests in headed browser
+npm run test:headed
+
+# View last test report
+npx playwright show-report
+```
+
+### Test Results
+
+```bash
+Running 30 tests using 1 worker
+  30 passed (1.9m)
+```
+
+### Writing Tests
+
+Tests use Playwright and are located in `tests/`:
+
+```javascript
+test('User can book a room', async ({ page }) => {
+  await login(page, REGULAR_USER);
+  await sendCommand(page, 'book Focus Room tomorrow at 2pm for 1 hour');
+
+  const output = await getTerminalOutput(page);
+  expect(output).toContain('[OK] Booking confirmed');
+});
+```
+
+**Test Helpers:**
+- `login(page, credentials)` - Login with user credentials
+- `sendCommand(page, command)` - Send LLM command (waits for typing indicator)
+- `sendBuiltInCommand(page, command)` - Send instant command (help, status, clear)
+- `getTerminalOutput(page)` - Get all terminal text
 
 ---
 
