@@ -187,6 +187,12 @@ class IrisEye {
             const breathingOffset = Math.sin(Date.now() / 3000) * 0.05;
             adjustedTargetDepth = this.targetDepth + breathingOffset;
         }
+        // Error state pulsing (more dramatic oscillation)
+        else if (this.state === 'error') {
+            // Add intense pulsing (oscillates between 0.0 and 0.2)
+            const errorPulse = Math.sin(Date.now() / 200) * 0.1 + 0.1;
+            adjustedTargetDepth = Math.max(0, this.targetDepth + errorPulse);
+        }
 
         this.currentDepth += (adjustedTargetDepth - this.currentDepth) * this.depthSmoothing;
 
@@ -241,7 +247,7 @@ class IrisEye {
                 this.targetDepth = 1.0; // Maximum forward (right in your face)
                 break;
             case 'error':
-                this.targetDepth = 0.15; // Pull way back (defensive)
+                this.targetDepth = 0.0; // Maximum defensive retreat (into the void)
                 break;
             case 'blinking':
                 // Keep current depth during blink
@@ -301,12 +307,12 @@ class IrisEye {
 
     setError() {
         this.setState('error');
-        // Return to idle after a moment
+        // Return to idle after dramatic pause (longer for more impact)
         setTimeout(() => {
             if (this.state === 'error') {
                 this.setState('idle');
             }
-        }, 2000);
+        }, 4000);
     }
 
     // Manual depth control for dramatic effects
