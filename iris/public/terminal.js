@@ -345,6 +345,24 @@ async function processCommand(command) {
         return;
     }
 
+    // Hidden demo mode command
+    if (cmd === 'demo' || cmd === 'showtime') {
+        stopThinking();
+        startDemoMode();
+        return;
+    }
+
+    // Stop demo mode
+    if (cmd === 'stop') {
+        stopThinking();
+        if (demoModeActive) {
+            stopDemoMode();
+        } else {
+            addOutput('[SYSTEM] Nothing to stop. Demo mode is not active.', 'system-output');
+        }
+        return;
+    }
+
     // Direct API commands (like CLI)
     if (mainCmd === 'rooms') {
         await handleRoomsCommand(parts);
@@ -388,6 +406,8 @@ async function processCommand(command) {
             await handleRoomsCommand([]);
         } else if (data.action === 'getBookings') {
             await handleBookingsCommand([]);
+        } else if (data.action === 'checkAvailability' && data.params) {
+            await handleAvailabilityCommand(data.params);
         } else if (data.action === 'cancelBooking' && data.params?.bookingId) {
             await handleCancelCommand(['cancel', data.params.bookingId]);
         } else if (data.action === 'bulkCancel' && data.params?.filter) {
@@ -538,6 +558,7 @@ async function handleBookingCommand(params) {
     try {
         // First, try to find the room by name if roomName is provided instead of roomId
         let roomId = params.roomId;
+        let roomName = params.roomName;
 
         if (!roomId && params.roomName) {
             const roomsResponse = await fetch(`${API_URL}/api/rooms`, {
@@ -554,6 +575,7 @@ async function handleBookingCommand(params) {
 
                 if (room) {
                     roomId = room.id;
+                    roomName = room.name;
                 } else {
                     stopThinking();
                     addOutput(`[ERROR] Room "${params.roomName}" not found`, 'error');
@@ -572,6 +594,89 @@ async function handleBookingCommand(params) {
         const startTime = new Date(params.startTime);
         const duration = params.duration || 60; // Default 60 minutes
         const endTime = new Date(startTime.getTime() + duration * 60000);
+
+        // PRE-FLIGHT CHECK: Verify room is available before attempting booking
+        const availCheckParams = new URLSearchParams({
+            roomId: roomId,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString()
+        });
+
+        const availResponse = await fetch(`${API_URL}/api/rooms/availability?${availCheckParams}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (availResponse.ok) {
+            const availData = await availResponse.json();
+
+            // Check if the specific time slot is available
+            if (availData.availability && Array.isArray(availData.availability)) {
+                const requestedSlot = availData.availability.find(slot =>
+                    new Date(slot.startTime).getTime() === startTime.getTime() &&
+                    new Date(slot.endTime).getTime() === endTime.getTime()
+                );
+
+                if (requestedSlot && !requestedSlot.available) {
+                    stopThinking();
+
+                    // Show alternative available times
+                    let markdown = `[ERROR] Room is not available for the selected time slot\n\n`;
+                    markdown += `**Room:** ${roomName || roomId}\n`;
+                    markdown += `**Requested:** ${startTime.toLocaleString('en-US', { timeZone: userTimezone })}\n`;
+                    markdown += `**Duration:** ${duration} minutes\n\n`;
+
+                    // Find next available slots (within next 3 days)
+                    const threeDaysLater = new Date(startTime.getTime() + 3 * 24 * 60 * 60 * 1000);
+                    const nextSlotsParams = new URLSearchParams({
+                        roomId: roomId,
+                        startTime: startTime.toISOString(),
+                        endTime: threeDaysLater.toISOString()
+                    });
+
+                    const nextSlotsResponse = await fetch(`${API_URL}/api/rooms/availability?${nextSlotsParams}`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+
+                    if (nextSlotsResponse.ok) {
+                        const nextSlotsData = await nextSlotsResponse.json();
+                        const availableSlots = nextSlotsData.availability?.filter(slot =>
+                            slot.available &&
+                            (new Date(slot.endTime) - new Date(slot.startTime)) >= duration * 60000
+                        ) || [];
+
+                        if (availableSlots.length > 0) {
+                            markdown += '**Alternative Times Available:**\n\n';
+                            markdown += '| START | END | DURATION |\n';
+                            markdown += '|---|---|---|\n';
+
+                            availableSlots.slice(0, 5).forEach(slot => {
+                                const start = new Date(slot.startTime).toLocaleString('en-US', {
+                                    timeZone: userTimezone,
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                                const end = new Date(slot.endTime).toLocaleString('en-US', {
+                                    timeZone: userTimezone,
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                                const slotDuration = Math.round((new Date(slot.endTime) - new Date(slot.startTime)) / 60000);
+                                markdown += `| ${start} | ${end} | ${slotDuration} min |\n`;
+                            });
+
+                            markdown += `\n_Showing ${Math.min(5, availableSlots.length)} of ${availableSlots.length} available slots_`;
+                        } else {
+                            markdown += '**No alternative times available in the next 3 days.**';
+                        }
+                    }
+
+                    addMarkdownOutput(markdown, 'error');
+                    return;
+                }
+            }
+        }
 
         // Create booking
         const bookingData = {
@@ -637,40 +742,73 @@ async function handleBulkCancelCommand(params) {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
 
-        if (!response.ok) throw new Error('Failed to fetch bookings');
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Bulk cancel - fetch bookings failed:', errorText);
+            throw new Error('Failed to fetch bookings');
+        }
 
         const data = await response.json();
         let bookings = data.bookings || data;
 
+        console.log('Bulk cancel - fetched bookings:', bookings.length);
+
+        // Validate bookings is an array
+        if (!Array.isArray(bookings)) {
+            stopThinking();
+            addOutput('[ERROR] Invalid bookings data received from server', 'error');
+            return;
+        }
+
         // Filter out already cancelled bookings
-        bookings = bookings.filter(b => b.status !== 'CANCELLED');
+        const activeBookings = bookings.filter(b => b.status !== 'CANCELLED');
+        console.log('Bulk cancel - active bookings:', activeBookings.length);
 
         // Apply date filter
         const now = new Date();
         const filter = params.filter || 'all';
 
+        let filteredBookings = activeBookings;
+
         if (filter === 'today') {
             const today = now.toDateString();
-            bookings = bookings.filter(b => new Date(b.startTime).toDateString() === today);
+            filteredBookings = activeBookings.filter(b => new Date(b.startTime).toDateString() === today);
         } else if (filter === 'tomorrow') {
             const tomorrow = new Date(now);
             tomorrow.setDate(tomorrow.getDate() + 1);
             const tomorrowStr = tomorrow.toDateString();
-            bookings = bookings.filter(b => new Date(b.startTime).toDateString() === tomorrowStr);
+            filteredBookings = activeBookings.filter(b => new Date(b.startTime).toDateString() === tomorrowStr);
         } else if (filter === 'week') {
             const weekEnd = new Date(now);
             weekEnd.setDate(weekEnd.getDate() + 7);
-            bookings = bookings.filter(b => {
+            filteredBookings = activeBookings.filter(b => {
                 const startTime = new Date(b.startTime);
                 return startTime >= now && startTime <= weekEnd;
             });
         }
 
-        if (bookings.length === 0) {
+        console.log(`Bulk cancel - filtered bookings (${filter}):`, filteredBookings.length);
+
+        if (filteredBookings.length === 0) {
             stopThinking();
-            addOutput('[WARNING] No bookings found matching filter', 'system-output');
+            let markdown = '[WARNING] No bookings found matching filter\n\n';
+            markdown += `**Filter:** ${filter}\n`;
+            markdown += `**Active bookings (all):** ${activeBookings.length}\n`;
+            markdown += `**Bookings matching filter:** 0\n\n`;
+
+            if (activeBookings.length > 0) {
+                markdown += '**Available filters:**\n';
+                markdown += '- `cancel all bookings` - Cancel all bookings\n';
+                markdown += '- `cancel all today` - Cancel today\'s bookings\n';
+                markdown += '- `cancel all tomorrow` - Cancel tomorrow\'s bookings\n';
+                markdown += '- `cancel all this week` - Cancel next 7 days\n';
+            }
+
+            addMarkdownOutput(markdown, 'system-output');
             return;
         }
+
+        bookings = filteredBookings;
 
         // Store booking details for undo BEFORE cancelling
         lastBulkOperation = {
@@ -689,21 +827,38 @@ async function handleBulkCancelCommand(params) {
         const cancelResults = [];
         for (const booking of bookings) {
             try {
+                console.log(`Cancelling booking: ${booking.id}`);
                 const cancelResponse = await fetch(`${API_URL}/api/bookings/${booking.id}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
 
+                const success = cancelResponse.ok;
+                let errorMsg = null;
+
+                if (!success) {
+                    try {
+                        const errorData = await cancelResponse.json();
+                        errorMsg = errorData.error || `HTTP ${cancelResponse.status}`;
+                    } catch {
+                        errorMsg = `HTTP ${cancelResponse.status}`;
+                    }
+                    console.error(`Failed to cancel ${booking.id}:`, errorMsg);
+                }
+
                 cancelResults.push({
                     id: booking.id,
                     title: booking.title,
-                    success: cancelResponse.ok
+                    success,
+                    error: errorMsg
                 });
             } catch (error) {
+                console.error(`Exception cancelling ${booking.id}:`, error.message);
                 cancelResults.push({
                     id: booking.id,
                     title: booking.title,
-                    success: false
+                    success: false,
+                    error: error.message
                 });
             }
         }
@@ -711,14 +866,42 @@ async function handleBulkCancelCommand(params) {
         stopThinking();
 
         const successCount = cancelResults.filter(r => r.success).length;
-        const markdown = `[OK] Cancellation sequence initiated
+        const failureCount = cancelResults.length - successCount;
 
-**Terminated:** ${successCount} booking(s)
-**Filter:** ${filter}
+        let markdown;
 
-Type \`undo\` to restore cancelled bookings.`;
+        if (successCount === 0) {
+            // All cancellations failed
+            markdown = `[ERROR] Cancellation failed - no bookings were cancelled\n\n`;
+            markdown += `**Attempted:** ${cancelResults.length} booking(s)\n`;
+            markdown += `**Filter:** ${filter}\n\n`;
+            markdown += '**Errors:**\n';
 
-        addMarkdownOutput(markdown, 'system-output');
+            cancelResults.forEach(r => {
+                markdown += `- ${r.title}: ${r.error || 'Unknown error'}\n`;
+            });
+        } else if (failureCount > 0) {
+            // Partial success
+            markdown = `[WARNING] Partial cancellation success\n\n`;
+            markdown += `**Terminated:** ${successCount} booking(s)\n`;
+            markdown += `**Failed:** ${failureCount} booking(s)\n`;
+            markdown += `**Filter:** ${filter}\n\n`;
+            markdown += '**Failed bookings:**\n';
+
+            cancelResults.filter(r => !r.success).forEach(r => {
+                markdown += `- ${r.title}: ${r.error || 'Unknown error'}\n`;
+            });
+
+            markdown += '\nType `undo` to restore successfully cancelled bookings.';
+        } else {
+            // All succeeded
+            markdown = `[OK] Cancellation sequence initiated\n\n`;
+            markdown += `**Terminated:** ${successCount} booking(s)\n`;
+            markdown += `**Filter:** ${filter}\n\n`;
+            markdown += 'Type `undo` to restore cancelled bookings.';
+        }
+
+        addMarkdownOutput(markdown, successCount === 0 ? 'error' : 'system-output');
 
     } catch (error) {
         stopThinking();
@@ -779,6 +962,126 @@ Operation history cleared.`;
 
         // Clear undo history after use
         lastBulkOperation = null;
+
+    } catch (error) {
+        stopThinking();
+        addOutput(`[ERROR] ${error.message}`, 'error');
+    }
+}
+
+async function handleAvailabilityCommand(params) {
+    try {
+        // First, try to find the room by name if roomName is provided instead of roomId
+        let roomId = params.roomId;
+
+        if (!roomId && params.roomName) {
+            const roomsResponse = await fetch(`${API_URL}/api/rooms`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+
+            if (roomsResponse.ok) {
+                const roomsData = await roomsResponse.json();
+                const rooms = roomsData.rooms || roomsData;
+                const room = rooms.find(r =>
+                    r.name.toLowerCase().includes(params.roomName.toLowerCase()) ||
+                    r.id.toLowerCase().includes(params.roomName.toLowerCase())
+                );
+
+                if (room) {
+                    roomId = room.id;
+                } else {
+                    stopThinking();
+                    addOutput(`[ERROR] Room "${params.roomName}" not found`, 'error');
+                    return;
+                }
+            }
+        }
+
+        if (!roomId) {
+            stopThinking();
+            addOutput('[ERROR] Room ID or name required', 'error');
+            return;
+        }
+
+        // Build query params for availability check
+        const queryParams = new URLSearchParams({ roomId });
+
+        // Add time range if provided
+        if (params.startTime) {
+            queryParams.append('startTime', params.startTime);
+        }
+        if (params.endTime) {
+            queryParams.append('endTime', params.endTime);
+        }
+
+        // Default to next 7 days if no time range specified
+        if (!params.startTime && !params.endTime) {
+            const now = new Date();
+            const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            queryParams.append('startTime', now.toISOString());
+            queryParams.append('endTime', weekLater.toISOString());
+        }
+
+        // Fetch availability
+        const response = await fetch(`${API_URL}/api/rooms/availability?${queryParams}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!response.ok) throw new Error('Availability check failed');
+
+        const data = await response.json();
+        stopThinking();
+
+        // Format the availability data
+        let markdown = '[OK] Availability data retrieved\n\n';
+
+        if (data.availability && Array.isArray(data.availability)) {
+            const available = data.availability.filter(slot => slot.available);
+            const unavailable = data.availability.filter(slot => !slot.available);
+
+            if (available.length === 0 && unavailable.length === 0) {
+                markdown += '**No availability data found for the specified time range.**';
+            } else {
+                markdown += `**Room:** ${params.roomName || roomId}\n\n`;
+
+                if (available.length > 0) {
+                    markdown += '**Available Time Slots:**\n\n';
+                    markdown += '| START | END | DURATION |\n';
+                    markdown += '|---|---|---|\n';
+
+                    available.slice(0, 10).forEach(slot => {
+                        const start = new Date(slot.startTime).toLocaleString('en-US', {
+                            timeZone: userTimezone,
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        const end = new Date(slot.endTime).toLocaleString('en-US', {
+                            timeZone: userTimezone,
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        const duration = Math.round((new Date(slot.endTime) - new Date(slot.startTime)) / 60000);
+                        markdown += `| ${start} | ${end} | ${duration} min |\n`;
+                    });
+
+                    if (available.length > 10) {
+                        markdown += `\n_Showing 10 of ${available.length} available slots_\n`;
+                    }
+                } else {
+                    markdown += '**Status:** No available time slots found in the specified range.\n';
+                }
+
+                if (unavailable.length > 0) {
+                    markdown += `\n**Booked Slots:** ${unavailable.length}`;
+                }
+            }
+        } else {
+            markdown += '**Unable to retrieve availability data.**';
+        }
+
+        addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
         stopThinking();
@@ -860,6 +1163,110 @@ This system is designed to process booking operations with maximum efficiency an
 `;
 
     addMarkdownOutput(markdown, 'system-output');
+}
+
+// Demo mode - cycles through all IRIS states and animations
+let demoModeActive = false;
+let demoModeInterval = null;
+
+function startDemoMode() {
+    if (demoModeActive) {
+        addOutput('[DEMO MODE] Already running. Use Ctrl+C to stop.', 'system-output');
+        return;
+    }
+
+    const markdown = `
+# IRIS DEMO MODE
+**Animation Showcase Sequence**
+
+Demonstrating all IRIS personality states and CRT effects:
+
+1. **IDLE** - Subtle breathing, gentle depth oscillation
+2. **THINKING** - Deep retreat, fog effect, scanline interference
+3. **ALERT** - Rush forward, brightness flash, chromatic aberration
+4. **ERROR** - Defensive pull back, heavy distortion, screen shake
+5. **DEPTH TEST** - Extreme zoom out into the void (total blur)
+6. **DEPTH TEST** - Extreme zoom in to the surface (crystal clear)
+7. **Final States** - Processing and return to idle
+
+Press \`Ctrl+C\` or type \`stop\` to end demo mode.
+`;
+
+    addMarkdownOutput(markdown, 'system-output');
+
+    demoModeActive = true;
+    let stateIndex = 0;
+    const states = [
+        { name: 'idle', duration: 3000, description: 'IDLE - Breathing gently...' },
+        { name: 'thinking', duration: 3000, description: 'THINKING - Retreating deep into contemplation...' },
+        { name: 'alert', duration: 2000, description: 'ALERT - Rushing forward with urgency!' },
+        { name: 'error', duration: 3000, description: 'ERROR - Defensive recoil, heavy distortion!' },
+        { name: 'zoom-out', duration: 3000, description: 'DEPTH TEST - Zooming into the void...', depth: 0.0 },
+        { name: 'zoom-in', duration: 3000, description: 'DEPTH TEST - Rushing to the surface!', depth: 1.0 },
+        { name: 'thinking', duration: 2000, description: 'THINKING - Processing...' },
+        { name: 'alert', duration: 1500, description: 'ALERT - Quick response!' },
+        { name: 'idle', duration: 2500, description: 'IDLE - Returning to rest...' }
+    ];
+
+    function runDemoSequence() {
+        if (!demoModeActive || stateIndex >= states.length) {
+            // End demo mode
+            stopDemoMode();
+            return;
+        }
+
+        const currentState = states[stateIndex];
+
+        // Display current state
+        addOutput(`[DEMO] ${currentState.description}`, 'system-output');
+
+        // Trigger IRIS state change
+        if (window.IrisEye) {
+            // Check if this is a manual depth control state
+            if (currentState.depth !== undefined) {
+                window.IrisEye.setDepth(currentState.depth);
+            } else {
+                // Normal state changes
+                switch (currentState.name) {
+                    case 'idle':
+                        window.IrisEye.setIdle();
+                        break;
+                    case 'thinking':
+                        window.IrisEye.setThinking();
+                        break;
+                    case 'alert':
+                        window.IrisEye.setAlert();
+                        break;
+                    case 'error':
+                        window.IrisEye.setError();
+                        break;
+                }
+            }
+        }
+
+        stateIndex++;
+        demoModeInterval = setTimeout(runDemoSequence, currentState.duration);
+    }
+
+    // Start the sequence
+    runDemoSequence();
+}
+
+function stopDemoMode() {
+    if (!demoModeActive) return;
+
+    demoModeActive = false;
+    if (demoModeInterval) {
+        clearTimeout(demoModeInterval);
+        demoModeInterval = null;
+    }
+
+    // Return to idle
+    if (window.IrisEye) {
+        window.IrisEye.setIdle();
+    }
+
+    addOutput('[DEMO MODE] Sequence completed. IRIS returned to idle state.', 'system-output');
 }
 
 function addOutput(text, className = 'system-output') {

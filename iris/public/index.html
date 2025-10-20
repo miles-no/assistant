@@ -14,22 +14,24 @@
     <div class="scanlines"></div>
     <div class="static-noise"></div>
 
-    <!-- IRIS Eye -->
-    <div class="hal-eye-container">
-        <div class="hal-eye" id="hal-eye">
-            <div class="hal-eye-glow"></div>
-            <div class="hal-eye-sclera"></div>
-            <div class="hal-eye-iris" id="iris">
-                <div class="iris-texture"></div>
-                <div class="hal-eye-pupil" id="pupil"></div>
-                <div class="eye-highlight"></div>
+    <!-- Main App Container -->
+    <div class="app-container">
+        <!-- IRIS Eye -->
+        <div class="hal-eye-container">
+            <div class="hal-eye" id="hal-eye">
+                <div class="hal-eye-glow"></div>
+                <div class="hal-eye-sclera"></div>
+                <div class="hal-eye-iris" id="iris">
+                    <div class="iris-texture"></div>
+                    <div class="hal-eye-pupil" id="pupil"></div>
+                    <div class="eye-highlight"></div>
+                </div>
             </div>
+            <div class="hal-status" id="hal-status">IRIS v1.0 - ONLINE</div>
         </div>
-        <div class="hal-status" id="hal-status">IRIS v1.0 - ONLINE</div>
-    </div>
 
-    <!-- Terminal Container -->
-    <div class="terminal-container">
+        <!-- Terminal Container -->
+        <div class="terminal-container">
         <!-- Login Screen (shown initially) -->
         <div class="login-screen" id="login-screen">
             <div class="login-box">
@@ -68,7 +70,9 @@
             <div class="terminal-header">
                 <span class="terminal-title">IRIS TERMINAL</span>
                 <span class="terminal-info" id="user-info"></span>
-                <button class="terminal-logout" id="logout-btn">[DISCONNECT]</button>
+                <div class="terminal-logout-wrapper">
+                    <button class="terminal-logout" id="logout-btn">[DISCONNECT]</button>
+                </div>
             </div>
 
             <div class="terminal-output" id="terminal-output">
@@ -84,6 +88,7 @@
                        spellcheck="false"
                        placeholder="Type 'help' for commands...">
             </div>
+        </div>
         </div>
     </div>
 

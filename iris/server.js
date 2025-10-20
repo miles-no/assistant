@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getProvider } from './llm-providers.js';
+import { logInteraction } from './database.js';
 
 dotenv.config();
 
@@ -257,6 +258,10 @@ app.post('/api/parse-intent', async (req, res) => {
     console.log(`Command: ${command}`);
     console.log(`Timezone: ${timezone || 'UTC'}`);
 
+    const startTime = Date.now();
+    let intent = null;
+    let errorMsg = null;
+
     try {
         // Get current date/time in user's timezone for context
         const now = new Date();
@@ -271,6 +276,7 @@ User timezone: ${userTimezone}
 Available actions:
 - getRooms: List all available rooms
 - getBookings: List user's bookings
+- checkAvailability: Check when a room is available (requires roomId or roomName, optionally startTime, endTime)
 - cancelBooking: Cancel a booking (requires bookingId parameter)
 - bulkCancel: Cancel multiple bookings (requires filter: all|today|tomorrow|week)
 - createBooking: Create a new booking (requires roomId or roomName, startTime, duration, title)
@@ -295,9 +301,10 @@ User command: "${command}"
 
 Return ONLY valid JSON in this format:
 {
-  "action": "getRooms|getBookings|cancelBooking|bulkCancel|createBooking|needsMoreInfo|undo|unknown",
+  "action": "getRooms|getBookings|checkAvailability|cancelBooking|bulkCancel|createBooking|needsMoreInfo|undo|unknown",
   "params": {
     // For createBooking: roomId, roomName, startTime (ISO 8601 UTC), duration (minutes), title
+    // For checkAvailability: roomId or roomName, optionally startTime, endTime (ISO 8601 UTC)
     // For cancelBooking: bookingId
     // For bulkCancel: filter (all|today|tomorrow|week)
     // For needsMoreInfo: partial params + missing fields list
@@ -309,6 +316,8 @@ Return ONLY valid JSON in this format:
 Examples:
 - "book skagen i morgen kl 14 for 1 time" → createBooking with full params
 - "book skagen tomorrow" → needsMoreInfo: "Specify start time. Format: HH:MM"
+- "when is skagen available?" → checkAvailability with roomName: "skagen"
+- "is skagen free tomorrow at 2pm?" → checkAvailability with roomName: "skagen", startTime parsed
 - "cancel all bookings" → bulkCancel with filter: "all"
 - "cancel all today" → bulkCancel with filter: "today"
 - "cancel all this week" → bulkCancel with filter: "week"
@@ -331,15 +340,42 @@ Examples:
             throw new Error('Invalid JSON response from LLM');
         }
 
-        const intent = JSON.parse(jsonMatch[0]);
+        intent = JSON.parse(jsonMatch[0]);
 
         console.log('✓ Parsed Intent:', JSON.stringify(intent, null, 2));
         console.log('========================================\n');
+
+        // Log successful interaction
+        const durationMs = Date.now() - startTime;
+        logInteraction({
+            userId,
+            userEmail: null, // We don't have email in this context
+            command,
+            intentAction: intent.action,
+            intentParams: intent.params,
+            response: intent.response || null,
+            error: null,
+            durationMs
+        });
 
         res.json(intent);
 
     } catch (error) {
         console.error('\n❌ Intent parsing error:', error.message);
+        errorMsg = error.message;
+
+        // Log failed interaction
+        const durationMs = Date.now() - startTime;
+        logInteraction({
+            userId,
+            userEmail: null,
+            command,
+            intentAction: 'error',
+            intentParams: null,
+            response: null,
+            error: errorMsg,
+            durationMs
+        });
 
         // Fallback to full LLM response if intent parsing fails
         res.json({

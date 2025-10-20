@@ -22,8 +22,18 @@ body {
     background: var(--terminal-bg);
     color: var(--terminal-text);
     height: 100vh;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
-    position: relative;
+}
+
+/* Main App Container - Flexbox Layout */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
 }
 
 /* CRT Screen Effect Container */
@@ -65,7 +75,7 @@ body::after {
     );
 }
 
-/* Scanline CRT Effect */
+/* Scanline CRT Effect - Enhanced */
 .scanlines {
     position: fixed;
     top: 0;
@@ -74,20 +84,48 @@ body::after {
     height: 100%;
     pointer-events: none;
     z-index: 1000;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent 0px,
-        transparent 2px,
-        var(--scanline-color) 2px,
-        var(--scanline-color) 4px
-    );
-    animation: scanline-flicker 0.15s infinite;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 2px,
+            var(--scanline-color) 2px,
+            var(--scanline-color) 4px
+        );
+    opacity: 0.25;
+    animation: scanline-drift 8s linear infinite;
 }
 
-@keyframes scanline-flicker {
-    0% { opacity: 0.1; }
-    50% { opacity: 0.15; }
-    100% { opacity: 0.1; }
+@keyframes scanline-drift {
+    0% { transform: translateY(0); opacity: 0.2; }
+    50% { transform: translateY(10px); opacity: 0.3; }
+    100% { transform: translateY(0); opacity: 0.2; }
+}
+
+/* Scanline sweep effect (moving line) */
+.scanlines::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        transparent 48%,
+        rgba(255, 0, 0, 0.1) 49%,
+        rgba(255, 0, 0, 0.2) 50%,
+        rgba(255, 0, 0, 0.1) 51%,
+        transparent 52%,
+        transparent 100%
+    );
+    animation: scanline-sweep 10s linear infinite;
+}
+
+@keyframes scanline-sweep {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
 }
 
 @keyframes crt-flicker {
@@ -126,10 +164,7 @@ body::after {
 
 /* IRIS Eye */
 .hal-eye-container {
-    position: fixed;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
+    margin: 30px auto 20px;
     text-align: center;
     z-index: 100;
 }
@@ -250,6 +285,17 @@ body::after {
     50% { transform: translate(-50%, -50%) scale(1.05); }
 }
 
+/* Hover state - pupil dilates in anticipation */
+.hal-eye:hover .hal-eye-pupil {
+    transform: translate(-50%, -50%) scale(1.15);
+    transition: transform 0.3s ease-out;
+}
+
+.hal-eye:hover .hal-eye-glow {
+    opacity: 0.7;
+    transition: opacity 0.3s ease-out;
+}
+
 /* State: Thinking - contracted, jittery */
 .hal-eye.thinking .hal-eye-pupil {
     transform: translate(-50%, -50%) scale(0.7);
@@ -325,13 +371,13 @@ body::after {
 
 /* Terminal Container */
 .terminal-container {
-    position: absolute;
-    top: 160px;
-    left: 50%;
-    transform: translateX(-50%);
+    flex: 1;
     width: 90%;
     max-width: 900px;
-    height: calc(100vh - 200px);
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Allow flex item to shrink below content size */
 }
 
 /* Login Screen */
@@ -477,11 +523,19 @@ body::after {
     font-weight: 600;
     letter-spacing: 3px;
     text-shadow: 0 0 5px var(--terminal-glow);
+    flex: 1;
 }
 
 .terminal-info {
     font-size: 11px;
     color: var(--terminal-text-dim);
+    flex: 1;
+    text-align: center;
+}
+
+.terminal-logout-wrapper {
+    flex: 1;
+    text-align: right;
 }
 
 .terminal-logout {
@@ -773,4 +827,322 @@ body::after {
 
 .markdown-content a:hover {
     text-shadow: 0 0 5px var(--terminal-glow);
+}
+
+/* ========================================
+   CRT State-Based Distortion Effects
+   ======================================== */
+
+/* Idle State - Minimal effects */
+body.crt-idle .scanlines {
+    animation: scanline-drift 8s linear infinite;
+}
+
+/* Thinking State - Horizontal interference */
+body.crt-thinking .scanlines {
+    animation: scanline-drift 8s linear infinite,
+               scanline-interference 0.6s ease-in-out infinite;
+}
+
+body.crt-thinking .scanlines::after {
+    animation: scanline-sweep 10s linear infinite,
+               scanline-pulse 0.6s ease-in-out infinite;
+}
+
+@keyframes scanline-interference {
+    0%, 100% {
+        transform: translateY(0) translateX(0);
+        opacity: 0.25;
+    }
+    33% {
+        transform: translateY(3px) translateX(-2px);
+        opacity: 0.3;
+    }
+    66% {
+        transform: translateY(7px) translateX(2px);
+        opacity: 0.35;
+    }
+}
+
+@keyframes scanline-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Alert State - Rapid flicker and RGB shift */
+body.crt-alert .scanlines {
+    animation: scanline-alert 0.1s ease-in-out 5;
+}
+
+body.crt-alert .scanlines::after {
+    animation: scanline-alert-sweep 0.3s ease-out;
+}
+
+body.crt-alert::before {
+    animation: crt-alert-flash 0.5s ease-out;
+}
+
+@keyframes scanline-alert {
+    0%, 100% {
+        transform: translateY(0) translateX(0);
+        opacity: 0.25;
+    }
+    25% {
+        transform: translateY(-2px) translateX(3px);
+        opacity: 0.5;
+    }
+    50% {
+        transform: translateY(2px) translateX(-3px);
+        opacity: 0.6;
+    }
+    75% {
+        transform: translateY(1px) translateX(2px);
+        opacity: 0.4;
+    }
+}
+
+@keyframes scanline-alert-sweep {
+    0% { transform: translateY(0); opacity: 0.5; }
+    100% { transform: translateY(100vh); opacity: 1; }
+}
+
+@keyframes crt-alert-flash {
+    0% { filter: brightness(1.5) contrast(1.2); }
+    50% { filter: brightness(1.3) contrast(1.1); }
+    100% { filter: brightness(1) contrast(1); }
+}
+
+/* Error State - Heavy distortion and static burst */
+body.crt-error .scanlines {
+    animation: scanline-error 0.8s ease-in-out infinite;
+}
+
+body.crt-error .scanlines::after {
+    opacity: 0.6;
+    animation: scanline-error-sweep 1s ease-in-out infinite;
+}
+
+body.crt-error::before {
+    animation: crt-error-shake 0.8s ease-in-out infinite;
+}
+
+body.crt-error .static-noise {
+    opacity: 0.15;
+    animation: static-noise 0.1s infinite, static-burst 0.8s ease-in-out infinite;
+}
+
+@keyframes scanline-error {
+    0%, 100% {
+        transform: translateY(0) translateX(0) skewX(0deg);
+        opacity: 0.3;
+    }
+    20% {
+        transform: translateY(-5px) translateX(-4px) skewX(-2deg);
+        opacity: 0.5;
+    }
+    40% {
+        transform: translateY(5px) translateX(4px) skewX(2deg);
+        opacity: 0.6;
+    }
+    60% {
+        transform: translateY(-3px) translateX(3px) skewX(-1deg);
+        opacity: 0.55;
+    }
+    80% {
+        transform: translateY(3px) translateX(-3px) skewX(1deg);
+        opacity: 0.4;
+    }
+}
+
+@keyframes scanline-error-sweep {
+    0%, 100% {
+        transform: translateY(-50%) scaleY(1.5);
+        opacity: 0.6;
+    }
+    50% {
+        transform: translateY(150%) scaleY(2);
+        opacity: 0.8;
+    }
+}
+
+@keyframes crt-error-shake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-2px, 1px); }
+    20% { transform: translate(2px, -1px); }
+    30% { transform: translate(-1px, 2px); }
+    40% { transform: translate(1px, -2px); }
+    50% { transform: translate(-2px, -1px); }
+    60% { transform: translate(2px, 1px); }
+    70% { transform: translate(-1px, -1px); }
+    80% { transform: translate(1px, 1px); }
+    90% { transform: translate(-1px, 2px); }
+}
+
+@keyframes static-burst {
+    0%, 100% { opacity: 0.08; }
+    50% { opacity: 0.2; }
+}
+
+/* Chromatic Aberration Effect for Alert/Error */
+body.crt-alert .app-container,
+body.crt-error .app-container {
+    animation: chromatic-aberration 0.3s ease-out;
+}
+
+@keyframes chromatic-aberration {
+    0% {
+        text-shadow:
+            -2px 0 0 rgba(255, 0, 0, 0.7),
+            2px 0 0 rgba(0, 255, 255, 0.7);
+    }
+    50% {
+        text-shadow:
+            -3px 0 0 rgba(255, 0, 0, 0.8),
+            3px 0 0 rgba(0, 255, 255, 0.8);
+    }
+    100% {
+        text-shadow: none;
+    }
+}
+
+/* ========================================
+   IRIS Click Warning System
+   ======================================== */
+
+/* Warning message in terminal */
+.iris-warning-message {
+    color: var(--hal-red);
+    font-weight: 600;
+    animation: warning-flash 0.5s ease-out;
+    background: rgba(255, 0, 0, 0.1);
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-left: 3px solid var(--hal-red);
+}
+
+.warning-prefix {
+    color: #ff6666;
+    font-weight: 700;
+    text-shadow: 0 0 10px var(--hal-red);
+    letter-spacing: 1px;
+}
+
+@keyframes warning-flash {
+    0% {
+        background: rgba(255, 0, 0, 0.3);
+        box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+    }
+    100% {
+        background: rgba(255, 0, 0, 0.1);
+        box-shadow: none;
+    }
+}
+
+/* Screen shake effects */
+body.iris-click-shake {
+    animation: screen-shake 0.5s ease-in-out;
+}
+
+@keyframes screen-shake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-3px, 2px); }
+    20% { transform: translate(3px, -2px); }
+    30% { transform: translate(-2px, -3px); }
+    40% { transform: translate(2px, 3px); }
+    50% { transform: translate(-3px, -2px); }
+    60% { transform: translate(3px, 2px); }
+    70% { transform: translate(-2px, 3px); }
+    80% { transform: translate(2px, -3px); }
+    90% { transform: translate(-1px, 1px); }
+}
+
+/* Intensity-based effects */
+body.iris-click-intensity-mild .scanlines {
+    animation: scanline-drift 8s linear infinite,
+               intensity-mild-flicker 0.2s ease-in-out 3;
+}
+
+body.iris-click-intensity-moderate .scanlines {
+    animation: scanline-drift 8s linear infinite,
+               intensity-moderate-flicker 0.15s ease-in-out 5;
+}
+
+body.iris-click-intensity-moderate::before {
+    animation: crt-flicker 0.15s infinite,
+               intensity-moderate-flash 0.3s ease-out;
+}
+
+body.iris-click-intensity-severe .scanlines {
+    animation: scanline-error 0.3s ease-in-out 3;
+}
+
+body.iris-click-intensity-severe::before {
+    animation: crt-error-shake 0.3s ease-in-out 3;
+}
+
+body.iris-click-intensity-severe .static-noise {
+    opacity: 0.2;
+    animation: static-noise 0.05s infinite;
+}
+
+body.iris-click-intensity-extreme {
+    animation: screen-shake-extreme 1s ease-in-out;
+}
+
+body.iris-click-intensity-extreme .scanlines {
+    animation: scanline-error 0.2s ease-in-out infinite;
+}
+
+body.iris-click-intensity-extreme::before {
+    animation: crt-error-shake 0.2s ease-in-out infinite,
+               intensity-extreme-invert 0.3s ease-in-out 2;
+}
+
+body.iris-click-intensity-extreme .static-noise {
+    opacity: 0.3;
+    animation: static-noise 0.03s infinite;
+}
+
+@keyframes screen-shake-extreme {
+    0%, 100% { transform: translate(0, 0); }
+    5% { transform: translate(-5px, 3px) rotate(0.5deg); }
+    10% { transform: translate(5px, -3px) rotate(-0.5deg); }
+    15% { transform: translate(-4px, -5px) rotate(0.3deg); }
+    20% { transform: translate(4px, 5px) rotate(-0.3deg); }
+    25% { transform: translate(-5px, -3px) rotate(0.5deg); }
+    30% { transform: translate(5px, 3px) rotate(-0.5deg); }
+    35% { transform: translate(-3px, 5px) rotate(0.3deg); }
+    40% { transform: translate(3px, -5px) rotate(-0.3deg); }
+    45% { transform: translate(-4px, 3px) rotate(0.2deg); }
+    50% { transform: translate(4px, -3px) rotate(-0.2deg); }
+    55% { transform: translate(-3px, -4px) rotate(0.3deg); }
+    60% { transform: translate(3px, 4px) rotate(-0.3deg); }
+    65% { transform: translate(-2px, -3px) rotate(0.2deg); }
+    70% { transform: translate(2px, 3px) rotate(-0.2deg); }
+    75% { transform: translate(-3px, 2px) rotate(0.1deg); }
+    80% { transform: translate(3px, -2px) rotate(-0.1deg); }
+    85% { transform: translate(-2px, 2px); }
+    90% { transform: translate(2px, -2px); }
+    95% { transform: translate(-1px, 1px); }
+}
+
+@keyframes intensity-mild-flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes intensity-moderate-flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes intensity-moderate-flash {
+    0% { filter: brightness(1.3); }
+    50% { filter: brightness(1.5); }
+    100% { filter: brightness(1); }
+}
+
+@keyframes intensity-extreme-invert {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.8) contrast(1.3) saturate(2); }
 }
