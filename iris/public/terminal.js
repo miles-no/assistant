@@ -345,21 +345,15 @@ function addOutput(text, className = 'system-output') {
 }
 
 function typeOutput(text, className = 'system-output', speed = 20) {
-    const output = document.getElementById('terminal-output');
-    const line = document.createElement('div');
-    line.className = `terminal-line ${className}`;
-    output.appendChild(line);
+    // Split by lines to preserve ASCII tables and formatting
+    const lines = text.split('\n');
 
-    let index = 0;
-    const interval = setInterval(() => {
-        if (index < text.length) {
-            line.textContent += text[index];
-            index++;
-            output.scrollTop = output.scrollHeight;
-        } else {
-            clearInterval(interval);
-        }
-    }, speed);
+    lines.forEach((lineText, lineIndex) => {
+        // Add each line with a small delay
+        setTimeout(() => {
+            addOutput(lineText, className);
+        }, lineIndex * 50); // 50ms delay between lines for typing effect
+    });
 }
 
 function startThinking() {
