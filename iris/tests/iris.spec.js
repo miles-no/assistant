@@ -173,7 +173,7 @@ test.describe('IRIS Terminal - Happy Paths', () => {
     await page.waitForTimeout(500);
 
     // Check availability (generic query)
-    await sendCommand(page, 'when is skagen available?');
+    await sendCommand(page, 'when is Teamrommet available?');
 
     // Verify availability response
     const output = page.locator('.terminal-output');

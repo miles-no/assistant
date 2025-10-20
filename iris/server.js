@@ -314,10 +314,10 @@ Return ONLY valid JSON in this format:
 }
 
 Examples:
-- "book skagen i morgen kl 14 for 1 time" → createBooking with full params
-- "book skagen tomorrow" → needsMoreInfo: "Specify start time. Format: HH:MM"
-- "when is skagen available?" → checkAvailability with roomName: "skagen"
-- "is skagen free tomorrow at 2pm?" → checkAvailability with roomName: "skagen", startTime parsed
+- "book Teamrommet i morgen kl 14 for 1 time" → createBooking with full params
+- "book Focus Room tomorrow" → needsMoreInfo: "Specify start time. Format: HH:MM"
+- "when is Teamrommet available?" → checkAvailability with roomName: "Teamrommet"
+- "is Focus Room free tomorrow at 2pm?" → checkAvailability with roomName: "Focus Room", startTime parsed
 - "cancel all bookings" → bulkCancel with filter: "all"
 - "cancel all today" → bulkCancel with filter: "today"
 - "cancel all this week" → bulkCancel with filter: "week"
@@ -399,6 +399,8 @@ app.post('/api/command', async (req, res) => {
     console.log('========================================');
     console.log(`User:    ${userId}`);
     console.log(`Command: ${command}`);
+
+    const startTime = Date.now(); // Track request start time for error logging
 
     try {
         // Fetch MCP schema
@@ -525,6 +527,19 @@ Execute the command immediately and display results.
 
     } catch (error) {
         console.error('\n❌ Error processing command:', error.message);
+
+        // Log error to database
+        const durationMs = Date.now() - startTime;
+        logInteraction({
+            userId,
+            userEmail: null,
+            command,
+            intentAction: 'error',
+            intentParams: null,
+            response: null,
+            error: error.message,
+            durationMs
+        });
 
         let errorMessage = 'I apologize, but I encountered an error processing your request.';
 

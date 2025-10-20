@@ -73,7 +73,7 @@ test.describe('IRIS Booking Flow - Happy Paths', () => {
     await page.waitForTimeout(500);
 
     // Check availability for a room
-    await sendCommand(page, 'when is skagen available?');
+    await sendCommand(page, 'when is Teamrommet available?');
 
     const output = await getTerminalOutput(page);
 
@@ -95,16 +95,17 @@ test.describe('IRIS Booking Flow - Happy Paths', () => {
     const timeStr = '14:00'; // 2 PM
 
     // Try to book a room
-    await sendCommand(page, `book skagen tomorrow at ${timeStr} for 1 hour`);
+    await sendCommand(page, `book Teamrommet tomorrow at ${timeStr} for 1 hour`);
 
     const output = await getTerminalOutput(page);
 
-    // Should either confirm booking or show it's unavailable with alternatives
+    // Should either confirm booking or show it's unavailable (room exists but time slot taken)
+    // Should NOT return "not found" since we're using a valid room name
     const validResponse = output.includes('[OK] Booking confirmed') ||
-                         output.includes('[ERROR] Room is not available') ||
-                         output.includes('not found');
+                         output.includes('[ERROR] Room is not available');
 
     expect(validResponse).toBeTruthy();
+    expect(output).not.toContain('not found'); // Room should exist
   });
 
   test('04 - Regular user can view their bookings', async ({ page }) => {
@@ -126,16 +127,17 @@ test.describe('IRIS Booking Flow - Happy Paths', () => {
     await login(page, REGULAR_USER);
 
     // Try to book with specific time (might be unavailable)
-    await sendCommand(page, 'book skagen tomorrow at 9:00 for 8 hours');
+    await sendCommand(page, 'book Teamrommet tomorrow at 9:00 for 8 hours');
 
     const output = await getTerminalOutput(page);
 
-    // Should either successfully book OR show error with alternatives OR show not found
+    // Should either successfully book OR show error (room exists but unavailable)
+    // Should NOT return "not found" since we're using a valid room name
     const validResponse = output.includes('[OK] Booking confirmed') ||
-                         output.includes('[ERROR] Room is not available') ||
-                         output.includes('not found');
+                         output.includes('[ERROR] Room is not available');
 
     expect(validResponse).toBeTruthy();
+    expect(output).not.toContain('not found'); // Room should exist
 
     // If unavailable and alternatives are shown, verify table headers
     if (output.includes('[ERROR] Room is not available') && output.includes('Alternative')) {
@@ -231,7 +233,7 @@ test.describe('IRIS Booking Flow - Happy Paths', () => {
   test('10 - User can check specific date availability', async ({ page }) => {
     await login(page, REGULAR_USER);
 
-    await sendCommand(page, 'is skagen free tomorrow at 2pm?');
+    await sendCommand(page, 'is Teamrommet free tomorrow at 2pm?');
 
     const output = await getTerminalOutput(page);
 
@@ -294,7 +296,7 @@ test.describe('IRIS Booking Flow - Happy Paths', () => {
     await login(page, REGULAR_USER);
 
     // Use Norwegian date format
-    await sendCommand(page, 'book skagen i morgen kl 14');
+    await sendCommand(page, 'book Teamrommet i morgen kl 14');
 
     const output = await getTerminalOutput(page);
 
