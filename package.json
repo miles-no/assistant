@@ -1,4 +1,21 @@
 {
+  "name": "miles-assistant",
+  "version": "1.0.0",
+  "description": "AI-Powered Workplace Platform with 6 interfaces: IRIS Terminal, Chat Assistant, Web App, TUI, CLI, and Mobile integrations",
+  "keywords": [
+    "ai",
+    "assistant",
+    "booking",
+    "mcp",
+    "model-context-protocol",
+    "ollama",
+    "llm",
+    "hal-9000",
+    "workspace",
+    "platform"
+  ],
+  "author": "Miles",
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.8.1"
   }

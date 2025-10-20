@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: miles-booking-db
+    container_name: miles-assistant-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -24,7 +24,7 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: miles-booking-api
+    container_name: miles-assistant-api
     restart: unless-stopped
     environment:
       DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/miles_booking?schema=public"
@@ -42,7 +42,7 @@ services:
     build:
       context: ./chat-app
       dockerfile: Dockerfile
-    container_name: miles-booking-chat
+    container_name: miles-assistant-chat
     restart: unless-stopped
     environment:
       PORT: 3001
@@ -60,4 +60,4 @@ services:
 
 volumes:
   postgres_data:
-    name: miles-booking-postgres-data
+    name: miles-assistant-postgres-data

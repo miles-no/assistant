@@ -1,241 +1,382 @@
-# Miles Room Booking System
+<div align="center">
 
-A comprehensive room booking system for Miles office locations with **multiple type-safe clients** and REST API.
+# 🤖 Miles Assistant
 
-## 🔒 Type Safety Across All Clients
+### AI-Powered Workplace Platform
 
-All clients maintain complete type safety from the backend API using OpenAPI code generation:
+*"Siri har mye på agendaen, så vi introduserer Miles Assistant – intelligent workspace management through multiple interfaces"*
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-green)](https://nodejs.org/)
+[![Go](https://img.shields.io/badge/Go-1.24.3-00ADD8)](https://golang.org/)
+[![MCP](https://img.shields.io/badge/MCP-Enabled-purple)](https://modelcontextprotocol.io)
+
+</div>
+
+---
+
+## 🌟 What is Miles Assistant?
+
+Miles Assistant started as a room booking system, but has evolved into a **comprehensive AI-powered workplace platform** with six different interfaces, natural language processing, and intelligent automation. Whether you prefer a HAL-9000 terminal, conversational chat, visual web interface, or scriptable CLI—Miles Assistant adapts to how you work.
+
+```mermaid
+graph TB
+    subgraph Interfaces["🎨 Six Ways to Interact"]
+        IRIS[🔴 IRIS Terminal<br/>HAL-9000 Inspired]
+        CHAT[💬 Chat Assistant<br/>Natural Language]
+        WEB[🌐 Web App<br/>Visual Interface]
+        TUI[🎨 Terminal UI<br/>Bubble Tea]
+        CLI[⌨️ CLI<br/>Scriptable]
+        MOBILE[📱 Mobile<br/>Slack + ESP32]
+    end
+
+    subgraph Core["🧠 AI Core"]
+        MCP[Model Context Protocol]
+        LLM[Multi-LLM Support<br/>Ollama | OpenAI | Claude]
+        API[REST API + Auth]
+    end
+
+    subgraph Backend["💾 Backend"]
+        DB[(PostgreSQL<br/>Prisma ORM)]
+        TOOLS[Booking Tools<br/>Rooms | Users | Calendar]
+    end
+
+    IRIS --> MCP
+    CHAT --> MCP
+    WEB --> API
+    TUI --> API
+    CLI --> API
+    MOBILE --> API
+
+    MCP --> LLM
+    MCP --> API
+    API --> TOOLS
+    TOOLS --> DB
+
+    style IRIS fill:#330000,stroke:#ff0000,color:#fff
+    style CHAT fill:#1a1a2e,stroke:#0f3460,color:#fff
+    style Core fill:#2d3436,stroke:#fdcb6e,color:#fff
+    style Backend fill:#2d3436,stroke:#00b894,color:#fff
 ```
-Backend OpenAPI Spec → Generated Types → All Clients
-   (api/openapi.yaml)   (various tools)   (type-safe)
-```
 
-- **Web** (React): `@hey-api/openapi-ts` → TypeScript types
-- **TUI** (Go): `oapi-codegen` → Go types
-- **CLI** (Go): `oapi-codegen` → Go types
-- **Slack Bot** (Node.js): `@hey-api/openapi-ts` → TypeScript types (guide available)
-- **ESP32 Display** (C++): Python script → C++ headers (guide available)
+---
 
-## 🎯 Features
+## 🎯 Choose Your Interface
 
-### Core Features
-- **🏢 Multi-location** - 7 office locations (Norway + Lithuania)
-- **👥 Role-based access** - Admin, Manager, User roles
-- **📅 Real-time booking** - Conflict detection and availability checking
-- **📆 Calendar feeds** - iCal export for Google Calendar, Outlook, etc.
-- **🔒 Complete Type Safety** - OpenAPI-generated types for all clients
+| Interface | Best For | Technology | Port | Documentation |
+|-----------|----------|------------|------|---------------|
+| **🔴 IRIS** | Power users who love retro-futuristic terminals | Node.js + HAL-9000 CSS | 3002 | [📖 IRIS Docs](./iris/README.md) |
+| **💬 Chat** | Natural conversation and AI assistance | Node.js + Multi-LLM | 3001 | [📖 Chat Docs](./chat-app/README.md) |
+| **🌐 Web** | Visual, mobile-friendly experience | React + TypeScript | 5173 | [📖 Web Docs](./web/README.md) |
+| **🎨 TUI** | Terminal enthusiasts and keyboard warriors | Go + Bubble Tea | - | [📖 TUI Docs](./tui/README.md) |
+| **⌨️ CLI** | Automation, scripting, CI/CD | Go + Cobra | - | [📖 CLI Docs](./cli/README.md) |
+| **📱 Mobile** | Slack teams and room displays | Integration Guides | - | [📖 Guides](./docs/) |
 
-### Multiple Clients
-- **🌐 Web App** - Modern React SPA with shadcn/ui components
-- **💬 Chat Assistant** - AI-powered chat interface with Ollama + MCP
-- **🎨 TUI** - Beautiful terminal interface built with Bubble Tea (Go)
-- **⌨️ CLI** - Fast, scriptable command-line interface (Go + Cobra)
-- **📱 Slack Bot** - Interactive Slack integration (implementation guide)
-- **📺 ESP32 Displays** - Room status displays (implementation guide)
+---
+
+## ✨ Standout Features
+
+### 🤖 AI-First Design
+- **Natural Language Processing**: Talk to your booking system like a colleague
+- **Multi-LLM Support**: Choose between Ollama (local), OpenAI, or Anthropic
+- **Model Context Protocol**: Standardized AI tool integration across all interfaces
+- **Intelligent Suggestions**: AI recommends available times, rooms, and resolves conflicts
+
+### 🎨 Multiple Interfaces
+- **IRIS Terminal**: HAL-9000 inspired with CRT scanlines, pulsing red eye, typing animations
+- **Chat Assistant**: Modern chat UI with markdown rendering, tables, and streaming responses
+- **Web App**: React SPA with shadcn/ui components and dark mode
+- **Terminal UI**: Vim keybindings, beautiful TUI built with Bubble Tea
+- **CLI**: Fast, scriptable commands for automation
+- **Integrations**: Slack bot guide, ESP32 display guide
+
+### 🔒 Type Safety Everywhere
+- **OpenAPI-First**: Single source of truth (`api/openapi.yaml`)
+- **Generated Clients**: TypeScript and Go types auto-generated
+- **End-to-End Safety**: From database to frontend
+
+### 🏢 Enterprise Ready
+- **Multi-location**: 7 offices across Norway and Lithuania
+- **Role-based Access**: Admin, Manager, User roles
+- **Real-time Conflict Detection**: Prevent double-bookings
+- **Calendar Integration**: iCal export for Google Calendar, Outlook
+- **Feedback System**: Room feedback with resolution workflows
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **API**: Node.js 20+, PostgreSQL (or Docker)
-- **Web**: Node.js 20+
-- **TUI**: Go 1.24.3+
-- **CLI**: Go 1.24.3+
+<details>
+<summary><b>What you'll need (click to expand)</b></summary>
 
-### Setup Everything (Automated)
+**Required:**
+- Node.js 20.x or higher
+- PostgreSQL (or Docker)
 
-From the root directory:
+**Optional (depending on interface):**
+- Go 1.24.3+ (for TUI/CLI)
+- Docker & Docker Compose (for containerized deployment)
+- Ollama (for local AI, recommended)
 
-```bash
-# Set up API and database
-./setup.sh
+**For AI Features:**
+Choose one:
+- 🦙 Ollama (local, free, private)
+- 🤖 OpenAI API key (ChatGPT)
+- 🧠 Anthropic API key (Claude)
 
-# Install CLI and TUI to your system (one-time)
-./install.sh
+</details>
 
-# Start API (in one terminal)
-cd api && npm run dev
-
-# Start Web App (in another terminal)
-cd web && npm run dev  # http://localhost:5173
-
-# Or start the Chat Assistant (requires Ollama)
-cd chat-app && npm start  # http://localhost:3001
-
-# Or use the installed TUI
-miles-booking
-
-# Or use the installed CLI
-miles --help
-```
-
-### Install CLI & TUI (Recommended)
-
-The automated installer builds and installs both the CLI and TUI to your system:
+### One-Command Setup
 
 ```bash
-./install.sh
+# Clone and setup everything
+git clone <repo-url> miles-assistant
+cd miles-assistant
+./start-dev.sh
 ```
 
-This will:
-- ✓ Check for Go and required tools
-- ✓ Generate type-safe code from OpenAPI
-- ✓ Build both CLI and TUI
-- ✓ Install to `~/.local/bin` (or custom location via `INSTALL_DIR`)
-- ✓ Verify PATH configuration
+**This automatically:**
+- ✓ Checks prerequisites (Docker, Ollama)
+- ✓ Pulls LLM model if needed
+- ✓ Starts PostgreSQL in Docker
+- ✓ Runs database migrations and seeding
+- ✓ Starts API on port 3000
+- ✓ Starts Chat Assistant on port 3001
+- ✓ Performs health checks
+- ✓ Shows you URLs and credentials
 
-After installation:
+### Access Your Interfaces
+
+After setup completes:
+
+| Interface | URL | Credentials |
+|-----------|-----|-------------|
+| **API Documentation** | http://localhost:3000/api-docs | N/A |
+| **Chat Assistant** | http://localhost:3001 | Login required |
+| **IRIS Terminal** | http://localhost:3002 | Login required |
+| **Web App** | http://localhost:5173 | Login required |
+
+**Test Accounts** (all passwords: `password123`):
+- Admin: `admin@miles.com`
+- Manager: `manager.stavanger@miles.com`
+- User: `john.doe@miles.com`
+
+### Choose Your Adventure
+
+**Want the HAL-9000 experience?**
 ```bash
-miles-booking              # Launch TUI
-miles login user@email.com # Use CLI
+cd iris
+npm start
+# Open http://localhost:3002
 ```
 
-### Or Use Docker
-
+**Prefer chat?**
 ```bash
-# Start database and API
-docker-compose up -d
-
-# Then run any client you prefer
+cd chat-app
+npm start
+# Open http://localhost:3001
 ```
 
-## 📁 Project Structure
-
-```
-booking/
-├── api/                    # REST API (Node.js + TypeScript)
-│   ├── src/                # API source code
-│   │   └── mcp/            # ⭐ Model Context Protocol server
-│   ├── prisma/             # Database schema and migrations
-│   └── openapi.yaml        # ⭐ OpenAPI 3.0 specification (source of truth)
-│
-├── web/                    # Web App (React + TypeScript)
-│   ├── src/
-│   │   ├── components/     # React components (shadcn/ui)
-│   │   ├── lib/
-│   │   │   └── api/        # ⭐ Generated API client
-│   │   └── pages/          # App routes
-│   └── package.json
-│
-├── chat-app/               # AI Chat Assistant (Node.js + Ollama)
-│   ├── public/             # Frontend (HTML/CSS/JS)
-│   ├── server.js           # Backend (Express + MCP client)
-│   └── README.md           # Chat assistant documentation
-│
-├── tui/                    # Terminal UI (Go + Bubble Tea)
-│   ├── cmd/                # Main entry point
-│   ├── internal/
-│   │   ├── generated/      # ⭐ Generated Go types
-│   │   ├── api/            # API client
-│   │   ├── ui/             # Views (login, dashboard, calendar, etc.)
-│   │   └── styles/         # Theming and colors
-│   └── Makefile
-│
-├── cli/                    # CLI (Go + Cobra)
-│   ├── cmd/miles/          # Main entry point
-│   ├── internal/
-│   │   ├── generated/      # ⭐ Generated Go types
-│   │   ├── commands/       # CLI commands
-│   │   └── config/         # API client
-│   └── Makefile
-│
-├── docs/                   # Implementation guides
-│   ├── SLACK_BOT_GUIDE.md  # Slack bot implementation
-│   └── ESP32_DISPLAY_GUIDE.md  # ESP32 display implementation
-│
-├── docker-compose.yml
-└── setup.sh                # Automated setup script
-```
-
-## 🌐 Web App Features
-- **Modern React SPA** with TypeScript and Vite
-- **Beautiful UI** using shadcn/ui components
-- **Complete Type Safety** with generated API client
-- **Responsive Design** - Works on mobile, tablet, and desktop
-- **Dark Mode** support
-- **Real-time Updates** - Booking status updates
-
-## 💬 Chat Assistant Features
-- **Natural Language Interface** - Talk to your booking system
-- **AI-Powered** - Uses Ollama (llama3.2) for intelligent conversations
-- **MCP Integration** - Direct access to all booking tools and resources
-- **Smart Suggestions** - Find available rooms, suggest times, make bookings
-- **Modern Chat UI** - Beautiful, responsive chat interface
-
-## 🎨 TUI Features
-- **Interactive Terminal UI** built with Bubble Tea
-- **Vim Keybindings** - Power user features
-- **Views**: Login, Dashboard, Locations, Rooms, Calendar, Bookings, Admin Panel
-- **Keyboard Shortcuts**: `j/k` (navigation), `/` (search), `q` (quick book)
-
-## ⌨️ CLI Features
-- **Fast & Scriptable** - Perfect for automation
-- **Commands**: `login`, `rooms`, `book`, `bookings`, `cancel`
-- **Multiple Output Formats** - table, JSON, CSV
-- **Configuration** - Via file, environment variables, or flags
-
+**Go developer?**
 ```bash
-# List rooms
-miles rooms --location LOC123 -o json
-
-# Create booking
-miles book -r ROOM123 -s "2025-10-19 14:00" -e "2025-10-19 15:00" -t "Meeting"
-
-# View your bookings
-miles bookings -o csv > bookings.csv
+./install.sh           # Installs TUI and CLI
+miles-booking          # Launch TUI
+miles login user@mail  # Use CLI
 ```
+
+**Just want the web UI?**
+```bash
+cd web
+npm install
+npm run dev  # http://localhost:5173
+```
+
+---
 
 ## 📚 Documentation
 
-### Clients
-- [Web App](./web/README.md) - React frontend documentation
-- [Chat Assistant](./chat-app/README.md) - AI-powered chat interface
-- [TUI](./tui/README.md) - Terminal UI documentation
-- [CLI](./cli/README.md) - Command-line interface documentation
-- [Slack Bot Guide](./docs/SLACK_BOT_GUIDE.md) - Implementation guide for Slack integration
-- [ESP32 Display Guide](./docs/ESP32_DISPLAY_GUIDE.md) - Implementation guide for room displays
+### Core Documentation
+- **[📖 Getting Started Guide](./GETTING_STARTED.md)** - Detailed setup for all components
+- **[🏗️ Architecture Overview](./ARCHITECTURE.md)** - System design and data flow
+- **[📖 Legacy Booking Docs](./BOOKING_SYSTEM_LEGACY.md)** - Original comprehensive docs
 
-### API
-- [API Documentation](./api/README.md)
-- [API Setup Guide](./api/SETUP.md)
-- [API Examples](./api/API_EXAMPLES.md)
-- [MCP Integration](./api/MCP_README.md) - Model Context Protocol documentation
-- [OpenAPI Spec](./api/openapi.yaml) - Interactive docs at `/api-docs`
+### Interface Documentation
+- **[🔴 IRIS](./iris/README.md)** - HAL-9000 terminal assistant
+- **[💬 Chat Assistant](./chat-app/README.md)** - AI-powered chat with markdown
+- **[🌐 Web App](./web/README.md)** - React frontend
+- **[🎨 TUI](./tui/README.md)** - Terminal interface
+- **[⌨️ CLI](./cli/README.md)** - Command-line tools
 
-## 🏢 Office Locations
+### API & Integration
+- **[🔌 API Documentation](./api/README.md)** - REST API reference
+- **[🤖 MCP Integration](./api/MCP_README.md)** - Model Context Protocol
+- **[📝 OpenAPI Spec](./api/openapi.yaml)** - Interactive docs at `/api-docs`
+- **[💬 Slack Bot Guide](./docs/SLACK_BOT_GUIDE.md)** - Slack integration
+- **[📺 ESP32 Display Guide](./docs/ESP32_DISPLAY_GUIDE.md)** - Room displays
 
-After seeding, you'll have access to:
+### Implementation Guides
+- **[📋 Feedback System](./FEEDBACK_IMPLEMENTATION_GUIDE.md)** - Room feedback workflows
+- **[🛠️ Setup Guide](./SETUP.md)** - Manual setup instructions
+- **[⚡ Quick Start](./QUICKSTART.md)** - Fast track setup
 
-**Norway**
-- Stavanger (5 meeting rooms)
-- Haugesund
-- Oslo
-- Bergen
-- Ålesund
-- Innlandet (Lillehammer)
+---
 
-**International**
-- Lithuania (Vilnius)
+## 🏗️ Architecture Overview
 
-## 👥 Test Accounts
+### Technology Stack
 
-All passwords: `password123`
+<table>
+<tr>
+<th>Component</th>
+<th>Technology</th>
+<th>Purpose</th>
+</tr>
+<tr>
+<td><b>API</b></td>
+<td>Node.js, Express, TypeScript, Prisma</td>
+<td>Core backend with REST API and MCP server</td>
+</tr>
+<tr>
+<td><b>IRIS</b></td>
+<td>Node.js, Express, Vanilla JS</td>
+<td>HAL-9000 inspired terminal assistant</td>
+</tr>
+<tr>
+<td><b>Chat</b></td>
+<td>Node.js, Express, marked.js</td>
+<td>AI chat with markdown rendering</td>
+</tr>
+<tr>
+<td><b>Web</b></td>
+<td>React, TypeScript, Vite, shadcn/ui</td>
+<td>Modern web application</td>
+</tr>
+<tr>
+<td><b>TUI</b></td>
+<td>Go, Bubble Tea, Lipgloss</td>
+<td>Beautiful terminal interface</td>
+</tr>
+<tr>
+<td><b>CLI</b></td>
+<td>Go, Cobra</td>
+<td>Scriptable command-line tool</td>
+</tr>
+<tr>
+<td><b>Database</b></td>
+<td>PostgreSQL, Prisma ORM</td>
+<td>Persistent data storage</td>
+</tr>
+<tr>
+<td><b>AI Layer</b></td>
+<td>Ollama / OpenAI / Anthropic</td>
+<td>Natural language processing</td>
+</tr>
+<tr>
+<td><b>Protocol</b></td>
+<td>Model Context Protocol (MCP)</td>
+<td>Standardized AI tool interface</td>
+</tr>
+</table>
 
-- **Admin**: `admin@miles.com`
-- **Manager (Stavanger)**: `manager.stavanger@miles.com`
-- **Manager (Oslo)**: `manager.oslo@miles.com`
-- **User**: `john.doe@miles.com`
-- **User**: `jane.smith@miles.com`
+### Project Structure
 
-## 🛠️ Development
+```
+miles-assistant/
+├── api/                    # 🔌 REST API & MCP Server
+│   ├── src/
+│   │   └── mcp/            # Model Context Protocol tools
+│   ├── prisma/             # Database schema & migrations
+│   └── openapi.yaml        # OpenAPI specification
+│
+├── iris/                   # 🔴 HAL-9000 Terminal Assistant
+│   ├── public/             # Frontend (HTML/CSS/JS)
+│   ├── server.js           # MCP client + LLM integration
+│   └── llm-providers.js    # Multi-LLM abstraction
+│
+├── chat-app/               # 💬 AI Chat Assistant
+│   ├── public/             # Frontend with markdown rendering
+│   ├── server.js           # Express + MCP + LLM
+│   └── llm-providers.js    # Multi-LLM support
+│
+├── web/                    # 🌐 React Web App
+│   ├── src/
+│   │   ├── components/     # shadcn/ui components
+│   │   ├── lib/api/        # Generated API client
+│   │   └── pages/          # App routes
+│   └── package.json
+│
+├── tui/                    # 🎨 Terminal UI (Go)
+│   ├── internal/
+│   │   ├── generated/      # OpenAPI-generated types
+│   │   └── ui/             # Bubble Tea views
+│   └── Makefile
+│
+├── cli/                    # ⌨️ CLI (Go)
+│   ├── internal/
+│   │   ├── generated/      # OpenAPI-generated types
+│   │   └── commands/       # Cobra commands
+│   └── Makefile
+│
+├── docs/                   # 📚 Integration Guides
+│   ├── SLACK_BOT_GUIDE.md
+│   └── ESP32_DISPLAY_GUIDE.md
+│
+├── ARCHITECTURE.md         # System architecture deep-dive
+├── GETTING_STARTED.md      # Comprehensive setup guide
+├── docker-compose.yml      # Container orchestration
+├── start-dev.sh            # Development startup script
+└── install.sh              # CLI/TUI installer
+```
 
-### Local Development (Recommended)
+---
 
-For the best development experience, use the provided automation scripts to run the API and Chat App locally with the database in Docker:
+## 🎮 Example Workflows
+
+### Natural Language Booking (IRIS or Chat)
+
+```
+> I need a room for 6 people tomorrow at 2pm
+
+IRIS: I found Teamrommet which seats 8 people. Would you like
+      to book it for 1 hour starting at 2:00 PM?
+
+> yes, make it 2 hours
+
+IRIS: ✓ Booked Teamrommet for 2025-10-21 from 14:00-16:00
+```
+
+### CLI Automation
 
 ```bash
-# Start all services (database in Docker, API + chat-app locally)
+# Script to book daily standup
+#!/bin/bash
+miles book \
+  --room "Focus Room" \
+  --start "$(date +%Y-%m-%d) 09:00" \
+  --duration 15 \
+  --title "Daily Standup" \
+  --recurring weekly
+```
+
+### TUI Power User
+
+```
+Press 'q' for quick book
+Select room with j/k
+Press Enter to book
+Press '/' to search
+```
+
+---
+
+## 🧪 Development
+
+### Start Development Environment
+
+```bash
+# Start everything (database, API, chat-app)
 ./start-dev.sh
 
 # Check status of all services
@@ -248,140 +389,109 @@ For the best development experience, use the provided automation scripts to run 
 ./stop-dev.sh
 ```
 
-**What `start-dev.sh` does:**
-- ✓ Checks prerequisites (Docker, Ollama)
-- ✓ Pulls llama3.2 model if needed
-- ✓ Starts PostgreSQL in Docker
-- ✓ Starts API on port 3000 with hot reload
-- ✓ Starts Chat App on port 3001
-- ✓ Performs health checks on all services
-- ✓ Saves logs to `logs/` directory
-- ✓ Displays service URLs and process IDs
+### Individual Component Development
 
-**Services after startup:**
-- Database: `localhost:5433` (Docker)
-- API: `http://localhost:3000` (local)
-- API Docs: `http://localhost:3000/api-docs` (local)
-- Chat App: `http://localhost:3001` (local)
-
-### API Development
-
+**API:**
 ```bash
 cd api
-npm run dev              # Start dev server with hot reload
-npm run prisma:studio    # Open database GUI
-npm run openapi:gen      # Generate OpenAPI types
-npm run build            # Build for production
+npm run dev              # Hot reload
+npm run prisma:studio    # Database GUI
 ```
 
-### Web Development
-
+**IRIS:**
 ```bash
-cd web
-npm run dev              # Start Vite dev server
-npm run generate         # Generate API client from OpenAPI
-npm run build            # Build for production
+cd iris
+npm run dev              # Hot reload (node --watch)
 ```
 
-### TUI Development
-
+**Chat:**
 ```bash
-cd tui
-make generate            # Generate Go types from OpenAPI
-make build               # Build binary
-make run                 # Run the TUI
-make install             # Install to system
-```
-
-### CLI Development
-
-```bash
-cd cli
-make generate            # Generate Go types from OpenAPI
-make build               # Build binary
-make install             # Install to system
-./bin/miles --help       # Test CLI
-```
-
-### Database
-
-```bash
-cd api
-npm run prisma:migrate   # Run migrations
-npm run prisma:seed      # Seed sample data
-npx prisma migrate reset # Reset database
-```
-
-## 🔧 Configuration
-
-### API Configuration
-Edit `api/.env`:
-- `DATABASE_URL` - PostgreSQL connection
-- `JWT_SECRET` - Secret for JWT tokens
-- `PORT` - API server port
-
-### TUI Configuration
-Edit `tui/config.yaml` (auto-created):
-- `api_url` - API endpoint (default: http://localhost:3000)
-- `theme` - Color theme
-- `keybindings` - Custom keyboard shortcuts
-
-## 🐳 Docker
-
-The provided `docker-compose.yml` starts:
-- PostgreSQL database on port 5433
-- API server on port 3000
-- Chat Assistant on port 3001 (requires Ollama on host)
-
-```bash
-docker-compose up -d     # Start services
-docker-compose logs -f   # View logs
-docker-compose down      # Stop services
-
-# For development with hot-reload
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
-```
-
-**Note for Chat Assistant:** Ollama must be running on your host machine for the chat-app container to work.
-
-## 📦 Building for Production
-
-### API
-```bash
-cd api
-npm run build
+cd chat-app
 npm start
 ```
 
-### Web
+**Web:**
 ```bash
 cd web
-npm run build
-# Static files in: ./dist
+npm run dev
+npm run generate         # Regenerate API client
 ```
 
-### TUI
+**TUI/CLI:**
 ```bash
-cd tui
+cd tui  # or cd cli
+make generate            # Generate types from OpenAPI
 make build
-# Binary at: ./bin/miles-booking
+make run
 ```
-
-### CLI
-```bash
-cd cli
-make build
-# Binary at: ./bin/miles
-```
-
-## 🤝 Contributing
-
-This is a Miles internal project. See individual component READMEs for development guidelines.
-
-## 📄 License
-
-MIT
 
 ---
 
-Built with ❤️ for Miles
+## 🐳 Docker Deployment
+
+### Quick Start
+
+```bash
+docker-compose up -d
+```
+
+This starts:
+- PostgreSQL on port 5433
+- API on port 3000
+- Chat Assistant on port 3001
+
+### Development Mode
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+Enables hot-reload for all services.
+
+---
+
+## 🌍 Office Locations
+
+Miles Assistant supports **7 office locations**:
+
+**🇳🇴 Norway**
+- Stavanger (5 meeting rooms)
+- Haugesund
+- Oslo
+- Bergen
+- Ålesund
+- Innlandet (Lillehammer)
+
+**🇱🇹 International**
+- Lithuania (Vilnius)
+
+---
+
+## 🤝 Contributing
+
+This is a Miles internal project. For development guidelines, see:
+- [Architecture Documentation](./ARCHITECTURE.md)
+- [Getting Started Guide](./GETTING_STARTED.md)
+- Individual component READMEs
+
+---
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+---
+
+<div align="center">
+
+### ⭐ Powered By
+
+[Model Context Protocol](https://modelcontextprotocol.io) • [OpenAPI](https://www.openapis.org/) • [Ollama](https://ollama.com) • [Prisma](https://prisma.io)
+
+---
+
+**Built with ❤️ for Miles**
+
+*From a booking system to a full AI assistant platform*
+
+</div>
