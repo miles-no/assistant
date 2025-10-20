@@ -26,6 +26,45 @@ body {
     position: relative;
 }
 
+/* CRT Screen Effect Container */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2000;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.15) 0px,
+            transparent 1px,
+            transparent 2px,
+            rgba(0, 0, 0, 0.15) 3px
+        );
+    animation: crt-flicker 0.15s infinite;
+}
+
+/* CRT Bulge/Curvature Effect */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1999;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        transparent 60%,
+        rgba(0, 0, 0, 0.3) 100%
+    );
+}
+
 /* Scanline CRT Effect */
 .scanlines {
     position: fixed;
@@ -51,7 +90,41 @@ body {
     100% { opacity: 0.1; }
 }
 
-/* HAL Eye */
+@keyframes crt-flicker {
+    0% { opacity: 1; }
+    50% { opacity: 0.98; }
+    100% { opacity: 1; }
+}
+
+/* Static Noise Overlay */
+.static-noise {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1998;
+    opacity: 0.03;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="1"/></svg>');
+    animation: static-noise 0.2s infinite;
+}
+
+@keyframes static-noise {
+    0% { transform: translate(0, 0); }
+    10% { transform: translate(-5%, -5%); }
+    20% { transform: translate(-10%, 5%); }
+    30% { transform: translate(5%, -10%); }
+    40% { transform: translate(-5%, 15%); }
+    50% { transform: translate(-10%, 5%); }
+    60% { transform: translate(15%, 0); }
+    70% { transform: translate(0, 10%); }
+    80% { transform: translate(-15%, 0); }
+    90% { transform: translate(10%, 5%); }
+    100% { transform: translate(5%, 0); }
+}
+
+/* IRIS Eye */
 .hal-eye-container {
     position: fixed;
     top: 30px;
@@ -62,59 +135,184 @@ body {
 }
 
 .hal-eye {
-    width: 80px;
-    height: 80px;
+    width: 100px;
+    height: 100px;
     margin: 0 auto 15px;
     position: relative;
-    animation: hal-pulse 2s ease-in-out infinite;
 }
 
-.hal-eye-inner {
+/* Outer glow */
+.hal-eye-glow {
+    position: absolute;
+    top: -30px;
+    left: -30px;
+    right: -30px;
+    bottom: -30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--hal-red-glow) 0%, transparent 70%);
+    opacity: 0.5;
+    animation: iris-glow 3s ease-in-out infinite;
+    transition: opacity 0.3s ease;
+}
+
+/* Sclera (eye white/outer ring) */
+.hal-eye-sclera {
+    position: absolute;
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%,
-        #ff0000 0%,
-        #cc0000 30%,
-        #880000 60%,
+    background: radial-gradient(circle at center,
+        #220000 0%,
+        #330000 50%,
         #440000 100%
     );
     box-shadow:
-        0 0 20px var(--hal-red-glow),
-        0 0 40px var(--hal-red-glow),
-        0 0 60px var(--hal-red-glow),
-        inset 0 0 20px rgba(0, 0, 0, 0.5);
+        inset 0 0 20px rgba(0, 0, 0, 0.8),
+        0 0 15px rgba(255, 0, 0, 0.3);
 }
 
-.hal-eye-glow {
+/* Iris container (can move for tracking) */
+.hal-eye-iris {
     position: absolute;
-    top: -20px;
-    left: -20px;
-    right: -20px;
-    bottom: -20px;
+    width: 70px;
+    height: 70px;
+    top: 15px;
+    left: 15px;
     border-radius: 50%;
-    background: radial-gradient(circle, var(--hal-red-glow) 0%, transparent 70%);
-    opacity: 0.6;
-    animation: hal-glow 2s ease-in-out infinite;
+    background: radial-gradient(circle at 40% 40%,
+        #ff3333 0%,
+        #ff0000 20%,
+        #cc0000 40%,
+        #880000 70%,
+        #440000 100%
+    );
+    transition: transform 0.15s ease-out;
 }
 
-@keyframes hal-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+/* Iris texture (radial lines) */
+.iris-texture {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background:
+        repeating-conic-gradient(
+            from 0deg,
+            transparent 0deg 8deg,
+            rgba(0, 0, 0, 0.3) 8deg 10deg
+        );
+    opacity: 0.4;
 }
 
-@keyframes hal-glow {
+/* Pupil (dilates/contracts) */
+.hal-eye-pupil {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+        #000000 0%,
+        #000000 60%,
+        #330000 100%
+    );
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+/* Highlight for realism */
+.eye-highlight {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    top: 18px;
+    left: 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 100, 100, 0.6) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* Animations */
+@keyframes iris-glow {
     0%, 100% { opacity: 0.4; }
-    50% { opacity: 0.8; }
+    50% { opacity: 0.7; }
 }
 
-.hal-eye.thinking {
-    animation: hal-thinking 0.8s ease-in-out infinite;
+/* State: Idle - gentle pulse */
+.hal-eye.idle .hal-eye-pupil {
+    animation: pupil-idle 4s ease-in-out infinite;
 }
 
-@keyframes hal-thinking {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.15); opacity: 0.7; }
+@keyframes pupil-idle {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.05); }
+}
+
+/* State: Thinking - contracted, jittery */
+.hal-eye.thinking .hal-eye-pupil {
+    transform: translate(-50%, -50%) scale(0.7);
+    animation: pupil-thinking 0.6s ease-in-out infinite;
+}
+
+.hal-eye.thinking .hal-eye-glow {
+    opacity: 0.8;
+    animation: glow-intense 0.6s ease-in-out infinite;
+}
+
+@keyframes pupil-thinking {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.7); }
+    25% { transform: translate(-49%, -51%) scale(0.68); }
+    50% { transform: translate(-51%, -50%) scale(0.72); }
+    75% { transform: translate(-50%, -49%) scale(0.69); }
+}
+
+@keyframes glow-intense {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+/* State: Alert - rapid contract then dilate */
+.hal-eye.alert .hal-eye-pupil {
+    animation: pupil-alert 0.5s ease-out;
+}
+
+@keyframes pupil-alert {
+    0% { transform: translate(-50%, -50%) scale(1); }
+    30% { transform: translate(-50%, -50%) scale(0.4); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+/* State: Error - wide dilation */
+.hal-eye.error .hal-eye-pupil {
+    transform: translate(-50%, -50%) scale(1.4);
+    animation: pupil-error 0.8s ease-in-out;
+}
+
+.hal-eye.error .hal-eye-glow {
+    opacity: 1;
+    animation: glow-error 0.4s ease-in-out infinite;
+}
+
+@keyframes pupil-error {
+    0%, 100% { transform: translate(-50%, -50%) scale(1.4); }
+    50% { transform: translate(-50%, -50%) scale(1.5); }
+}
+
+@keyframes glow-error {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 1; }
+}
+
+/* Blink animation */
+.hal-eye.blinking .hal-eye-pupil {
+    animation: pupil-blink 0.15s ease-in-out;
+}
+
+@keyframes pupil-blink {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(0.1); }
 }
 
 .hal-status {
@@ -455,4 +653,124 @@ body {
 
 .glitch {
     animation: glitch 0.3s infinite;
+}
+
+/* Markdown Content - Terminal ASCII Style */
+.markdown-content {
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+    color: var(--hal-red);
+    font-weight: 600;
+    margin: 1em 0 0.5em 0;
+    text-shadow: 0 0 5px var(--terminal-glow);
+}
+
+.markdown-content h1::before {
+    content: '═══ ';
+}
+
+.markdown-content h1::after {
+    content: ' ═══';
+}
+
+.markdown-content h2::before {
+    content: '══ ';
+}
+
+.markdown-content h2::after {
+    content: ' ══';
+}
+
+.markdown-content h3::before {
+    content: '─ ';
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin: 0.5em 0;
+    padding-left: 2em;
+}
+
+.markdown-content li {
+    margin: 0.25em 0;
+}
+
+.markdown-content ul > li::marker {
+    content: '▸ ';
+}
+
+.markdown-content p {
+    margin: 0.5em 0;
+}
+
+.markdown-content code {
+    background: rgba(255, 0, 0, 0.1);
+    padding: 2px 6px;
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    font-family: inherit;
+    color: var(--hal-red);
+}
+
+.markdown-content pre {
+    background: rgba(255, 0, 0, 0.05);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    padding: 1em;
+    margin: 1em 0;
+    overflow-x: auto;
+}
+
+.markdown-content pre code {
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.markdown-content blockquote {
+    border-left: 3px solid var(--hal-red);
+    padding-left: 1em;
+    margin: 1em 0;
+    color: var(--terminal-text-dim);
+}
+
+.markdown-content table {
+    border-collapse: collapse;
+    margin: 1em 0;
+    width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    padding: 0.5em 1em;
+    text-align: left;
+}
+
+.markdown-content th {
+    font-weight: 600;
+    background: rgba(255, 0, 0, 0.1);
+}
+
+.markdown-content strong {
+    font-weight: 600;
+    text-shadow: 0 0 3px var(--terminal-glow);
+}
+
+.markdown-content hr {
+    border: none;
+    border-top: 1px solid var(--hal-red);
+    margin: 1em 0;
+}
+
+.markdown-content a {
+    color: var(--hal-red);
+    text-decoration: underline;
+}
+
+.markdown-content a:hover {
+    text-shadow: 0 0 5px var(--terminal-glow);
 }

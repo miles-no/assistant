@@ -241,7 +241,115 @@ function parseToolCalls(text) {
     return toolCalls;
 }
 
-// Main command processing endpoint
+// Intent parsing endpoint - LLM extracts structured intent
+app.post('/api/parse-intent', async (req, res) => {
+    const { command, userId, timezone } = req.body;
+    const authToken = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    console.log('\n========================================');
+    console.log('🧠 IRIS Intent Parsing');
+    console.log('========================================');
+    console.log(`User:    ${userId}`);
+    console.log(`Command: ${command}`);
+    console.log(`Timezone: ${timezone || 'UTC'}`);
+
+    try {
+        // Get current date/time in user's timezone for context
+        const now = new Date();
+        const userTimezone = timezone || 'UTC';
+
+        // Build intent parsing prompt
+        const intentPrompt = `You are a cold, precise intent parser for a booking system. Parse commands and return ONLY valid JSON.
+
+Current date/time: ${now.toISOString()} (UTC)
+User timezone: ${userTimezone}
+
+Available actions:
+- getRooms: List all available rooms
+- getBookings: List user's bookings
+- cancelBooking: Cancel a booking (requires bookingId parameter)
+- bulkCancel: Cancel multiple bookings (requires filter: all|today|tomorrow|week)
+- createBooking: Create a new booking (requires roomId or roomName, startTime, duration, title)
+- needsMoreInfo: Incomplete request requiring follow-up
+- undo: Undo the last bulk operation
+- unknown: Irrelevant queries
+
+DATE PARSING (Norwegian + English):
+- "i morgen"/"tomorrow" → next day at specified time
+- "i dag"/"today" → current day at specified time
+- "mandag"/"monday", "tirsdag"/"tuesday", etc. → next occurrence
+- "neste uke"/"next week" → following week
+- "kl 14"/"at 2pm"/"14:00" → time specification
+- Always return startTime as ISO 8601 UTC timestamp
+
+DURATION PARSING:
+- "1 time"/"1 hour" → 60 minutes
+- "30 min"/"30 minutes" → 30 minutes
+- Default to 60 minutes if not specified
+
+User command: "${command}"
+
+Return ONLY valid JSON in this format:
+{
+  "action": "getRooms|getBookings|cancelBooking|bulkCancel|createBooking|needsMoreInfo|undo|unknown",
+  "params": {
+    // For createBooking: roomId, roomName, startTime (ISO 8601 UTC), duration (minutes), title
+    // For cancelBooking: bookingId
+    // For bulkCancel: filter (all|today|tomorrow|week)
+    // For needsMoreInfo: partial params + missing fields list
+    // For undo: no params
+  },
+  "response": "only for needsMoreInfo/unknown - be COLD, TERSE, HAL-9000-like"
+}
+
+Examples:
+- "book skagen i morgen kl 14 for 1 time" → createBooking with full params
+- "book skagen tomorrow" → needsMoreInfo: "Specify start time. Format: HH:MM"
+- "cancel all bookings" → bulkCancel with filter: "all"
+- "cancel all today" → bulkCancel with filter: "today"
+- "cancel all this week" → bulkCancel with filter: "week"
+- "undo" → undo action
+- "what's up?" → unknown: "Query irrelevant. State operational requirements."
+- "rooms" → getRooms`;
+
+        console.log('\n🧠 Calling LLM for intent parsing...');
+
+        const llmResponse = await llmProvider.chat([
+            { role: 'system', content: 'You are a precise intent parser. Return ONLY valid JSON.' },
+            { role: 'user', content: intentPrompt }
+        ]);
+
+        console.log('✓ LLM Response:', llmResponse.content);
+
+        // Parse the JSON response
+        const jsonMatch = llmResponse.content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('Invalid JSON response from LLM');
+        }
+
+        const intent = JSON.parse(jsonMatch[0]);
+
+        console.log('✓ Parsed Intent:', JSON.stringify(intent, null, 2));
+        console.log('========================================\n');
+
+        res.json(intent);
+
+    } catch (error) {
+        console.error('\n❌ Intent parsing error:', error.message);
+
+        // Fallback to full LLM response if intent parsing fails
+        res.json({
+            action: 'unknown',
+            response: 'System: Unable to parse intent. Processing command with full AI...'
+        });
+    }
+});
+
+// Main command processing endpoint (kept for backward compatibility)
 app.post('/api/command', async (req, res) => {
     const { command, userId } = req.body;
     const authToken = req.headers.authorization?.replace('Bearer ', '');

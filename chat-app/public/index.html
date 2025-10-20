@@ -35,6 +35,15 @@
                     <button type="submit" class="btn btn-primary">Login</button>
                     <div id="login-error" class="error-message" style="display: none;"></div>
                 </form>
+                <!--
+                    ⚠️ SECURITY WARNING: NEVER DO THIS IN PRODUCTION! ⚠️
+                    Exposing credentials in client-side HTML is a critical security vulnerability.
+                    This is ONLY acceptable for local development demos.
+
+                    TODO: Remove this before deploying to any environment
+                    TODO: Implement proper demo/sandbox mode detection
+                    TODO: Add environment-based credential hiding
+                -->
                 <div class="test-accounts">
                     <small><strong>Test Accounts:</strong></small>
                     <small>admin@miles.com / password123</small>

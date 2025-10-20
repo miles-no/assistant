@@ -10,14 +10,20 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Scanline overlay for CRT effect -->
+    <!-- CRT Effects -->
     <div class="scanlines"></div>
+    <div class="static-noise"></div>
 
-    <!-- HAL Eye -->
+    <!-- IRIS Eye -->
     <div class="hal-eye-container">
         <div class="hal-eye" id="hal-eye">
-            <div class="hal-eye-inner"></div>
             <div class="hal-eye-glow"></div>
+            <div class="hal-eye-sclera"></div>
+            <div class="hal-eye-iris" id="iris">
+                <div class="iris-texture"></div>
+                <div class="hal-eye-pupil" id="pupil"></div>
+                <div class="eye-highlight"></div>
+            </div>
         </div>
         <div class="hal-status" id="hal-status">IRIS v1.0 - ONLINE</div>
     </div>
@@ -82,6 +88,8 @@
     </div>
 
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
+    <script src="iris-eye.js"></script>
     <script src="terminal.js"></script>
     <script src="animations.js"></script>
 </body>

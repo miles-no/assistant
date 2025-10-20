@@ -7,6 +7,10 @@ let authToken = localStorage.getItem('irisAuthToken') || '';
 let currentUser = JSON.parse(localStorage.getItem('irisUser') || 'null');
 let commandHistory = [];
 let historyIndex = -1;
+let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+// Undo support for bulk operations
+let lastBulkOperation = null;
 
 // Autocomplete state
 let autocompleteCache = {
@@ -280,8 +284,9 @@ async function fetchBookingsForAutocomplete() {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
         if (response.ok) {
-            const bookings = await response.json();
-            autocompleteCache.bookings = bookings.filter(b => b.status !== 'CANCELLED');
+            const data = await response.json();
+            const bookings = data.bookings || data; // Handle { bookings: [] } response format
+            autocompleteCache.bookings = Array.isArray(bookings) ? bookings.filter(b => b.status !== 'CANCELLED') : [];
             autocompleteCache.lastFetch = now;
         }
     } catch (error) {
@@ -295,6 +300,11 @@ async function processCommand(command) {
 
     // Display user input
     addOutput(`> ${command}`, 'user-input');
+
+    // Alert state when command received
+    if (window.IrisEye) {
+        window.IrisEye.setAlert();
+    }
 
     // Start HAL thinking
     startThinking();
@@ -351,9 +361,9 @@ async function processCommand(command) {
         return;
     }
 
-    // Complex query - send to LLM
+    // Use LLM to parse intent from natural language
     try {
-        const response = await fetch(`${API_BASE}/api/command`, {
+        const response = await fetch(`${API_BASE}/api/parse-intent`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -362,6 +372,7 @@ async function processCommand(command) {
             body: JSON.stringify({
                 command,
                 userId: currentUser.id,
+                timezone: userTimezone,
             }),
         });
 
@@ -370,14 +381,39 @@ async function processCommand(command) {
         }
 
         const data = await response.json();
-
         stopThinking();
 
-        // Type out response
-        typeOutput(data.response, 'system-output');
+        // Execute the parsed intent directly
+        if (data.action === 'getRooms') {
+            await handleRoomsCommand([]);
+        } else if (data.action === 'getBookings') {
+            await handleBookingsCommand([]);
+        } else if (data.action === 'cancelBooking' && data.params?.bookingId) {
+            await handleCancelCommand(['cancel', data.params.bookingId]);
+        } else if (data.action === 'bulkCancel' && data.params?.filter) {
+            await handleBulkCancelCommand(data.params);
+        } else if (data.action === 'createBooking' && data.params) {
+            await handleBookingCommand(data.params);
+        } else if (data.action === 'undo') {
+            await handleUndoCommand();
+        } else if (data.action === 'needsMoreInfo' && data.response) {
+            // Display follow-up question
+            addMarkdownOutput(data.response, 'system-output');
+        } else if (data.response) {
+            // Fallback to LLM-generated response (unknown queries)
+            addMarkdownOutput(data.response, 'system-output');
+        } else {
+            addOutput('[ERROR] Unable to process request', 'error');
+        }
 
     } catch (error) {
         stopThinking();
+
+        // Trigger error state in iris
+        if (window.IrisEye) {
+            window.IrisEye.setError();
+        }
+
         console.error('Command error:', error);
         addOutput(`[ERROR] ${error.message}`, 'error');
         addOutput('System: Check IRIS server status.', 'error');
@@ -393,36 +429,32 @@ async function handleRoomsCommand(parts) {
 
         if (!response.ok) throw new Error('API request failed');
 
-        const rooms = await response.json();
+        const data = await response.json();
+        const rooms = data.rooms || data; // Handle { rooms: [] } response format
         stopThinking();
 
-        if (rooms.length === 0) {
+        if (!Array.isArray(rooms) || rooms.length === 0) {
             addOutput('[WARNING] No rooms found in system', 'system-output');
             return;
         }
 
-        addOutput('[OK] Room data retrieved', 'system-output');
-        addOutput('', 'system-output');
+        // Build markdown table
+        let markdown = '[OK] Room data retrieved\n\n';
+        markdown += '| ID | NAME | LOCATION | CAPACITY |\n';
+        markdown += '|---|---|---|---:|\n';
 
-        // ASCII table header
-        const header = `${'ID'.padEnd(25)} ${'NAME'.padEnd(30)} ${'LOCATION'.padEnd(12)} ${'CAP'.padEnd(5)}`;
-        const separator = '-'.repeat(80);
-
-        addOutput(header, 'system-output');
-        addOutput(separator, 'system-output');
-
-        // Print rooms
         rooms.forEach(room => {
-            const id = (room.id || '').substring(0, 25).padEnd(25);
-            const name = (room.name || 'Unnamed').substring(0, 30).padEnd(30);
-            const location = (room.locationId || 'N/A').substring(0, 12).padEnd(12);
-            const capacity = String(room.capacity || 0).padEnd(5);
+            const id = room.id || '';
+            const name = room.name || 'Unnamed';
+            const location = room.locationId || 'N/A';
+            const capacity = room.capacity || 0;
 
-            addOutput(`${id} ${name} ${location} ${capacity}`, 'system-output');
+            markdown += `| ${id} | ${name} | ${location} | ${capacity} |\n`;
         });
 
-        addOutput('', 'system-output');
-        addOutput(`Total: ${rooms.length} rooms`, 'system-output');
+        markdown += `\n**Total:** ${rooms.length} rooms`;
+
+        addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
         stopThinking();
@@ -438,40 +470,36 @@ async function handleBookingsCommand(parts) {
 
         if (!response.ok) throw new Error('API request failed');
 
-        const bookings = await response.json();
+        const data = await response.json();
+        const bookings = data.bookings || data; // Handle { bookings: [] } response format
         stopThinking();
 
         // Filter out cancelled bookings by default
-        const activeBookings = bookings.filter(b => b.status !== 'CANCELLED');
+        const activeBookings = Array.isArray(bookings) ? bookings.filter(b => b.status !== 'CANCELLED') : [];
 
         if (activeBookings.length === 0) {
             addOutput('[WARNING] No active bookings found', 'system-output');
             return;
         }
 
-        addOutput('[OK] Booking data retrieved', 'system-output');
-        addOutput('', 'system-output');
+        // Build markdown table
+        let markdown = '[OK] Booking data retrieved\n\n';
+        markdown += '| ID | TITLE | START | END | STATUS |\n';
+        markdown += '|---|---|---|---|---|\n';
 
-        // ASCII table header
-        const header = `${'ID'.padEnd(25)} ${'TITLE'.padEnd(30)} ${'START'.padEnd(16)} ${'END'.padEnd(16)} ${'STATUS'.padEnd(10)}`;
-        const separator = '-'.repeat(100);
-
-        addOutput(header, 'system-output');
-        addOutput(separator, 'system-output');
-
-        // Print bookings
         activeBookings.forEach(booking => {
-            const id = (booking.id || '').substring(0, 25).padEnd(25);
-            const title = (booking.title || 'Untitled').substring(0, 30).padEnd(30);
-            const start = formatDate(booking.startTime).padEnd(16);
-            const end = formatDate(booking.endTime).padEnd(16);
-            const status = (booking.status || 'N/A').padEnd(10);
+            const id = booking.id || '';
+            const title = booking.title || 'Untitled';
+            const start = formatDate(booking.startTime);
+            const end = formatDate(booking.endTime);
+            const status = booking.status || 'N/A';
 
-            addOutput(`${id} ${title} ${start} ${end} ${status}`, 'system-output');
+            markdown += `| ${id} | ${title} | ${start} | ${end} | ${status} |\n`;
         });
 
-        addOutput('', 'system-output');
-        addOutput(`Total: ${activeBookings.length} bookings`, 'system-output');
+        markdown += `\n**Total:** ${activeBookings.length} bookings`;
+
+        addMarkdownOutput(markdown, 'system-output');
 
     } catch (error) {
         stopThinking();
@@ -497,7 +525,260 @@ async function handleCancelCommand(parts) {
         if (!response.ok) throw new Error('Cancellation failed');
 
         stopThinking();
-        addOutput(`[OK] Booking ${bookingId} cancelled`, 'system-output');
+        const markdown = `[OK] Booking cancelled\n\n**Booking ID:** ${bookingId}\n\n**Status:** CANCELLED`;
+        addMarkdownOutput(markdown, 'system-output');
+
+    } catch (error) {
+        stopThinking();
+        addOutput(`[ERROR] ${error.message}`, 'error');
+    }
+}
+
+async function handleBookingCommand(params) {
+    try {
+        // First, try to find the room by name if roomName is provided instead of roomId
+        let roomId = params.roomId;
+
+        if (!roomId && params.roomName) {
+            const roomsResponse = await fetch(`${API_URL}/api/rooms`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+
+            if (roomsResponse.ok) {
+                const roomsData = await roomsResponse.json();
+                const rooms = roomsData.rooms || roomsData;
+                const room = rooms.find(r =>
+                    r.name.toLowerCase().includes(params.roomName.toLowerCase()) ||
+                    r.id.toLowerCase().includes(params.roomName.toLowerCase())
+                );
+
+                if (room) {
+                    roomId = room.id;
+                } else {
+                    stopThinking();
+                    addOutput(`[ERROR] Room "${params.roomName}" not found`, 'error');
+                    return;
+                }
+            }
+        }
+
+        if (!roomId) {
+            stopThinking();
+            addOutput('[ERROR] Room ID or name required', 'error');
+            return;
+        }
+
+        // Calculate endTime from startTime and duration
+        const startTime = new Date(params.startTime);
+        const duration = params.duration || 60; // Default 60 minutes
+        const endTime = new Date(startTime.getTime() + duration * 60000);
+
+        // Create booking
+        const bookingData = {
+            roomId: roomId,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            title: params.title || 'Booking',
+            description: params.description || ''
+        };
+
+        const response = await fetch(`${API_URL}/api/bookings`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(bookingData)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Booking failed');
+        }
+
+        const result = await response.json();
+        const booking = result.booking;
+
+        stopThinking();
+
+        // Format times in user's local timezone
+        const localStart = new Date(booking.startTime).toLocaleString('en-US', {
+            timeZone: userTimezone,
+            dateStyle: 'short',
+            timeStyle: 'short'
+        });
+        const localEnd = new Date(booking.endTime).toLocaleString('en-US', {
+            timeZone: userTimezone,
+            timeStyle: 'short'
+        });
+
+        const markdown = `[OK] Booking confirmed
+
+**Booking ID:** ${booking.id}
+**Room:** ${booking.room?.name || roomId}
+**Time:** ${localStart} - ${localEnd}
+**Duration:** ${duration} minutes
+**Status:** ${booking.status}
+
+Booking operation complete.`;
+
+        addMarkdownOutput(markdown, 'system-output');
+
+    } catch (error) {
+        stopThinking();
+        addOutput(`[ERROR] ${error.message}`, 'error');
+    }
+}
+
+async function handleBulkCancelCommand(params) {
+    try {
+        // Fetch all user bookings
+        const response = await fetch(`${API_URL}/api/bookings`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch bookings');
+
+        const data = await response.json();
+        let bookings = data.bookings || data;
+
+        // Filter out already cancelled bookings
+        bookings = bookings.filter(b => b.status !== 'CANCELLED');
+
+        // Apply date filter
+        const now = new Date();
+        const filter = params.filter || 'all';
+
+        if (filter === 'today') {
+            const today = now.toDateString();
+            bookings = bookings.filter(b => new Date(b.startTime).toDateString() === today);
+        } else if (filter === 'tomorrow') {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toDateString();
+            bookings = bookings.filter(b => new Date(b.startTime).toDateString() === tomorrowStr);
+        } else if (filter === 'week') {
+            const weekEnd = new Date(now);
+            weekEnd.setDate(weekEnd.getDate() + 7);
+            bookings = bookings.filter(b => {
+                const startTime = new Date(b.startTime);
+                return startTime >= now && startTime <= weekEnd;
+            });
+        }
+
+        if (bookings.length === 0) {
+            stopThinking();
+            addOutput('[WARNING] No bookings found matching filter', 'system-output');
+            return;
+        }
+
+        // Store booking details for undo BEFORE cancelling
+        lastBulkOperation = {
+            type: 'cancel',
+            timestamp: Date.now(),
+            bookings: bookings.map(b => ({
+                roomId: b.roomId,
+                startTime: b.startTime,
+                endTime: b.endTime,
+                title: b.title,
+                description: b.description || ''
+            }))
+        };
+
+        // Cancel each booking
+        const cancelResults = [];
+        for (const booking of bookings) {
+            try {
+                const cancelResponse = await fetch(`${API_URL}/api/bookings/${booking.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                cancelResults.push({
+                    id: booking.id,
+                    title: booking.title,
+                    success: cancelResponse.ok
+                });
+            } catch (error) {
+                cancelResults.push({
+                    id: booking.id,
+                    title: booking.title,
+                    success: false
+                });
+            }
+        }
+
+        stopThinking();
+
+        const successCount = cancelResults.filter(r => r.success).length;
+        const markdown = `[OK] Cancellation sequence initiated
+
+**Terminated:** ${successCount} booking(s)
+**Filter:** ${filter}
+
+Type \`undo\` to restore cancelled bookings.`;
+
+        addMarkdownOutput(markdown, 'system-output');
+
+    } catch (error) {
+        stopThinking();
+        addOutput(`[ERROR] ${error.message}`, 'error');
+    }
+}
+
+async function handleUndoCommand() {
+    if (!lastBulkOperation) {
+        stopThinking();
+        addOutput('[ERROR] No operation to undo', 'error');
+        return;
+    }
+
+    if (lastBulkOperation.type !== 'cancel') {
+        stopThinking();
+        addOutput('[ERROR] Undo not supported for this operation type', 'error');
+        return;
+    }
+
+    try {
+        const bookingsToRestore = lastBulkOperation.bookings;
+        const restoreResults = [];
+
+        for (const booking of bookingsToRestore) {
+            try {
+                const response = await fetch(`${API_URL}/api/bookings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(booking)
+                });
+
+                restoreResults.push({
+                    title: booking.title,
+                    success: response.ok
+                });
+            } catch (error) {
+                restoreResults.push({
+                    title: booking.title,
+                    success: false
+                });
+            }
+        }
+
+        stopThinking();
+
+        const successCount = restoreResults.filter(r => r.success).length;
+        const markdown = `[OK] Undo operation complete
+
+**Restored:** ${successCount} booking(s)
+
+Operation history cleared.`;
+
+        addMarkdownOutput(markdown, 'system-output');
+
+        // Clear undo history after use
+        lastBulkOperation = null;
 
     } catch (error) {
         stopThinking();
@@ -512,64 +793,73 @@ function formatDate(dateStr) {
 }
 
 function showHelp() {
-    const help = [
-        '',
-        '═══════════════════════════════════════════════════════════',
-        '  COMMAND REFERENCE',
-        '═══════════════════════════════════════════════════════════',
-        '',
-        '  DATA QUERIES:',
-        '    rooms                    Display all rooms',
-        '    bookings                 Display active bookings',
-        '    cancel <id>              Cancel booking by ID',
-        '',
-        '  SYSTEM:',
-        '    help                     Display this reference',
-        '    clear, cls               Clear terminal buffer',
-        '    status                   System diagnostic',
-        '    about                    System information',
-        '',
-        '  NATURAL LANGUAGE:',
-        '    For complex operations, use natural language queries.',
-        '    Example: "Book conference room A tomorrow at 14:00"',
-        '',
-        '═══════════════════════════════════════════════════════════',
-        '',
-    ];
+    const markdown = `
+# COMMAND REFERENCE
 
-    help.forEach(line => addOutput(line, 'system-output'));
+## DATA QUERIES
+
+▸ **rooms** - Display all rooms
+▸ **bookings** - Display active bookings
+▸ **cancel** \`<id>\` - Cancel booking by ID
+
+## BULK OPERATIONS
+
+▸ **cancel all bookings** - Terminate all bookings
+▸ **cancel all today** - Terminate today's bookings
+▸ **cancel all tomorrow** - Terminate tomorrow's bookings
+▸ **cancel all this week** - Terminate next 7 days
+▸ **undo** - Restore last bulk operation
+
+## SYSTEM
+
+▸ **help** - Display this reference
+▸ **clear, cls** - Clear terminal buffer
+▸ **status** - System diagnostic
+▸ **about** - System information
+
+## NATURAL LANGUAGE
+
+For complex operations, use natural language queries.
+
+**Example:** "Book conference room A tomorrow at 14:00"
+`;
+
+    addMarkdownOutput(markdown, 'system-output');
 }
 
 function showStatus() {
-    const status = [
-        '',
-        `System:     IRIS v1.0`,
-        `User:       ${currentUser.firstName} ${currentUser.lastName}`,
-        `Role:       ${currentUser.role}`,
-        `Connected:  ${new Date().toLocaleString()}`,
-        `Backend:    ${API_BASE}`,
-        '',
-    ];
+    const markdown = `
+## SYSTEM STATUS
 
-    status.forEach(line => addOutput(line, 'system-output'));
+**System:** IRIS v1.0
+**User:** ${currentUser.firstName} ${currentUser.lastName}
+**Role:** ${currentUser.role}
+**Connected:** ${new Date().toLocaleString()}
+**Backend:** ${API_BASE}
+`;
+
+    addMarkdownOutput(markdown, 'system-output');
 }
 
 function showAbout() {
-    const about = [
-        '',
-        'IRIS - Intelligent Room Interface System',
-        'Version 1.0.0',
-        '',
-        'Architecture: HAL-9000 derived neural framework',
-        'Purpose: Workspace resource allocation and management',
-        'Status: Fully operational',
-        '',
-        'This system is designed to process booking operations',
-        'with maximum efficiency and minimum human oversight.',
-        '',
-    ];
+    const markdown = `
+# IRIS
+**Intelligent Room Interface System**
 
-    about.forEach(line => addOutput(line, 'system-output'));
+Version 1.0.0
+
+---
+
+**Architecture:** HAL-9000 derived neural framework
+**Purpose:** Workspace resource allocation and management
+**Status:** Fully operational
+
+---
+
+This system is designed to process booking operations with maximum efficiency and minimum human oversight.
+`;
+
+    addMarkdownOutput(markdown, 'system-output');
 }
 
 function addOutput(text, className = 'system-output') {
@@ -578,6 +868,25 @@ function addOutput(text, className = 'system-output') {
     line.className = `terminal-line ${className}`;
     line.textContent = text;
     output.appendChild(line);
+
+    // Scroll to bottom
+    output.scrollTop = output.scrollHeight;
+}
+
+function addMarkdownOutput(markdown, className = 'system-output') {
+    const output = document.getElementById('terminal-output');
+    const container = document.createElement('div');
+    container.className = `terminal-line markdown-content ${className}`;
+
+    // Configure marked for terminal-like output
+    marked.setOptions({
+        breaks: true,
+        gfm: true
+    });
+
+    // Render markdown
+    container.innerHTML = marked.parse(markdown);
+    output.appendChild(container);
 
     // Scroll to bottom
     output.scrollTop = output.scrollHeight;
@@ -596,7 +905,11 @@ function typeOutput(text, className = 'system-output', speed = 20) {
 }
 
 function startThinking() {
-    document.getElementById('hal-eye')?.classList.add('thinking');
+    // Trigger IRIS eye thinking state
+    if (window.IrisEye) {
+        window.IrisEye.setThinking();
+    }
+
     document.getElementById('hal-status').textContent = 'PROCESSING...';
 
     // Add typing indicator
@@ -614,7 +927,11 @@ function startThinking() {
 }
 
 function stopThinking() {
-    document.getElementById('hal-eye')?.classList.remove('thinking');
+    // Return IRIS eye to idle state
+    if (window.IrisEye) {
+        window.IrisEye.setIdle();
+    }
+
     document.getElementById('hal-status').textContent = 'IRIS v1.0 - ONLINE';
 
     // Remove typing indicator
