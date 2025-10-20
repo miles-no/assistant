@@ -125,15 +125,16 @@ function typeWelcomeMessage() {
         '  ██║██║  ██║██║███████║',
         '  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝',
         '',
-        '  MILES AI ASSISTANT - VERSION 1.0',
-        '  "Filtering out the questions you could figure out yourself"',
+        '  IRIS TERMINAL INTERFACE v1.0',
+        '  SYSTEM INITIALIZED',
         '',
         '═══════════════════════════════════════════════════════════',
         '',
-        `Hello, ${currentUser.firstName}.`,
+        `User authenticated: ${currentUser.firstName} ${currentUser.lastName}`,
+        `Access level: ${currentUser.role}`,
         '',
-        'I am IRIS, your AI assistant for the Miles booking system.',
-        'Type \'help\' for available commands.',
+        'All system functions are now operational.',
+        'Enter commands. Type "help" for available operations.',
         '',
     ];
 
@@ -319,14 +320,15 @@ function showStatus() {
 function showAbout() {
     const about = [
         '',
-        'IRIS - Miles AI Assistant',
+        'IRIS - Intelligent Room Interface System',
+        'Version 1.0.0',
         '',
-        'Siri har mye på agendaen, så vi introduserer IRIS –',
-        'Miles sin egen AI-assistent som kan filtrere bort',
-        'alle de spørsmålene du kunne funnet ut av selv.',
+        'Architecture: HAL-9000 derived neural framework',
+        'Purpose: Workspace resource allocation and management',
+        'Status: Fully operational',
         '',
-        'Built with HAL-9000 inspired aesthetics.',
-        'Version 1.0 - Retro-Futuristic Terminal Interface',
+        'This system is designed to process booking operations',
+        'with maximum efficiency and minimum human oversight.',
         '',
     ];
 
