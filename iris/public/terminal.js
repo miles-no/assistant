@@ -154,7 +154,7 @@ function typeWelcomeMessage() {
     });
 }
 
-function handleKeyDown(e) {
+async function handleKeyDown(e) {
     const input = e.target;
 
     // Handle Enter
