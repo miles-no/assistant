@@ -320,6 +320,7 @@ let irisEye;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         irisEye = new IrisEye();
+        window.IrisEye = irisEye;
     });
 } else {
     irisEye = new IrisEye();
