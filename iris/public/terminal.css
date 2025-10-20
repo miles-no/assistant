@@ -307,7 +307,7 @@ body {
     padding: 20px;
     overflow-y: auto;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.2;
 }
 
 .terminal-output::-webkit-scrollbar {
@@ -324,7 +324,7 @@ body {
 }
 
 .terminal-line {
-    margin-bottom: 8px;
+    margin-bottom: 2px;
     animation: terminal-fade-in 0.3s ease-out;
 }
 
