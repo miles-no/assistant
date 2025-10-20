@@ -4,9 +4,9 @@
 
 ### Miles' Retro-Futuristic AI Assistant
 
-**I**ntelligent **R**oom **I**nteraction **S**ystem
+**I**ntelligent **R**esource and **I**nformation **S**ystem
 
-*"Siri har mye på agendaen, så vi introduserer IRIS – Miles sin egen AI-assistent som kan filtrere bort alle de spørsmålene du kunne funnet ut av selv."*
+*"IRIS – Intelligent Resource and Information System. Miles' retro-futuristic AI assistant for room booking and resource management."*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-darkred)](https://nodejs.org/)

@@ -1276,8 +1276,8 @@ function addOutput(text, className = 'system-output') {
     line.textContent = text;
     output.appendChild(line);
 
-    // Scroll to bottom
-    output.scrollTop = output.scrollHeight;
+    // Scroll to show the top of the new message
+    line.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function addMarkdownOutput(markdown, className = 'system-output') {
@@ -1295,8 +1295,8 @@ function addMarkdownOutput(markdown, className = 'system-output') {
     container.innerHTML = marked.parse(markdown);
     output.appendChild(container);
 
-    // Scroll to bottom
-    output.scrollTop = output.scrollHeight;
+    // Scroll to show the top of the new message
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function typeOutput(text, className = 'system-output', speed = 20) {
@@ -1330,7 +1330,9 @@ function startThinking() {
         <span class="typing-dot"></span>
     `;
     output.appendChild(indicator);
-    output.scrollTop = output.scrollHeight;
+
+    // Scroll to show the typing indicator
+    indicator.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function stopThinking() {
