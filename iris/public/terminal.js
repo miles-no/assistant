@@ -8,6 +8,15 @@ let currentUser = JSON.parse(localStorage.getItem('irisUser') || 'null');
 let commandHistory = [];
 let historyIndex = -1;
 
+// Autocomplete state
+let autocompleteCache = {
+    rooms: null,
+    bookings: null,
+    lastFetch: 0
+};
+let currentSuggestions = [];
+let suggestionIndex = -1;
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
     initializeTerminal();
@@ -186,15 +195,98 @@ function handleKeyDown(e) {
         }
     }
 
-    // Handle Tab (autocomplete - future feature)
+    // Handle Tab (autocomplete)
     else if (e.key === 'Tab') {
         e.preventDefault();
-        // TODO: Implement autocomplete
+        await handleTabComplete(input);
     }
 }
 
 function handleKeyUp(e) {
-    // Could add live suggestions here
+    // Reset autocomplete on any key except Tab
+    if (e.key !== 'Tab') {
+        currentSuggestions = [];
+        suggestionIndex = -1;
+    }
+}
+
+// Tab completion handler
+async function handleTabComplete(input) {
+    const text = input.value;
+    const parts = text.trim().split(/\s+/);
+
+    // If already cycling through suggestions
+    if (currentSuggestions.length > 0) {
+        suggestionIndex = (suggestionIndex + 1) % currentSuggestions.length;
+        const suggestion = currentSuggestions[suggestionIndex];
+        input.value = suggestion.completion;
+        return;
+    }
+
+    // Generate new suggestions based on command
+    if (parts.length === 1) {
+        // Command completion
+        const commands = ['rooms', 'bookings', 'cancel', 'help', 'status', 'about', 'clear'];
+        currentSuggestions = commands
+            .filter(cmd => cmd.startsWith(parts[0].toLowerCase()))
+            .map(cmd => ({ completion: cmd, description: '' }));
+    } else if (parts[0].toLowerCase() === 'cancel' && parts.length === 2) {
+        // Booking ID completion for cancel command
+        await fetchBookingsForAutocomplete();
+        if (autocompleteCache.bookings) {
+            currentSuggestions = autocompleteCache.bookings
+                .filter(b => b.id.startsWith(parts[1]))
+                .map(b => ({
+                    completion: `cancel ${b.id}`,
+                    description: `${b.title} (${formatDate(b.startTime)})`
+                }));
+        }
+    }
+
+    // Apply first suggestion if any
+    if (currentSuggestions.length > 0) {
+        suggestionIndex = 0;
+        input.value = currentSuggestions[0].completion;
+
+        // Show suggestion hint
+        if (currentSuggestions[0].description) {
+            showAutocompleteSuggestion(currentSuggestions[0].description);
+        }
+    }
+}
+
+function showAutocompleteSuggestion(description) {
+    // Show temporary suggestion hint above input
+    const output = document.getElementById('terminal-output');
+    const hint = document.createElement('div');
+    hint.className = 'terminal-line system-output';
+    hint.textContent = `  → ${description}`;
+    hint.id = 'autocomplete-hint';
+    output.appendChild(hint);
+
+    // Remove after a moment
+    setTimeout(() => hint.remove(), 2000);
+}
+
+// Fetch data for autocomplete
+async function fetchBookingsForAutocomplete() {
+    const now = Date.now();
+    if (autocompleteCache.bookings && (now - autocompleteCache.lastFetch) < 30000) {
+        return; // Use cache if less than 30s old
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/bookings`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (response.ok) {
+            const bookings = await response.json();
+            autocompleteCache.bookings = bookings.filter(b => b.status !== 'CANCELLED');
+            autocompleteCache.lastFetch = now;
+        }
+    } catch (error) {
+        console.error('Autocomplete fetch failed:', error);
+    }
 }
 
 async function processCommand(command) {
@@ -209,7 +301,10 @@ async function processCommand(command) {
 
     // Handle built-in commands
     const cmd = command.toLowerCase().trim();
+    const parts = command.trim().split(/\s+/);
+    const mainCmd = parts[0].toLowerCase();
 
+    // Built-in system commands
     if (cmd === 'help') {
         stopThinking();
         showHelp();
@@ -240,7 +335,23 @@ async function processCommand(command) {
         return;
     }
 
-    // Send to IRIS AI backend
+    // Direct API commands (like CLI)
+    if (mainCmd === 'rooms') {
+        await handleRoomsCommand(parts);
+        return;
+    }
+
+    if (mainCmd === 'bookings' || mainCmd === 'list') {
+        await handleBookingsCommand(parts);
+        return;
+    }
+
+    if (mainCmd === 'cancel') {
+        await handleCancelCommand(parts);
+        return;
+    }
+
+    // Complex query - send to LLM
     try {
         const response = await fetch(`${API_BASE}/api/command`, {
             method: 'POST',
@@ -262,39 +373,165 @@ async function processCommand(command) {
 
         stopThinking();
 
-        // Type out response character by character
+        // Type out response
         typeOutput(data.response, 'system-output');
 
     } catch (error) {
         stopThinking();
         console.error('Command error:', error);
-        addOutput(`ERROR: ${error.message}`, 'error');
-        addOutput('Make sure the IRIS server is running.', 'error');
+        addOutput(`[ERROR] ${error.message}`, 'error');
+        addOutput('System: Check IRIS server status.', 'error');
     }
+}
+
+// Direct API call handlers
+async function handleRoomsCommand(parts) {
+    try {
+        const response = await fetch(`${API_URL}/api/rooms`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!response.ok) throw new Error('API request failed');
+
+        const rooms = await response.json();
+        stopThinking();
+
+        if (rooms.length === 0) {
+            addOutput('[WARNING] No rooms found in system', 'system-output');
+            return;
+        }
+
+        addOutput('[OK] Room data retrieved', 'system-output');
+        addOutput('', 'system-output');
+
+        // ASCII table header
+        const header = `${'ID'.padEnd(25)} ${'NAME'.padEnd(30)} ${'LOCATION'.padEnd(12)} ${'CAP'.padEnd(5)}`;
+        const separator = '-'.repeat(80);
+
+        addOutput(header, 'system-output');
+        addOutput(separator, 'system-output');
+
+        // Print rooms
+        rooms.forEach(room => {
+            const id = (room.id || '').substring(0, 25).padEnd(25);
+            const name = (room.name || 'Unnamed').substring(0, 30).padEnd(30);
+            const location = (room.locationId || 'N/A').substring(0, 12).padEnd(12);
+            const capacity = String(room.capacity || 0).padEnd(5);
+
+            addOutput(`${id} ${name} ${location} ${capacity}`, 'system-output');
+        });
+
+        addOutput('', 'system-output');
+        addOutput(`Total: ${rooms.length} rooms`, 'system-output');
+
+    } catch (error) {
+        stopThinking();
+        addOutput(`[ERROR] ${error.message}`, 'error');
+    }
+}
+
+async function handleBookingsCommand(parts) {
+    try {
+        const response = await fetch(`${API_URL}/api/bookings`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!response.ok) throw new Error('API request failed');
+
+        const bookings = await response.json();
+        stopThinking();
+
+        // Filter out cancelled bookings by default
+        const activeBookings = bookings.filter(b => b.status !== 'CANCELLED');
+
+        if (activeBookings.length === 0) {
+            addOutput('[WARNING] No active bookings found', 'system-output');
+            return;
+        }
+
+        addOutput('[OK] Booking data retrieved', 'system-output');
+        addOutput('', 'system-output');
+
+        // ASCII table header
+        const header = `${'ID'.padEnd(25)} ${'TITLE'.padEnd(30)} ${'START'.padEnd(16)} ${'END'.padEnd(16)} ${'STATUS'.padEnd(10)}`;
+        const separator = '-'.repeat(100);
+
+        addOutput(header, 'system-output');
+        addOutput(separator, 'system-output');
+
+        // Print bookings
+        activeBookings.forEach(booking => {
+            const id = (booking.id || '').substring(0, 25).padEnd(25);
+            const title = (booking.title || 'Untitled').substring(0, 30).padEnd(30);
+            const start = formatDate(booking.startTime).padEnd(16);
+            const end = formatDate(booking.endTime).padEnd(16);
+            const status = (booking.status || 'N/A').padEnd(10);
+
+            addOutput(`${id} ${title} ${start} ${end} ${status}`, 'system-output');
+        });
+
+        addOutput('', 'system-output');
+        addOutput(`Total: ${activeBookings.length} bookings`, 'system-output');
+
+    } catch (error) {
+        stopThinking();
+        addOutput(`[ERROR] ${error.message}`, 'error');
+    }
+}
+
+async function handleCancelCommand(parts) {
+    if (parts.length < 2) {
+        stopThinking();
+        addOutput('[ERROR] Usage: cancel <booking-id>', 'error');
+        return;
+    }
+
+    const bookingId = parts[1];
+
+    try {
+        const response = await fetch(`${API_URL}/api/bookings/${bookingId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!response.ok) throw new Error('Cancellation failed');
+
+        stopThinking();
+        addOutput(`[OK] Booking ${bookingId} cancelled`, 'system-output');
+
+    } catch (error) {
+        stopThinking();
+        addOutput(`[ERROR] ${error.message}`, 'error');
+    }
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toISOString().substring(0, 16).replace('T', ' ');
 }
 
 function showHelp() {
     const help = [
         '',
         '═══════════════════════════════════════════════════════════',
-        '  AVAILABLE COMMANDS',
+        '  COMMAND REFERENCE',
         '═══════════════════════════════════════════════════════════',
         '',
-        '  BOOKING COMMANDS:',
-        '    book <room> <time>       Book a room',
-        '    rooms                    List available rooms',
-        '    bookings                 Show your bookings',
-        '    cancel <id>              Cancel a booking',
+        '  DATA QUERIES:',
+        '    rooms                    Display all rooms',
+        '    bookings                 Display active bookings',
+        '    cancel <id>              Cancel booking by ID',
         '',
-        '  SYSTEM COMMANDS:',
-        '    help                     Show this help',
-        '    clear, cls               Clear terminal',
-        '    status                   Show system status',
-        '    about, info              About IRIS',
+        '  SYSTEM:',
+        '    help                     Display this reference',
+        '    clear, cls               Clear terminal buffer',
+        '    status                   System diagnostic',
+        '    about                    System information',
         '',
         '  NATURAL LANGUAGE:',
-        '    You can also just chat naturally with IRIS!',
-        '    Example: "Find me a room tomorrow at 2pm"',
+        '    For complex operations, use natural language queries.',
+        '    Example: "Book conference room A tomorrow at 14:00"',
         '',
         '═══════════════════════════════════════════════════════════',
         '',
