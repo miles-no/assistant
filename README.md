@@ -77,12 +77,14 @@ graph TB
 ## ✨ Standout Features
 
 ### 🤖 AI-First Design
+
 - **Natural Language Processing**: Talk to your booking system like a colleague
 - **Multi-LLM Support**: Choose between Ollama (local), OpenAI, or Anthropic
 - **Model Context Protocol**: Standardized AI tool integration across all interfaces
 - **Intelligent Suggestions**: AI recommends available times, rooms, and resolves conflicts
 
 ### 🎨 Multiple Interfaces
+
 - **IRIS Terminal**: HAL-9000 inspired with CRT scanlines, pulsing red eye, typing animations
 - **Chat Assistant**: Modern chat UI with markdown rendering, tables, and streaming responses
 - **Web App**: React SPA with shadcn/ui components and dark mode
@@ -91,11 +93,13 @@ graph TB
 - **Integrations**: Slack bot guide, ESP32 display guide
 
 ### 🔒 Type Safety Everywhere
+
 - **OpenAPI-First**: Single source of truth (`api/openapi.yaml`)
 - **Generated Clients**: TypeScript and Go types auto-generated
 - **End-to-End Safety**: From database to frontend
 
 ### 🏢 Enterprise Ready
+
 - **Multi-location**: 7 offices across Norway and Lithuania
 - **Role-based Access**: Admin, Manager, User roles
 - **Real-time Conflict Detection**: Prevent double-bookings
@@ -112,16 +116,19 @@ graph TB
 <summary><b>What you'll need (click to expand)</b></summary>
 
 **Required:**
+
 - Node.js 20.x or higher
 - PostgreSQL (or Docker)
 
 **Optional (depending on interface):**
+
 - Go 1.24.3+ (for TUI/CLI)
 - Docker & Docker Compose (for containerized deployment)
 - Ollama (for local AI, recommended)
 
 **For AI Features:**
 Choose one:
+
 - 🦙 Ollama (local, free, private)
 - 🤖 OpenAI API key (ChatGPT)
 - 🧠 Anthropic API key (Claude)
@@ -138,6 +145,7 @@ cd miles-assistant
 ```
 
 **This automatically:**
+
 - ✓ Checks prerequisites (Docker, Ollama)
 - ✓ Pulls LLM model if needed
 - ✓ Starts PostgreSQL in Docker
@@ -153,12 +161,13 @@ After setup completes:
 
 | Interface | URL | Credentials |
 |-----------|-----|-------------|
-| **API Documentation** | http://localhost:3000/api-docs | N/A |
-| **Chat Assistant** | http://localhost:3001 | Login required |
-| **IRIS Terminal** | http://localhost:3002 | Login required |
-| **Web App** | http://localhost:5173 | Login required |
+| **API Documentation** | <http://localhost:3000/api-docs> | N/A |
+| **Chat Assistant** | <http://localhost:3001> | Login required |
+| **IRIS Terminal** | <http://localhost:3002> | Login required |
+| **Web App** | <http://localhost:5173> | Login required |
 
 **Test Accounts** (all passwords: `password123`):
+
 - Admin: `admin@miles.com`
 - Manager: `manager.stavanger@miles.com`
 - User: `john.doe@miles.com`
@@ -166,6 +175,7 @@ After setup completes:
 ### Choose Your Adventure
 
 **Want the HAL-9000 experience?**
+
 ```bash
 cd iris
 npm start
@@ -173,6 +183,7 @@ npm start
 ```
 
 **Prefer chat?**
+
 ```bash
 cd chat-app
 npm start
@@ -180,6 +191,7 @@ npm start
 ```
 
 **Go developer?**
+
 ```bash
 ./install.sh           # Installs TUI and CLI
 miles-booking          # Launch TUI
@@ -187,6 +199,7 @@ miles login user@mail  # Use CLI
 ```
 
 **Just want the web UI?**
+
 ```bash
 cd web
 npm install
@@ -198,11 +211,13 @@ npm run dev  # http://localhost:5173
 ## 📚 Documentation
 
 ### Core Documentation
+
 - **[📖 Getting Started Guide](./GETTING_STARTED.md)** - Detailed setup for all components
 - **[🏗️ Architecture Overview](./ARCHITECTURE.md)** - System design and data flow
 - **[📖 Legacy Booking Docs](./BOOKING_SYSTEM_LEGACY.md)** - Original comprehensive docs
 
 ### Interface Documentation
+
 - **[🔴 IRIS](./iris/README.md)** - HAL-9000 terminal assistant
 - **[💬 Chat Assistant](./chat-app/README.md)** - AI-powered chat with markdown
 - **[🌐 Web App](./web/README.md)** - React frontend
@@ -210,6 +225,7 @@ npm run dev  # http://localhost:5173
 - **[⌨️ CLI](./cli/README.md)** - Command-line tools
 
 ### API & Integration
+
 - **[🔌 API Documentation](./api/README.md)** - REST API reference
 - **[🤖 MCP Integration](./api/MCP_README.md)** - Model Context Protocol
 - **[📝 OpenAPI Spec](./api/openapi.yaml)** - Interactive docs at `/api-docs`
@@ -217,6 +233,7 @@ npm run dev  # http://localhost:5173
 - **[📺 ESP32 Display Guide](./docs/ESP32_DISPLAY_GUIDE.md)** - Room displays
 
 ### Implementation Guides
+
 - **[📋 Feedback System](./FEEDBACK_IMPLEMENTATION_GUIDE.md)** - Room feedback workflows
 - **[🛠️ Setup Guide](./SETUP.md)** - Manual setup instructions
 - **[⚡ Quick Start](./QUICKSTART.md)** - Fast track setup
@@ -392,6 +409,7 @@ Press '/' to search
 ### Individual Component Development
 
 **API:**
+
 ```bash
 cd api
 npm run dev              # Hot reload
@@ -399,18 +417,21 @@ npm run prisma:studio    # Database GUI
 ```
 
 **IRIS:**
+
 ```bash
 cd iris
 npm run dev              # Hot reload (node --watch)
 ```
 
 **Chat:**
+
 ```bash
 cd chat-app
 npm start
 ```
 
 **Web:**
+
 ```bash
 cd web
 npm run dev
@@ -418,6 +439,7 @@ npm run generate         # Regenerate API client
 ```
 
 **TUI/CLI:**
+
 ```bash
 cd tui  # or cd cli
 make generate            # Generate types from OpenAPI
@@ -436,6 +458,7 @@ docker-compose up -d
 ```
 
 This starts:
+
 - PostgreSQL on port 5433
 - API on port 3000
 - Chat Assistant on port 3001
@@ -455,6 +478,7 @@ Enables hot-reload for all services.
 Miles Assistant supports **7 office locations**:
 
 **🇳🇴 Norway**
+
 - Stavanger (5 meeting rooms)
 - Haugesund
 - Oslo
@@ -463,6 +487,7 @@ Miles Assistant supports **7 office locations**:
 - Innlandet (Lillehammer)
 
 **🇱🇹 International**
+
 - Lithuania (Vilnius)
 
 ---
@@ -470,6 +495,7 @@ Miles Assistant supports **7 office locations**:
 ## 🤝 Contributing
 
 This is a Miles internal project. For development guidelines, see:
+
 - [Architecture Documentation](./ARCHITECTURE.md)
 - [Getting Started Guide](./GETTING_STARTED.md)
 - Individual component READMEs

@@ -1,0 +1,35 @@
+#!/usr/bin/env sh
+
+echo "🎨 Running Biome formatter and linter on staged files..."
+# Get staged JS/TS files and run Biome on them
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|jsx|ts|tsx)$' | grep -v 'node_modules' | grep -v 'dist/' | grep -v '.next/' | grep -v 'build/')
+
+if [ -n "$STAGED_FILES" ]; then
+  echo "  Checking $(echo "$STAGED_FILES" | wc -l | xargs) file(s)..."
+  echo "$STAGED_FILES" | xargs npx biome check --write --no-errors-on-unmatched || exit 1
+  # Re-add files that were formatted
+  echo "$STAGED_FILES" | xargs git add
+else
+  echo "  No JS/TS files to check"
+fi
+
+echo "🔍 Type-checking TypeScript projects..."
+
+# Only type-check if TS files were changed
+if echo "$STAGED_FILES" | grep -q '\.ts'; then
+  echo "  → API..."
+  cd /Users/henry/dev/miles/booking/api && npx tsc --noEmit || exit 1
+
+  echo "  → Web..."
+  cd /Users/henry/dev/miles/booking/web && npx tsc -b || exit 1
+
+  echo "  → IRIS..."
+  cd /Users/henry/dev/miles/booking/iris && npm run type-check || exit 1
+
+  echo "  → Chat App..."
+  cd /Users/henry/dev/miles/booking/chat-app && npm run type-check || exit 1
+else
+  echo "  Skipping (no TypeScript files changed)"
+fi
+
+echo "✅ All checks passed!"

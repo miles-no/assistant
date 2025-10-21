@@ -1,31 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 @import "tailwindcss";
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background-color: rgb(249 250 251);
-  color: rgb(17 24 39);
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+	font-family: "Inter", system-ui, sans-serif;
+	background-color: rgb(249 250 251);
+	color: rgb(17 24 39);
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 0.5rem;
-  height: 0.5rem;
+	width: 0.5rem;
+	height: 0.5rem;
 }
 
 ::-webkit-scrollbar-track {
-  background-color: rgb(243 244 246);
+	background-color: rgb(243 244 246);
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgb(209 213 219);
-  border-radius: 9999px;
+	background-color: rgb(209 213 219);
+	border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(156 163 175);
+	background-color: rgb(156 163 175);
 }

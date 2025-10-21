@@ -1,30 +1,31 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface UIState {
-  sidebarOpen: boolean;
-  theme: 'light' | 'dark';
+	sidebarOpen: boolean;
+	theme: "light" | "dark";
 
-  // Actions
-  toggleSidebar: () => void;
-  setSidebarOpen: (open: boolean) => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+	// Actions
+	toggleSidebar: () => void;
+	setSidebarOpen: (open: boolean) => void;
+	setTheme: (theme: "light" | "dark") => void;
 }
 
 export const useUIStore = create<UIState>()(
-  persist(
-    (set) => ({
-      sidebarOpen: true,
-      theme: 'light',
+	persist(
+		(set) => ({
+			sidebarOpen: true,
+			theme: "light",
 
-      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+			toggleSidebar: () =>
+				set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
-      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+			setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-      setTheme: (theme) => set({ theme }),
-    }),
-    {
-      name: 'ui-storage',
-    }
-  )
+			setTheme: (theme) => set({ theme }),
+		}),
+		{
+			name: "ui-storage",
+		},
+	),
 );

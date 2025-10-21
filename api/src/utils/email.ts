@@ -1,75 +1,77 @@
+import type { Location, Room, RoomFeedback } from "@prisma/client";
 import nodemailer from "nodemailer";
-import type { RoomFeedback, Room, Location } from "@prisma/client";
 
 interface FeedbackWithRelations extends RoomFeedback {
-  room: Room & {
-    location: Location;
-  };
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-  };
+	room: Room & {
+		location: Location;
+	};
+	user: {
+		id: string;
+		email: string;
+		firstName: string;
+		lastName: string;
+	};
 }
 
 interface ManagerInfo {
-  email: string;
-  firstName: string;
-  lastName: string;
+	email: string;
+	firstName: string;
+	lastName: string;
 }
 
 // Create transporter with SMTP configuration
 const createTransporter = () => {
-  const smtpConfig = {
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_PORT === "465", // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  };
+	const smtpConfig = {
+		host: process.env.SMTP_HOST,
+		port: parseInt(process.env.SMTP_PORT || "587", 10),
+		secure: process.env.SMTP_PORT === "465", // true for 465, false for other ports
+		auth: {
+			user: process.env.SMTP_USER,
+			pass: process.env.SMTP_PASS,
+		},
+	};
 
-  // Check if SMTP is configured
-  if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
-    console.warn(
-      "⚠️  SMTP not configured. Emails will be logged but not sent."
-    );
-    return null;
-  }
+	// Check if SMTP is configured
+	if (!smtpConfig.host || !smtpConfig.auth.user || !smtpConfig.auth.pass) {
+		console.warn("⚠️  SMTP not configured. Emails will be logged but not sent.");
+		return null;
+	}
 
-  return nodemailer.createTransport(smtpConfig);
+	return nodemailer.createTransport(smtpConfig);
 };
 
 /**
  * Send email notification to location managers about new room feedback
  */
 export async function sendFeedbackNotification(
-  feedback: FeedbackWithRelations,
-  managers: ManagerInfo[]
+	feedback: FeedbackWithRelations,
+	managers: ManagerInfo[],
 ): Promise<void> {
-  const transporter = createTransporter();
+	const transporter = createTransporter();
 
-  // If SMTP not configured, just log and continue
-  if (!transporter) {
-    console.log("📧 [EMAIL SIMULATION] Would send to:", managers.length, "managers");
-    console.log(
-      `   Room: ${feedback.room.name} at ${feedback.room.location.name}`
-    );
-    console.log(`   Message: ${feedback.message}`);
-    console.log(
-      `   Reported by: ${feedback.user.firstName} ${feedback.user.lastName}`
-    );
-    return;
-  }
+	// If SMTP not configured, just log and continue
+	if (!transporter) {
+		console.log(
+			"📧 [EMAIL SIMULATION] Would send to:",
+			managers.length,
+			"managers",
+		);
+		console.log(
+			`   Room: ${feedback.room.name} at ${feedback.room.location.name}`,
+		);
+		console.log(`   Message: ${feedback.message}`);
+		console.log(
+			`   Reported by: ${feedback.user.firstName} ${feedback.user.lastName}`,
+		);
+		return;
+	}
 
-  const subject = `🛠️ New Room Feedback: ${feedback.room.name}`;
-  const fromAddress =
-    process.env.SMTP_FROM || `Miles Booking <${process.env.SMTP_USER}>`;
+	const subject = `🛠️ New Room Feedback: ${feedback.room.name}`;
+	const fromAddress =
+		process.env.SMTP_FROM || `Miles Booking <${process.env.SMTP_USER}>`;
 
-  // Create email HTML
-  const htmlContent = `
+	// Create email HTML
+	const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -93,14 +95,17 @@ export async function sendFeedbackNotification(
       <p><strong>Room:</strong> ${feedback.room.name}</p>
       <p><strong>Location:</strong> ${feedback.room.location.name}</p>
       <p><strong>Reported by:</strong> ${feedback.user.firstName} ${feedback.user.lastName} (${feedback.user.email})</p>
-      <p><strong>Date:</strong> ${new Date(feedback.createdAt).toLocaleString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })}</p>
+      <p><strong>Date:</strong> ${new Date(feedback.createdAt).toLocaleString(
+				"en-US",
+				{
+					weekday: "long",
+					year: "numeric",
+					month: "long",
+					day: "numeric",
+					hour: "2-digit",
+					minute: "2-digit",
+				},
+			)}</p>
 
       <div class="feedback-box">
         <p style="margin: 0;"><strong>Feedback Message:</strong></p>
@@ -125,7 +130,7 @@ export async function sendFeedbackNotification(
 </html>
   `;
 
-  const textContent = `
+	const textContent = `
 New Room Feedback Received
 
 Room: ${feedback.room.name}
@@ -144,56 +149,56 @@ You can manage this feedback through the Miles Booking chat assistant or API.
 Miles Booking System - Room Management
   `;
 
-  // Send email to each manager
-  try {
-    for (const manager of managers) {
-      await transporter.sendMail({
-        from: fromAddress,
-        to: manager.email,
-        subject,
-        text: textContent,
-        html: htmlContent,
-      });
+	// Send email to each manager
+	try {
+		for (const manager of managers) {
+			await transporter.sendMail({
+				from: fromAddress,
+				to: manager.email,
+				subject,
+				text: textContent,
+				html: htmlContent,
+			});
 
-      console.log(
-        `✅ Feedback notification sent to ${manager.firstName} ${manager.lastName} (${manager.email})`
-      );
-    }
-  } catch (error) {
-    console.error("❌ Failed to send feedback notification emails:", error);
-    // Don't throw - we don't want email failures to block feedback creation
-  }
+			console.log(
+				`✅ Feedback notification sent to ${manager.firstName} ${manager.lastName} (${manager.email})`,
+			);
+		}
+	} catch (error) {
+		console.error("❌ Failed to send feedback notification emails:", error);
+		// Don't throw - we don't want email failures to block feedback creation
+	}
 }
 
 /**
  * Send email notification when feedback status is updated
  */
 export async function sendFeedbackStatusUpdate(
-  feedback: FeedbackWithRelations,
-  originalReporter: { email: string; firstName: string; lastName: string },
-  updatedBy: { firstName: string; lastName: string },
-  oldStatus: string,
-  newStatus: string
+	feedback: FeedbackWithRelations,
+	originalReporter: { email: string; firstName: string; lastName: string },
+	updatedBy: { firstName: string; lastName: string },
+	oldStatus: string,
+	newStatus: string,
 ): Promise<void> {
-  const transporter = createTransporter();
+	const transporter = createTransporter();
 
-  if (!transporter) {
-    console.log("📧 [EMAIL SIMULATION] Feedback status updated");
-    console.log(`   ${oldStatus} → ${newStatus}`);
-    return;
-  }
+	if (!transporter) {
+		console.log("📧 [EMAIL SIMULATION] Feedback status updated");
+		console.log(`   ${oldStatus} → ${newStatus}`);
+		return;
+	}
 
-  const subject = `Room Feedback Updated: ${feedback.room.name}`;
-  const fromAddress =
-    process.env.SMTP_FROM || `Miles Booking <${process.env.SMTP_USER}>`;
+	const subject = `Room Feedback Updated: ${feedback.room.name}`;
+	const fromAddress =
+		process.env.SMTP_FROM || `Miles Booking <${process.env.SMTP_USER}>`;
 
-  const statusEmoji: Record<string, string> = {
-    OPEN: "🔓",
-    RESOLVED: "✅",
-    DISMISSED: "❌",
-  };
+	const statusEmoji: Record<string, string> = {
+		OPEN: "🔓",
+		RESOLVED: "✅",
+		DISMISSED: "❌",
+	};
 
-  const htmlContent = `
+	const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -238,18 +243,18 @@ export async function sendFeedbackStatusUpdate(
 </html>
   `;
 
-  try {
-    await transporter.sendMail({
-      from: fromAddress,
-      to: originalReporter.email,
-      subject,
-      html: htmlContent,
-    });
+	try {
+		await transporter.sendMail({
+			from: fromAddress,
+			to: originalReporter.email,
+			subject,
+			html: htmlContent,
+		});
 
-    console.log(
-      `✅ Status update notification sent to ${originalReporter.email}`
-    );
-  } catch (error) {
-    console.error("❌ Failed to send status update email:", error);
-  }
+		console.log(
+			`✅ Status update notification sent to ${originalReporter.email}`,
+		);
+	} catch (error) {
+		console.error("❌ Failed to send status update email:", error);
+	}
 }

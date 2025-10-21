@@ -1,25 +1,27 @@
-import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/jwt';
+import type { NextFunction, Request, Response } from "express";
+import { verifyToken } from "../utils/jwt";
 
 export const authenticate = (
-  req: Request,
-  res: Response,
-  next: NextFunction
+	req: Request,
+	res: Response,
+	next: NextFunction,
 ): void => {
-  try {
-    const authHeader = req.headers.authorization;
+	try {
+		const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Missing or invalid authorization header' });
-      return;
-    }
+		if (!authHeader || !authHeader.startsWith("Bearer ")) {
+			res
+				.status(401)
+				.json({ error: "Missing or invalid authorization header" });
+			return;
+		}
 
-    const token = authHeader.substring(7);
-    const payload = verifyToken(token);
+		const token = authHeader.substring(7);
+		const payload = verifyToken(token);
 
-    req.user = payload;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid or expired token' });
-  }
+		req.user = payload;
+		next();
+	} catch (_error) {
+		res.status(401).json({ error: "Invalid or expired token" });
+	}
 };
