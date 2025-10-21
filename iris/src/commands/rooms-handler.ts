@@ -11,6 +11,7 @@ export class RoomsCommandHandler extends BaseCommandHandler {
 			const rooms = data.rooms;
 
 			if (!Array.isArray(rooms) || rooms.length === 0) {
+				this.stopThinking();
 				this.addOutput("[WARNING] No rooms found in system", "system-output");
 				return;
 			}
@@ -31,6 +32,7 @@ export class RoomsCommandHandler extends BaseCommandHandler {
 
 			markdown += `\n**Total:** ${rooms.length} rooms`;
 
+			this.stopThinking();
 			this.addMarkdownOutput(markdown, "system-output");
 		} catch (error) {
 			this.handleError(error, "Room retrieval");

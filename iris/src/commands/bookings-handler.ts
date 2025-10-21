@@ -16,6 +16,7 @@ export class BookingsCommandHandler extends BaseCommandHandler {
 				: [];
 
 			if (activeBookings.length === 0) {
+				this.stopThinking();
 				this.addOutput("[WARNING] No active bookings found", "system-output");
 				return;
 			}
@@ -37,6 +38,7 @@ export class BookingsCommandHandler extends BaseCommandHandler {
 
 			markdown += `\n**Total:** ${activeBookings.length} bookings`;
 
+			this.stopThinking();
 			this.addMarkdownOutput(markdown, "system-output");
 		} catch (error) {
 			this.handleError(error, "Booking retrieval");
