@@ -32,13 +32,13 @@ graph TB
 
     subgraph Core["🧠 AI Core"]
         MCP[Model Context Protocol]
-        LLM[Multi-LLM Support<br/>Ollama | OpenAI | Claude]
+        LLM[Multi-LLM Support<br/>Ollama, OpenAI, Claude]
         API[REST API + Auth]
     end
 
     subgraph Backend["💾 Backend"]
         DB[(PostgreSQL<br/>Prisma ORM)]
-        TOOLS[Booking Tools<br/>Rooms | Users | Calendar]
+        TOOLS[Booking Tools<br/>Rooms, Users, Calendar]
     end
 
     IRIS --> MCP
