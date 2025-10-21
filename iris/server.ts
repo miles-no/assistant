@@ -528,7 +528,13 @@ app.post("/api/intent", async (req: Request, res: Response) => {
 				contextSummary += "\n";
 			});
 			contextSummary +=
-				"\nUse this history to resolve references like 'it', 'that room', 'same time', etc.\n";
+				"\nIMPORTANT: Use this history to resolve contextual queries:\n";
+			contextSummary +=
+				"- If user says 'any available?', 'are there any?', 'what's free?' → Extract location, startTime, endTime from most recent command\n";
+			contextSummary +=
+				"- If user says 'book it', 'that room', 'same time' → Extract roomName, roomId, startTime from most recent checkAvailability\n";
+			contextSummary +=
+				"- Contextual queries should inherit all relevant parameters from previous commands\n";
 		}
 
 		// Call LLM to extract intent
@@ -541,28 +547,55 @@ Extract the intent from this command: "${command}"
 
 Respond with ONLY valid JSON in this exact format:
 {
-  "action": "getRooms" | "getBookings" | "checkAvailability" | "createBooking" | "cancelBooking" | "bulkCancel" | "needsMoreInfo" | "undo" | "unknown",
+  "action": "getRooms" | "getBookings" | "checkAvailability" | "createBooking" | "cancelBooking" | "bulkCancel" | "findRooms" | "needsMoreInfo" | "undo" | "unknown",
   "params": {
     "roomId": "string (if applicable)",
-    "roomName": "string (if applicable)",
+    "roomName": "string (ALWAYS extract if mentioned, even partial names like 'skagen', 'hjorna')",
     "startTime": "ISO 8601 datetime string (if applicable)",
     "endTime": "ISO 8601 datetime string (if applicable)",
-    "duration": "number in minutes (if applicable)",
+    "duration": "number in minutes (if applicable, default to 60 if not specified)",
     "title": "string (if applicable)",
     "bookingId": "string (if applicable)",
-    "filter": "all|today|tomorrow|week (if applicable)"
+    "filter": "all|today|tomorrow|week (if applicable)",
+    "capacity": "number (minimum capacity required, if applicable)",
+    "amenities": "string (comma-separated amenities like 'TV,projector', if applicable)",
+    "location": "string (location name like 'stavanger', 'haugesund', 'oslo', if applicable)"
   },
   "response": "A natural, conversational response to the user (use for needsMoreInfo or unknown)"
 }
 
-Important:
-- For time references like "tomorrow at 2pm", calculate the absolute datetime in ISO 8601 format
-- Use "needsMoreInfo" if the user's request is incomplete (e.g., missing room name or time)
-- Use "unknown" only if the request is completely irrelevant to room booking
-- For booking requests, use "createBooking" action
-- Always include a "response" field for needsMoreInfo and unknown actions
-- CONTEXTUAL REFERENCES: When the user says "book it", "that room", "same time", etc., look at the conversation history above and extract the relevant parameters (roomName, roomId, startTime, duration) from the most recent interaction
-- If user says "book it" after a checkAvailability action, use the same room and time parameters from that previous command
+Important Rules:
+- TIME PARSING:
+  * User times are in THEIR LOCAL TIMEZONE (${userTimezone})
+  * You MUST convert local times to UTC for ISO 8601 timestamps
+  * "tomorrow at 8" in timezone ${userTimezone} → calculate UTC equivalent
+  * "at 8" means 8:00 AM local time unless explicitly PM
+  * Example: If user timezone is Europe/Oslo (UTC+2) and they say "at 8am", generate "06:00:00Z" (8am - 2 hours = 6am UTC)
+- ROOM NAME VS LOCATION:
+  * ONLY extract roomName if user mentions a SPECIFIC room (e.g., "skagen", "hjorna", "tenkeboksen", "spill & chill")
+  * DO NOT extract roomName if user only mentions a city/location (e.g., "stavanger", "haugesund", "oslo")
+  * Common room names: skagen, hjorna, tenkeboksen, teamrommet, spill & chill
+  * Common locations (NOT room names): stavanger, haugesund, oslo
+- BOOKING REQUESTS:
+  * "book me a room tomorrow at 8 in stavanger" → action: "createBooking", params: {location: "stavanger", startTime: "...", duration: 60} (NO roomName!)
+  * "book skagen tomorrow at 8" → action: "createBooking", params: {roomName: "skagen", startTime: "...", duration: 60}
+  * "book room in stavanger" → action: "createBooking", params: {location: "stavanger"} (NO roomName!)
+  * If booking has location but NO specific room name, use ONLY location param (system will show available rooms)
+- AVAILABILITY QUERIES:
+  * "when is skagen available tomorrow?" → action: "checkAvailability", params: {roomName: "skagen", startTime: "tomorrow start of day", endTime: "tomorrow end of day"}
+  * "any available?" (after previous location query) → action: "checkAvailability", params: {location: "...", startTime: "..." from history}
+  * ALWAYS extract roomName if mentioned, even if partial (e.g., "skagen" from "Skagen")
+- CONTEXTUAL QUERIES:
+  * "any available?", "are there any?", "what's free?" → Look at recent history for location/time context
+  * If previous command had location="stavanger" and startTime, use same params
+  * "book it", "that room", "same time" → Extract roomName/roomId and startTime from most recent checkAvailability or findRooms action
+- ROOM FILTERING: Use "findRooms" when user specifies filtering:
+  * Capacity: "for 6 people", "rooms for 10"
+  * Amenities: "with a TV", "with projector"
+  * Location: "in stavanger", "rooms in haugesund"
+- DEFAULT VALUES:
+  * If duration not specified, default to 60 minutes
+  * If time is just "at 8" or "at 8am", treat as 8:00 AM; "at 8pm" is 20:00
 - Respond with ONLY the JSON, no other text`;
 
 		console.log("\n🧠 Calling LLM for intent parsing...");

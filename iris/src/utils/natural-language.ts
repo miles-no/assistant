@@ -79,6 +79,12 @@ export class NaturalLanguageProcessor {
 		/^(it|that|this)$/i,
 	];
 
+	private locationFilterPhrases = [
+		/\brooms? in \w+/i, // "rooms in oslo", "room in stavanger"
+		/\brooms? (at|for|with|that have)\b/i, // "rooms at oslo", "rooms for 10", "rooms with TV"
+		/\b(any|some|all) rooms? in\b/i, // "any rooms in oslo", "some rooms in stavanger"
+	];
+
 	/**
 	 * Parse user input into intent with confidence scoring
 	 */
@@ -91,6 +97,18 @@ export class NaturalLanguageProcessor {
 				type: "llm_fallback",
 				entities: {},
 				confidence: 0.1, // Force LLM usage for context resolution
+				useLLM: true,
+			};
+		}
+
+		// Check for location-based queries - always use LLM for filtering
+		if (
+			this.locationFilterPhrases.some((pattern) => pattern.test(trimmedInput))
+		) {
+			return {
+				type: "llm_fallback",
+				entities: {},
+				confidence: 0.5, // Force LLM usage for location filtering
 				useLLM: true,
 			};
 		}

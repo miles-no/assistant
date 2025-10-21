@@ -8,6 +8,7 @@ export interface LLMIntent {
 		| "cancelBooking"
 		| "bulkCancel"
 		| "createBooking"
+		| "findRooms" // Complex room search with filtering
 		| "needsMoreInfo"
 		| "undo"
 		| "unknown";
@@ -20,6 +21,9 @@ export interface LLMIntent {
 		title?: string;
 		bookingId?: string;
 		filter?: "all" | "today" | "tomorrow" | "week";
+		capacity?: number; // Minimum capacity requirement
+		amenities?: string; // Required amenities (e.g., "TV", "projector")
+		location?: string; // Location filter (e.g., "stavanger", "haugesund")
 		missingFields?: string[];
 	};
 	response?: string;
@@ -28,6 +32,7 @@ export interface LLMIntent {
 export interface IntentRequest {
 	command: string;
 	userId: string;
+	timezone?: string;
 }
 
 export interface IntentResponse {
@@ -50,7 +55,11 @@ export class LLMService {
 	/**
 	 * Parse user command into structured intent using LLM
 	 */
-	async parseIntent(command: string, userId: string): Promise<LLMIntent> {
+	async parseIntent(
+		command: string,
+		userId: string,
+		timezone?: string,
+	): Promise<LLMIntent> {
 		try {
 			const response = await fetch(`${this.getBaseUrl()}/api/intent`, {
 				method: "POST",
@@ -61,6 +70,7 @@ export class LLMService {
 				body: JSON.stringify({
 					command,
 					userId,
+					timezone,
 				} as IntentRequest),
 			});
 

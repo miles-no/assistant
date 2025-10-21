@@ -1,4 +1,5 @@
 import { AvailabilityCommandHandler } from "../commands/availability-handler";
+import { BookingCommandHandler } from "../commands/booking-handler";
 import { BookingsCommandHandler } from "../commands/bookings-handler";
 import { BulkCancelCommandHandler } from "../commands/bulk-cancel-handler";
 import { CancelCommandHandler } from "../commands/cancel-handler";
@@ -55,6 +56,7 @@ export class Terminal {
 			historyIndex: -1,
 			userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
 			lastBulkOperation: null,
+			settings: this.loadSettings(),
 		};
 
 		this.autocompleteCache = {
@@ -81,6 +83,112 @@ export class Terminal {
 		} catch {
 			return null;
 		}
+	}
+
+	private loadSettings(): import("../types/terminal").TerminalSettings {
+		try {
+			const settingsJson = localStorage.getItem("irisSettings");
+			if (settingsJson) {
+				return JSON.parse(settingsJson);
+			}
+		} catch {
+			// Fall through to defaults
+		}
+
+		// Default settings - NLP off, LLM on
+		return {
+			useSimpleNLP: false,
+			useLLM: true,
+		};
+	}
+
+	private saveSettings(): void {
+		try {
+			localStorage.setItem("irisSettings", JSON.stringify(this.state.settings));
+		} catch (error) {
+			console.error("Failed to save settings:", error);
+		}
+	}
+
+	private showSettings(): void {
+		const nlpStatus = this.state.settings.useSimpleNLP ? "ON" : "OFF";
+		const llmStatus = this.state.settings.useLLM ? "ON" : "OFF";
+
+		const markdown = `
+## CURRENT SETTINGS
+
+**Simple NLP (Pattern Matching):** ${nlpStatus}
+**LLM Parsing (AI-Powered):** ${llmStatus}
+
+### USAGE
+
+▸ \`settings nlp on\` - Enable simple NLP
+▸ \`settings nlp off\` - Disable simple NLP
+▸ \`settings llm on\` - Enable LLM parsing
+▸ \`settings llm off\` - Disable LLM parsing
+
+**Note:** At least one method must be enabled.
+`;
+
+		this.addMarkdownOutput(markdown, "system-output");
+	}
+
+	private handleSettingsCommand(parts: string[]): void {
+		// settings [nlp|llm] [on|off]
+		if (parts.length === 1) {
+			// Just "settings" - show current settings
+			this.showSettings();
+			return;
+		}
+
+		if (parts.length !== 3) {
+			this.addOutput("[ERROR] Usage: settings [nlp|llm] [on|off]", "error");
+			return;
+		}
+
+		const setting = parts[1].toLowerCase();
+		const value = parts[2].toLowerCase();
+
+		if (!["nlp", "llm"].includes(setting)) {
+			this.addOutput("[ERROR] Invalid setting. Use 'nlp' or 'llm'", "error");
+			return;
+		}
+
+		if (!["on", "off"].includes(value)) {
+			this.addOutput("[ERROR] Invalid value. Use 'on' or 'off'", "error");
+			return;
+		}
+
+		const enable = value === "on";
+
+		// Update setting
+		if (setting === "nlp") {
+			this.state.settings.useSimpleNLP = enable;
+		} else {
+			this.state.settings.useLLM = enable;
+		}
+
+		// Check if both are disabled
+		if (!this.state.settings.useSimpleNLP && !this.state.settings.useLLM) {
+			this.addOutput(
+				"[ERROR] Cannot disable both NLP and LLM. At least one must be enabled.",
+				"error",
+			);
+			// Revert the change
+			if (setting === "nlp") {
+				this.state.settings.useSimpleNLP = true;
+			} else {
+				this.state.settings.useLLM = true;
+			}
+			return;
+		}
+
+		// Save to localStorage
+		this.saveSettings();
+
+		const settingName = setting === "nlp" ? "Simple NLP" : "LLM Parsing";
+		const status = enable ? "enabled" : "disabled";
+		this.addOutput(`[OK] ${settingName} ${status}`, "system-output");
 	}
 
 	private initialize(): void {
@@ -332,10 +440,30 @@ export class Terminal {
 				"status",
 				"about",
 				"clear",
+				"settings",
+				"feedback",
 			];
 			this.currentSuggestions = commands
 				.filter((cmd) => cmd.startsWith(parts[0].toLowerCase()))
 				.map((cmd) => ({ completion: cmd, description: "" }));
+		} else if (parts[0].toLowerCase() === "settings" && parts.length === 2) {
+			// Settings subcommand completion
+			const subcommands = ["nlp", "llm"];
+			this.currentSuggestions = subcommands
+				.filter((sub) => sub.startsWith(parts[1].toLowerCase()))
+				.map((sub) => ({
+					completion: `settings ${sub}`,
+					description: sub === "nlp" ? "Simple NLP" : "LLM Parsing",
+				}));
+		} else if (parts[0].toLowerCase() === "settings" && parts.length === 3) {
+			// Settings value completion (on/off)
+			const values = ["on", "off"];
+			this.currentSuggestions = values
+				.filter((val) => val.startsWith(parts[2].toLowerCase()))
+				.map((val) => ({
+					completion: `settings ${parts[1]} ${val}`,
+					description: val === "on" ? "Enable" : "Disable",
+				}));
 		} else if (parts[0].toLowerCase() === "cancel" && parts.length === 2) {
 			// Booking ID completion for cancel command
 			await this.fetchBookingsForAutocomplete();
@@ -447,6 +575,12 @@ export class Terminal {
 			return;
 		}
 
+		if (mainCmd === "settings" || mainCmd === "config") {
+			this.stopThinking();
+			this.handleSettingsCommand(parts);
+			return;
+		}
+
 		// Hidden demo mode command
 		if (cmd === "demo" || cmd === "showtime") {
 			this.stopThinking();
@@ -485,18 +619,30 @@ export class Terminal {
 		// Try hybrid natural language processing
 		const intent = this.nlpProcessor.parseIntent(command);
 
-		if (this.nlpProcessor.hasHighConfidence(intent)) {
+		// Check if simple NLP is enabled and has high confidence
+		if (
+			this.state.settings.useSimpleNLP &&
+			this.nlpProcessor.hasHighConfidence(intent)
+		) {
 			// High confidence simple NLP result
 			await this.handleSimpleNLPIntent(intent);
 		} else if (
+			this.state.settings.useLLM &&
 			this.llmHealth.getStatus() === "connected" &&
 			this.nlpProcessor.shouldUseLLM(intent)
 		) {
 			// Use LLM for complex queries or low confidence
 			await this.handleLLMIntent(command);
-		} else {
-			// Fallback to simple NLP even for low confidence if LLM unavailable
+		} else if (this.state.settings.useSimpleNLP) {
+			// Fallback to simple NLP even for low confidence if LLM unavailable or disabled
 			await this.handleSimpleNLPIntent(intent);
+		} else {
+			// Both disabled - show error
+			this.stopThinking();
+			this.addOutput(
+				"[ERROR] Both Simple NLP and LLM are disabled. Enable at least one in settings.",
+				"error",
+			);
 		}
 	}
 
@@ -510,6 +656,128 @@ export class Terminal {
 		);
 
 		await handler.execute();
+	}
+
+	private async handleComplexRoomSearch(
+		params?: Record<string, unknown>,
+	): Promise<void> {
+		if (!this.state.currentUser) return;
+
+		try {
+			// Fetch all rooms
+			const data = await this.apiClient.getRooms();
+			const rooms = data.rooms;
+
+			if (!Array.isArray(rooms) || rooms.length === 0) {
+				this.stopThinking();
+				this.addOutput("[WARNING] No rooms found in system", "system-output");
+				return;
+			}
+
+			// Extract filter criteria
+			const minCapacity = params?.capacity ? Number(params.capacity) : 0;
+			const requiredAmenities = params?.amenities
+				? String(params.amenities)
+						.toLowerCase()
+						.split(",")
+						.map((a) => a.trim())
+				: [];
+			const locationFilter = params?.location
+				? String(params.location).toLowerCase().trim()
+				: "";
+
+			// Filter rooms based on criteria
+			const filteredRooms = rooms.filter((room) => {
+				// Check location
+				if (locationFilter && room.locationId) {
+					const roomLocation = room.locationId.toLowerCase();
+					if (!roomLocation.includes(locationFilter)) {
+						return false;
+					}
+				}
+
+				// Check capacity
+				if (minCapacity > 0 && (room.capacity || 0) < minCapacity) {
+					return false;
+				}
+
+				// Check amenities if specified
+				if (requiredAmenities.length > 0) {
+					if (!room.amenities) {
+						// Room has no amenities, skip it
+						return false;
+					}
+
+					// Handle both string and array amenities
+					const roomAmenities =
+						typeof room.amenities === "string"
+							? (room.amenities as string).toLowerCase()
+							: Array.isArray(room.amenities)
+								? (room.amenities as string[]).join(" ").toLowerCase()
+								: "";
+
+					// Room must have at least one of the required amenities
+					const hasRequiredAmenity = requiredAmenities.some((amenity) =>
+						roomAmenities.includes(amenity),
+					);
+					if (!hasRequiredAmenity) {
+						return false;
+					}
+				}
+
+				return true;
+			});
+
+			// Build markdown table
+			let markdown = "[OK] Filtered room search results\n\n";
+
+			if (locationFilter) {
+				markdown += `**Location:** ${locationFilter}\n`;
+			}
+			if (minCapacity > 0) {
+				markdown += `**Minimum Capacity:** ${minCapacity} people\n`;
+			}
+			if (requiredAmenities.length > 0) {
+				markdown += `**Required Amenities:** ${requiredAmenities.join(", ")}\n`;
+			}
+			markdown += "\n";
+
+			if (filteredRooms.length === 0) {
+				markdown +=
+					"No rooms match your criteria. Try adjusting your requirements.\n";
+			} else {
+				markdown += "| ID | NAME | LOCATION | CAPACITY | AMENITIES |\n";
+				markdown += "|---|---|---|---:|---|\n";
+
+				filteredRooms.forEach((room) => {
+					const id = room.id || "";
+					const name = room.name || "Unnamed";
+					const location = room.locationId || "N/A";
+					const capacity = room.capacity || 0;
+					const amenities = room.amenities
+						? typeof room.amenities === "string"
+							? room.amenities
+							: Array.isArray(room.amenities)
+								? room.amenities.join(", ")
+								: "None"
+						: "None";
+
+					markdown += `| ${id} | ${name} | ${location} | ${capacity} | ${amenities} |\n`;
+				});
+
+				markdown += `\n**Total:** ${filteredRooms.length} matching room(s)`;
+			}
+
+			this.stopThinking();
+			this.addMarkdownOutput(markdown, "system-output");
+		} catch (error) {
+			console.error("Complex room search failed:", error);
+			this.stopThinking();
+			this.addOutput(
+				"[ERROR] Unable to process room search. Please try again.",
+				"error",
+			);
+		}
 	}
 
 	private async handleBookingsCommand(): Promise<void> {
@@ -568,6 +836,9 @@ export class Terminal {
 ▸ **clear, cls** - Clear terminal buffer
 ▸ **status** - System diagnostic
 ▸ **about** - System information
+▸ **settings** - Show current settings
+▸ **settings nlp [on|off]** - Toggle simple NLP
+▸ **settings llm [on|off]** - Toggle LLM parsing
 
 ## DEMO
 
@@ -766,7 +1037,11 @@ This system is designed to process booking operations with maximum efficiency an
 				throw new Error("User not authenticated");
 			}
 
-			const llmIntent = await this.llmService.parseIntent(command, userId);
+			const llmIntent = await this.llmService.parseIntent(
+				command,
+				userId,
+				this.state.userTimezone,
+			);
 
 			// Map LLM intent to command handler execution
 			await this.executeLLMIntent(llmIntent);
@@ -781,7 +1056,16 @@ This system is designed to process booking operations with maximum efficiency an
 	private async executeLLMIntent(intent: LLMIntent): Promise<void> {
 		switch (intent.action) {
 			case "getRooms":
-				await this.handleRoomsCommand();
+				// Check if any filter is specified - if so, route to filtered search
+				if (
+					intent.params?.location ||
+					intent.params?.capacity ||
+					intent.params?.amenities
+				) {
+					await this.handleComplexRoomSearch(intent.params);
+				} else {
+					await this.handleRoomsCommand();
+				}
 				break;
 			case "getBookings":
 				await this.handleBookingsCommand();
@@ -797,6 +1081,10 @@ This system is designed to process booking operations with maximum efficiency an
 				break;
 			case "bulkCancel":
 				await this.handleBulkCancel(intent.params);
+				break;
+			case "findRooms":
+				// Complex room search with filtering - route to MCP AI
+				await this.handleComplexRoomSearch(intent.params);
 				break;
 			case "needsMoreInfo":
 				this.handleNeedsMoreInfo(intent.response);
@@ -898,14 +1186,142 @@ This system is designed to process booking operations with maximum efficiency an
 	}
 
 	private async handleBookingCreate(
-		_params?: Record<string, unknown>,
+		params?: Record<string, unknown>,
 	): Promise<void> {
-		// For now, show that booking creation is not fully implemented in simple NLP
+		if (!this.state.currentUser) return;
+
+		const roomId = params?.roomId as string | undefined;
+		const roomName = params?.roomName as string | undefined;
+		const startTime = params?.startTime as string | undefined;
+		const endTime = params?.endTime as string | undefined;
+		const duration = params?.duration as number | undefined;
+		const title = params?.title as string | undefined;
+		const location = params?.location as string | undefined;
+
+		// Scenario 1: Has location but no specific room - show available rooms
+		if (location && !roomId && !roomName) {
+			this.stopThinking();
+
+			// If we have time parameters, show availability filtered results
+			if (startTime) {
+				const markdown = `[INFO] Multiple rooms available in ${location}. Checking availability...\n\nTo book a specific room, use: **book <room-name> ${new Date(startTime).toLocaleDateString()} at ${new Date(startTime).toLocaleTimeString()}**`;
+				this.addMarkdownOutput(markdown, "system-output");
+
+				// Show filtered rooms with availability info
+				await this.handleComplexRoomSearch({
+					location,
+					startTime,
+					endTime,
+				});
+			} else {
+				// Just show rooms in location
+				await this.handleComplexRoomSearch({ location });
+			}
+			return;
+		}
+
+		// Scenario 2: Missing critical parameters
+		if ((!roomId && !roomName) || !startTime) {
+			this.stopThinking();
+			const missing: string[] = [];
+			if (!roomId && !roomName) missing.push("room name");
+			if (!startTime) missing.push("date/time");
+
+			this.addOutput(
+				`[INFO] Missing required information: ${missing.join(", ")}. Use: book <room-name> <date> at <time>`,
+				"system-output",
+			);
+			return;
+		}
+
+		// Scenario 3: Has room name but not room ID - resolve it
+		let actualRoomId = roomId;
+		if (roomName && !roomId) {
+			actualRoomId = (await this.findRoomIdByName(roomName)) || undefined;
+			if (!actualRoomId) {
+				this.stopThinking();
+				this.addOutput(
+					`[ERROR] Room not found: "${roomName}". Use 'rooms' to see available rooms.`,
+					"error",
+				);
+				return;
+			}
+		}
+
+		// Scenario 4: Calculate end time if we have duration
+		let actualEndTime = endTime;
+		if (!actualEndTime && duration && startTime) {
+			const start = new Date(startTime);
+			const end = new Date(start.getTime() + duration * 60 * 1000);
+			actualEndTime = end.toISOString();
+		}
+
+		// Scenario 5: Default duration if not specified (1 hour)
+		if (!actualEndTime && startTime) {
+			const start = new Date(startTime);
+			const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour default
+			actualEndTime = end.toISOString();
+		}
+
+		// Scenario 6: All params ready - create booking
+		if (actualRoomId && startTime && actualEndTime) {
+			const handler = new BookingCommandHandler(
+				this.apiClient,
+				this.state.currentUser,
+				this.state.userTimezone,
+			);
+
+			await handler.execute({
+				roomId: actualRoomId,
+				startTime,
+				endTime: actualEndTime,
+				title: title || `Meeting - ${this.state.currentUser.firstName}`,
+			});
+			return;
+		}
+
+		// Fallback
 		this.stopThinking();
 		this.addOutput(
-			"[INFO] Booking creation requires specific format. Use: book <room> <date> at <time> for <duration>",
-			"system-output",
+			"[ERROR] Unable to process booking request. Please specify: book <room-name> <date> at <time>",
+			"error",
 		);
+	}
+
+	private async findRoomIdByName(roomName: string): Promise<string | null> {
+		try {
+			const data = await this.apiClient.getRooms();
+			const rooms = data.rooms;
+
+			if (!Array.isArray(rooms)) return null;
+
+			const searchTerm = roomName.toLowerCase();
+
+			// Don't match location keywords
+			const locationKeywords = ["stavanger", "haugesund", "oslo", "bergen"];
+			if (locationKeywords.includes(searchTerm)) {
+				return null; // Location names should not match room IDs
+			}
+
+			// Exact match first
+			const exactMatch = rooms.find(
+				(room) => room.name?.toLowerCase() === searchTerm,
+			);
+			if (exactMatch?.id) return exactMatch.id;
+
+			// Fuzzy match - ONLY match against room names, not IDs
+			// This prevents "stavanger" from matching "stavanger-skagen"
+			const fuzzyMatch = rooms.find(
+				(room) =>
+					room.name?.toLowerCase().includes(searchTerm) ||
+					searchTerm.includes(room.name?.toLowerCase() || ""),
+			);
+
+			return fuzzyMatch?.id || null;
+		} catch (error) {
+			console.error("Error finding room by name:", error);
+			return null;
+		}
 	}
 
 	private async handleCancelBooking(

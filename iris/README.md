@@ -499,6 +499,144 @@ iris/
     └── booking-flow.spec.js      # Booking workflow tests (14 tests)
 ```
 
+### Intent Parsing Architecture
+
+IRIS uses a **hybrid approach** for command processing, combining fast pattern matching with powerful LLM parsing:
+
+#### Three-Tier Processing System:
+
+```
+User Command
+     ↓
+┌─────────────────────────┐
+│ 1. Simple NLP Router    │  ← Fast pattern matching
+│    (natural-language.ts)│     Detects: greetings, simple commands
+└─────────────────────────┘
+     ↓
+┌─────────────────────────┐
+│ 2. LLM Intent Parser    │  ← AI-powered understanding
+│    (server.ts /api/intent)│   Extracts: action + parameters
+└─────────────────────────┘
+     ↓
+┌─────────────────────────┐
+│ 3. Command Handlers     │  ← Executes parsed intent
+│    (commands/*.ts)      │     Calls: API, formats output
+└─────────────────────────┘
+```
+
+#### When to Use Each Approach:
+
+**Simple NLP (Pattern Matching)** - Fast, no LLM needed
+- ✅ Greetings: `"hello"`, `"hi"`
+- ✅ Simple queries: `"rooms"`, `"bookings"`
+- ✅ Direct commands: `"cancel <id>"`, `"help"`
+- 🎯 High confidence (>80%), instant response
+
+**LLM Intent Parsing** - AI understanding required
+- ✅ Natural language: `"I need a room for 6 people with a TV"`
+- ✅ Time parsing: `"book skagen tomorrow at 8"`
+- ✅ Contextual: `"book it"`, `"that room"`
+- ✅ Complex filters: `"show me haugesund rooms for 10"`
+- 🎯 Used when NLP confidence <80% or complexity detected
+
+**Direct API Calls** - Lightweight, no parsing
+- ✅ Built-in commands: `"clear"`, `"status"`, `"help"`
+- ✅ No parameters needed
+- 🎯 Instant, no LLM overhead
+
+#### Intent Actions:
+
+| Action | When Used | Parameters | Handler |
+|--------|-----------|------------|---------|
+| `getRooms` | Simple room list request | None | RoomsCommandHandler |
+| `findRooms` | Filtered room search | capacity, amenities, location | handleComplexRoomSearch |
+| `getBookings` | Show user's bookings | None | BookingsCommandHandler |
+| `checkAvailability` | Room availability check | roomName, startTime, endTime | AvailabilityCommandHandler |
+| `createBooking` | Create a booking | roomName, startTime, duration | BookingCommandHandler |
+| `cancelBooking` | Cancel a booking | bookingId | CancelCommandHandler |
+| `bulkCancel` | Cancel multiple bookings | filter (all/today/tomorrow/week) | BulkCancelCommandHandler |
+| `needsMoreInfo` | Request clarification | response (message to user) | Display message |
+| `unknown` | Unrecognized command | response (help message) | Display error |
+
+#### Filtering Logic:
+
+**findRooms Action** triggers client-side filtering:
+
+```typescript
+// LLM extracts parameters
+{
+  action: "findRooms",
+  params: {
+    location: "haugesund",    // Optional
+    capacity: 10,             // Optional (minimum)
+    amenities: "TV,projector" // Optional (comma-separated)
+  }
+}
+
+// Frontend applies filters
+rooms.filter(room => {
+  // Location: partial match on locationId
+  if (location && !room.locationId.includes(location)) return false;
+
+  // Capacity: minimum requirement
+  if (capacity && room.capacity < capacity) return false;
+
+  // Amenities: must have at least one
+  if (amenities && !hasAnyAmenity(room, amenities)) return false;
+
+  return true;
+});
+```
+
+#### Decision Flow:
+
+```typescript
+// terminal.ts - processCommand()
+const intent = nlpProcessor.parseIntent(command);
+
+if (nlpProcessor.hasHighConfidence(intent)) {
+  // Route 1: Simple NLP (>80% confidence)
+  // Examples: "rooms", "bookings", "hello"
+  await handleSimpleNLPIntent(intent);
+
+} else if (llmHealth.isConnected() && nlpProcessor.shouldUseLLM(intent)) {
+  // Route 2: LLM Intent Parsing
+  // Examples: "I need a room for 6 people with a TV"
+  const llmIntent = await llmService.parseIntent(command, userId);
+  await executeLLMIntent(llmIntent);
+
+} else {
+  // Route 3: Fallback to simple NLP
+  // Used when LLM is unavailable
+  await handleSimpleNLPIntent(intent);
+}
+```
+
+#### Contextual Reference Detection:
+
+Frontend NLP detects phrases that require conversation history:
+
+```typescript
+// natural-language.ts - contextualPhrases
+const contextualPhrases = [
+  /\b(book it|reserve it|get it|take it)\b/i,
+  /\b(that room|this room|same room)\b/i,
+  /\b(same time|that time)\b/i,
+];
+
+// Forces LLM usage for context resolution
+if (matches contextual phrase) {
+  return { type: "llm_fallback", useLLM: true };
+}
+```
+
+#### Error Handling:
+
+- **LLM Unavailable**: Falls back to simple NLP
+- **Parse Failure**: Returns `unknown` action with helpful message
+- **Invalid Parameters**: Returns `needsMoreInfo` with clarification request
+- **API Errors**: Handled by BaseCommandHandler with user-friendly messages
+
 ### Conversational Context System
 
 IRIS implements a sophisticated context management system for natural follow-up commands:

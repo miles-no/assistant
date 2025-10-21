@@ -95,9 +95,52 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div class="modal-backdrop" id="settings-modal-backdrop" style="display: none;">
+        <div class="settings-modal" id="settings-modal">
+            <div class="settings-header">
+                <span class="settings-title">IRIS SETTINGS</span>
+                <button class="settings-close" id="settings-close-btn">[X]</button>
+            </div>
+            <div class="settings-content">
+                <div class="settings-section">
+                    <h3>Intent Processing</h3>
+                    <p class="settings-description">Configure how IRIS processes your commands</p>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="nlp-toggle">Simple NLP (Fast Pattern Matching)</label>
+                            <p class="setting-help">Uses regex patterns for instant command recognition. Recommended for quick queries.</p>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="nlp-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="llm-toggle">LLM Parsing (AI-Powered Understanding)</label>
+                            <p class="setting-help">Uses AI to understand complex, contextual queries. Required for "book it" style commands.</p>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="llm-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-footer">
+                    <button class="terminal-button" id="settings-save-btn">
+                        <span class="button-bracket">[</span> SAVE <span class="button-bracket">]</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
     <script type="module" src="../dist/index.js"></script>
-    <script src="animations.js"></script>
 </body>
 </html>

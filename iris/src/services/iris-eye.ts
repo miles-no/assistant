@@ -89,6 +89,7 @@ export class IrisEye {
 			isHovering: false,
 			hoverDepthBoost: 0,
 			clickRecoilTime: 0,
+			mouseIdleTimeout: null,
 		};
 
 		this.init();
@@ -123,13 +124,32 @@ export class IrisEye {
 	}
 
 	private onMouseMove(e: MouseEvent): void {
-		// Calculate mouse position relative to screen center
-		const centerX = window.innerWidth / 2;
-		const centerY = window.innerHeight / 2;
+		// Get eye position on screen
+		const eyeRect = this.elements.eye.getBoundingClientRect();
+		const eyeCenterX = eyeRect.left + eyeRect.width / 2;
+		const eyeCenterY = eyeRect.top + eyeRect.height / 2;
 
-		// Normalize to -1 to 1 range
-		this.position.mouseX = (e.clientX - centerX) / centerX;
-		this.position.mouseY = (e.clientY - centerY) / centerY;
+		// Calculate mouse position relative to eye position
+		const deltaX = e.clientX - eyeCenterX;
+		const deltaY = e.clientY - eyeCenterY;
+
+		// Normalize based on screen dimensions for consistent range
+		const maxDistance = Math.max(window.innerWidth, window.innerHeight);
+		this.position.mouseX = (deltaX / maxDistance) * 2;
+		this.position.mouseY = (deltaY / maxDistance) * 2;
+
+		// Clear any existing idle timeout
+		if (this.interaction.mouseIdleTimeout !== null) {
+			clearTimeout(this.interaction.mouseIdleTimeout);
+		}
+
+		// Set new timeout to return eye to center when mouse stops moving
+		this.interaction.mouseIdleTimeout = window.setTimeout(() => {
+			// Smoothly return to center (looking at user)
+			this.position.mouseX = 0;
+			this.position.mouseY = 0;
+			this.interaction.mouseIdleTimeout = null;
+		}, IRIS_CONSTANTS.MOUSE_IDLE_TIMEOUT);
 	}
 
 	private onEyeHover(isEntering: boolean): void {
@@ -386,6 +406,11 @@ export class IrisEye {
 		if (this.blinkInterval) {
 			clearTimeout(this.blinkInterval);
 			this.blinkInterval = null;
+		}
+
+		if (this.interaction.mouseIdleTimeout !== null) {
+			clearTimeout(this.interaction.mouseIdleTimeout);
+			this.interaction.mouseIdleTimeout = null;
 		}
 
 		// Remove event listeners

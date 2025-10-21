@@ -24,9 +24,10 @@ export const config = {
 // IRIS-specific constants
 export const IRIS_CONSTANTS = {
 	// Eye animation constants
-	MAX_MOVEMENT: 8,
-	SMOOTHING: 0.15,
+	MAX_MOVEMENT: 20,
+	SMOOTHING: 0.4,
 	DEPTH_SMOOTHING: 0.05,
+	MOUSE_IDLE_TIMEOUT: 1500, // ms before eye returns to center
 
 	// State depths
 	DEPTH: {

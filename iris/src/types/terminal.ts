@@ -4,6 +4,11 @@ import type { Booking, Room, User } from "../services/api-client";
  * Terminal state and command processing types
  */
 
+export interface TerminalSettings {
+	useSimpleNLP: boolean; // Enable/disable simple NLP routing
+	useLLM: boolean; // Enable/disable LLM parsing
+}
+
 export interface TerminalState {
 	authToken: string | null;
 	currentUser: User | null;
@@ -11,6 +16,7 @@ export interface TerminalState {
 	historyIndex: number;
 	userTimezone: string;
 	lastBulkOperation: BulkOperation | null;
+	settings: TerminalSettings;
 }
 
 export interface BulkOperation {
