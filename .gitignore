@@ -22,6 +22,9 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+iris-logs.db
+iris-logs.db-shm
+iris-logs.db-wal
 
 # IDE
 .vscode/
