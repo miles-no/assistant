@@ -7,5 +7,7 @@ iris-logs.db-wal
 playwright-report/
 test-results/
 
-# TypeScript build output
+# Build outputs
 dist/
+public/src/
+public/types/

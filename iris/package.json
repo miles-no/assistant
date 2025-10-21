@@ -6,9 +6,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "build": "tsc",
-    "build:watch": "tsc --watch",
+    "dev": "vite",
+    "dev:server": "node --watch server.js",
+    "build": "vite build",
+    "build:watch": "vite build --watch",
+    "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "generate-types": "openapi-typescript ../api/openapi.yaml --output types/api.ts",
     "test": "playwright test",
@@ -38,8 +40,10 @@
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/node": "^24.9.0",
+    "@vitejs/plugin-legacy": "^7.2.1",
     "openapi-fetch": "^0.15.0",
     "openapi-typescript": "^7.10.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^7.1.11"
   }
 }

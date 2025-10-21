@@ -23,6 +23,7 @@ const MCP_API_URL = process.env.MCP_API_URL || 'http://localhost:3000/api/mcp';
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'dist')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // LLM Provider
@@ -607,7 +608,11 @@ app.get('/health', (req, res) => {
 
 // Serve index.html for all other routes (SPA)
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    // Only serve HTML for routes that don't have file extensions (SPA routing)
+    if (req.path.includes('.')) {
+        return res.status(404).send('File not found');
+    }
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Start server
