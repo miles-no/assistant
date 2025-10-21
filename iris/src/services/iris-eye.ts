@@ -24,6 +24,7 @@ export class IrisEye {
 	// State management
 	private currentState: IrisEyeState = "idle";
 	private blinkInterval: number | null = null;
+	private onClickCallback?: () => void;
 
 	// Warning messages for click interactions
 	private readonly warningMessages: WarningMessage[] = [
@@ -196,6 +197,11 @@ export class IrisEye {
 
 		// Set IRIS to error state temporarily
 		this.setError();
+
+		// Notify external systems (e.g., achievement tracker)
+		if (this.onClickCallback) {
+			this.onClickCallback();
+		}
 
 		console.log(
 			`👁️  IRIS: Clicked! Count: ${this.interaction.clickCount}, Intensity: ${intensity}, Recoil!`,
@@ -400,6 +406,11 @@ export class IrisEye {
 
 	// Power state system removed - eye always displays at full brightness
 	// LLM connection status now shown via dedicated status indicator
+
+	// Set callback for click events (for achievement tracking, etc.)
+	setOnClickCallback(callback: () => void): void {
+		this.onClickCallback = callback;
+	}
 
 	// Cleanup method
 	destroy(): void {

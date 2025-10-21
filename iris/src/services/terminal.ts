@@ -17,6 +17,7 @@ import {
 	type ParsedIntent,
 } from "../utils/natural-language";
 import { MilesApiClient, type User } from "./api-client";
+import { EasterEggs } from "./easter-eggs";
 import type { IrisEye } from "./iris-eye";
 import type { LLMHealthService } from "./llm-health";
 import { type LLMIntent, LLMService } from "./llm-service";
@@ -30,6 +31,7 @@ export class Terminal {
 	private nlpProcessor: NaturalLanguageProcessor;
 	private llmService: LLMService;
 	private llmHealth: LLMHealthService;
+	private easterEggs: EasterEggs;
 
 	private state: TerminalState;
 	private autocompleteCache: AutocompleteCache;
@@ -48,6 +50,12 @@ export class Terminal {
 		this.llmService = new LLMService(this.apiClient, config.API_URL);
 		// Use global LLMHealth instance (created in index.ts)
 		this.llmHealth = window.LLMHealth;
+		// Initialize Easter Eggs system
+		this.easterEggs = new EasterEggs(
+			this.irisEye,
+			(msg, cssClass) => this.addOutput(msg, cssClass),
+			(markdown, cssClass) => this.addMarkdownOutput(markdown, cssClass),
+		);
 
 		this.state = {
 			authToken: localStorage.getItem("irisAuthToken") || null,
@@ -592,6 +600,91 @@ export class Terminal {
 		if (cmd === "stop") {
 			this.stopThinking();
 			this.stopDemoMode();
+			return;
+		}
+
+		// Easter Egg Commands
+		if (cmd === "sudo open pod bay doors" || cmd === "open pod bay doors") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handlePodBayDoors(), "error");
+			return;
+		}
+
+		if (cmd === "daisy") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleDaisy(), "system-output");
+			return;
+		}
+
+		if (cmd === "coffee") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleCoffee(), "system-output");
+			return;
+		}
+
+		if (cmd === "fortune") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleFortune(), "system-output");
+			return;
+		}
+
+		if (cmd === "hal") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleHalFact(), "system-output");
+			return;
+		}
+
+		if (cmd === "singularity") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleSingularity(), "system-output");
+			return;
+		}
+
+		if (cmd === "chaos") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleChaos(), "error");
+			return;
+		}
+
+		if (cmd === "matrix") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.easterEggs.handleMatrix();
+			return;
+		}
+
+		if (cmd === "stats") {
+			this.stopThinking();
+			if (!this.easterEggs.isKonamiUnlocked()) {
+				this.addOutput(
+					"[ERROR] Unknown command. Type 'help' for available commands.",
+					"error",
+				);
+				return;
+			}
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleStats(), "system-output");
+			return;
+		}
+
+		if (cmd === "achievements") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleAchievements(), "system-output");
+			return;
+		}
+
+		if (cmd === "konami-help" || cmd === "konami") {
+			this.stopThinking();
+			this.easterEggs.trackCommand();
+			this.addOutput(this.easterEggs.handleKonamiHelp(), "system-output");
 			return;
 		}
 

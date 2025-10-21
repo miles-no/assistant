@@ -1662,3 +1662,136 @@ body.iris-click-intensity-extreme .static-noise {
 .settings-footer .terminal-button {
 	min-width: 120px;
 }
+
+/* ========================================
+   EASTER EGG STYLES
+   ======================================== */
+
+/* Matrix Mode */
+body.matrix-mode {
+	--hal-red: #00ff00;
+	--hal-red-glow: rgba(0, 255, 0, 0.8);
+	--terminal-text: #00ff00;
+	--terminal-text-dim: #008800;
+	--terminal-glow: rgba(0, 255, 0, 0.5);
+}
+
+body.matrix-mode .hal-eye-iris {
+	background: radial-gradient(
+		circle at 40% 40%,
+		#33ff33 0%,
+		#00ff00 20%,
+		#00cc00 40%,
+		#008800 70%,
+		#004400 100%
+	);
+}
+
+body.matrix-mode::before {
+	background: repeating-linear-gradient(
+		0deg,
+		rgba(0, 0, 0, 0.15) 0px,
+		transparent 1px,
+		transparent 2px,
+		rgba(0, 0, 0, 0.15) 3px
+	);
+	animation: crt-flicker-green 0.15s infinite;
+}
+
+@keyframes crt-flicker-green {
+	0% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.98;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+body.matrix-mode .scanlines {
+	background: repeating-linear-gradient(
+		0deg,
+		transparent 0px,
+		transparent 2px,
+		rgba(0, 255, 0, 0.05) 2px,
+		rgba(0, 255, 0, 0.05) 4px
+	);
+}
+
+/* Matrix falling characters effect */
+body.matrix-mode::after {
+	content: "";
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 999;
+	background-image:
+		linear-gradient(transparent 30%, rgba(0, 255, 0, 0.05) 100%);
+	background-size: 100% 20px;
+	animation: matrix-rain 3s linear infinite;
+}
+
+@keyframes matrix-rain {
+	0% {
+		background-position: 0 0;
+	}
+	100% {
+		background-position: 0 100vh;
+	}
+}
+
+/* Screensaver Mode */
+body.screensaver-active {
+	animation: screensaver-dim 2s ease-out forwards;
+}
+
+@keyframes screensaver-dim {
+	to {
+		filter: brightness(0.3);
+	}
+}
+
+body.screensaver-active .hal-eye {
+	animation: screensaver-eye-wander 10s ease-in-out infinite;
+}
+
+@keyframes screensaver-eye-wander {
+	0%, 100% {
+		transform: translate(0, 0) scale(1);
+	}
+	25% {
+		transform: translate(-20px, -15px) scale(1.1);
+	}
+	50% {
+		transform: translate(15px, 10px) scale(0.9);
+	}
+	75% {
+		transform: translate(-10px, 20px) scale(1.05);
+	}
+}
+
+body.screensaver-active .terminal {
+	opacity: 0.3;
+	transition: opacity 2s ease-out;
+}
+
+body.screensaver-active .scanlines {
+	opacity: 0.5;
+	animation:
+		scanline-drift 8s linear infinite,
+		screensaver-pulse 3s ease-in-out infinite;
+}
+
+@keyframes screensaver-pulse {
+	0%, 100% {
+		opacity: 0.3;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
