@@ -517,21 +517,26 @@ Extract the intent from this command: "${command}"
 
 Respond with ONLY valid JSON in this exact format:
 {
-  "action": "book_room" | "list_rooms" | "cancel_booking" | "list_bookings" | "get_room_info" | "unknown",
-  "parameters": {
+  "action": "getRooms" | "getBookings" | "checkAvailability" | "createBooking" | "cancelBooking" | "bulkCancel" | "needsMoreInfo" | "undo" | "unknown",
+  "params": {
+    "roomId": "string (if applicable)",
     "roomName": "string (if applicable)",
     "startTime": "ISO 8601 datetime string (if applicable)",
     "endTime": "ISO 8601 datetime string (if applicable)",
+    "duration": "number in minutes (if applicable)",
     "title": "string (if applicable)",
-    "description": "string (if applicable)"
+    "bookingId": "string (if applicable)",
+    "filter": "all|today|tomorrow|week (if applicable)"
   },
-  "response": "A natural, conversational response to the user"
+  "response": "A natural, conversational response to the user (use for needsMoreInfo or unknown)"
 }
 
 Important:
 - For time references like "tomorrow at 2pm", calculate the absolute datetime in ISO 8601 format
-- If the action is unclear, use "unknown"
-- Always include a friendly "response" field
+- Use "needsMoreInfo" if the user's request is incomplete (e.g., missing room name or time)
+- Use "unknown" only if the request is completely irrelevant to room booking
+- For booking requests, use "createBooking" action
+- Always include a "response" field for needsMoreInfo and unknown actions
 - Respond with ONLY the JSON, no other text`;
 
 		console.log("\n🧠 Calling LLM for intent parsing...");
@@ -570,7 +575,7 @@ Important:
 			console.log(
 				`✓ Intent extracted: ${parsed.action} (${Date.now() - startTime}ms)`,
 			);
-			console.log("Parameters:", JSON.stringify(parsed.parameters, null, 2));
+			console.log("Parameters:", JSON.stringify(parsed.params, null, 2));
 		} catch (parseError: unknown) {
 			const msg =
 				parseError instanceof Error ? parseError.message : String(parseError);
