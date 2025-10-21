@@ -453,72 +453,7 @@ body::after {
 
 /* LLM Connection States */
 /* Powered State - Enhanced energy when LLM is connected */
-.hal-eye.iris-powered .hal-eye-glow {
-	opacity: 0.9;
-	box-shadow:
-		0 0 40px rgba(255, 0, 0, 0.8),
-		0 0 80px rgba(255, 0, 0, 0.6),
-		0 0 120px rgba(255, 0, 0, 0.4);
-	animation: iris-powered-glow 2s ease-in-out infinite;
-}
-
-.hal-eye.iris-powered .hal-eye-pupil {
-	box-shadow:
-		0 0 15px rgba(255, 0, 0, 0.9),
-		0 0 30px rgba(255, 0, 0, 0.7),
-		inset 0 0 15px rgba(255, 0, 0, 0.5);
-}
-
-.hal-eye.iris-powered .hal-eye-iris {
-	opacity: 0.8;
-}
-
-@keyframes iris-powered-glow {
-	0%,
-	100% {
-		opacity: 0.85;
-		transform: scale(1);
-	}
-	50% {
-		opacity: 1;
-		transform: scale(1.05);
-	}
-}
-
-/* Unpowered State - Dimmed when LLM is disconnected */
-.hal-eye.iris-unpowered {
-	opacity: 0.4;
-	filter: brightness(0.5) saturate(0.6);
-}
-
-.hal-eye.iris-unpowered .hal-eye-glow {
-	opacity: 0.2;
-	box-shadow:
-		0 0 10px rgba(255, 0, 0, 0.2),
-		0 0 20px rgba(255, 0, 0, 0.1);
-	animation: iris-unpowered-glow 4s ease-in-out infinite;
-}
-
-.hal-eye.iris-unpowered .hal-eye-pupil {
-	box-shadow:
-		0 0 5px rgba(255, 0, 0, 0.3),
-		inset 0 0 8px rgba(0, 0, 0, 0.8);
-	opacity: 0.5;
-}
-
-.hal-eye.iris-unpowered .hal-eye-iris {
-	opacity: 0.3;
-}
-
-@keyframes iris-unpowered-glow {
-	0%,
-	100% {
-		opacity: 0.15;
-	}
-	50% {
-		opacity: 0.25;
-	}
-}
+/* Eye always displays at full brightness (powered/unpowered states removed) */
 
 .hal-status {
 	font-size: 12px;
@@ -683,6 +618,29 @@ body::after {
 	letter-spacing: 3px;
 	text-shadow: 0 0 5px var(--terminal-glow);
 	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.llm-status-indicator {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: #666;
+	box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+	transition: all 0.3s ease;
+}
+
+.llm-status-indicator.connected {
+	background-color: #00ff00;
+	box-shadow: 0 0 6px rgba(0, 255, 0, 0.6);
+}
+
+.llm-status-indicator.disconnected {
+	background-color: #ff0000;
+	box-shadow: 0 0 6px rgba(255, 0, 0, 0.6);
 }
 
 .terminal-info {

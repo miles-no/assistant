@@ -40,15 +40,12 @@ global.document = {
 				return mockInput;
 			case "hal-status":
 				return mockStatus;
-			case "login-screen": {
-				display: "none";
-			}
-			case "terminal": {
-				display: "flex";
-			}
-			case "user-info": {
-				textContent: "Test User";
-			}
+			case "login-screen":
+				return { style: { display: "none" } };
+			case "terminal":
+				return { style: { display: "flex" } };
+			case "user-info":
+				return { textContent: "Test User" };
 			default:
 				return null;
 		}

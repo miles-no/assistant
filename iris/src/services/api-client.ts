@@ -8,6 +8,38 @@ export type Booking = components["schemas"]["Booking"];
 export type BookingInput = components["schemas"]["BookingInput"];
 export type Location = components["schemas"]["Location"];
 
+// Feedback types (not in OpenAPI spec - MCP only)
+export type FeedbackStatus = "OPEN" | "RESOLVED" | "DISMISSED";
+
+export interface Feedback {
+	id: string;
+	roomId: string;
+	userId: string;
+	message: string;
+	status: FeedbackStatus;
+	resolvedBy?: string;
+	resolutionComment?: string;
+	createdAt: string;
+	updatedAt: string;
+	user: {
+		id: string;
+		firstName: string;
+		lastName: string;
+		email: string;
+	};
+	room: {
+		id: string;
+		name: string;
+		locationId: string;
+	};
+	resolver?: {
+		id: string;
+		firstName: string;
+		lastName: string;
+		email: string;
+	};
+}
+
 export interface ApiError {
 	error: string;
 	details?: Array<{
@@ -41,9 +73,11 @@ export interface BookingResponse {
 export class MilesApiClient {
 	private client: ReturnType<typeof createClient<paths>>;
 	private baseUrl: string;
+	private authToken?: string;
 
 	constructor(baseUrl: string, authToken?: string) {
 		this.baseUrl = baseUrl;
+		this.authToken = authToken;
 		this.client = createClient<paths>({
 			baseUrl,
 			headers: authToken
@@ -61,6 +95,7 @@ export class MilesApiClient {
 	 * Update the authentication token
 	 */
 	setAuthToken(token: string): void {
+		this.authToken = token;
 		this.client = createClient<paths>({
 			baseUrl: this.baseUrl,
 			headers: {
@@ -303,6 +338,105 @@ export class MilesApiClient {
 
 		return {
 			location: data.location,
+		};
+	}
+
+	/**
+	 * Feedback (MCP-only endpoints - using direct fetch)
+	 */
+	async getFeedback(params?: {
+		roomId?: string;
+		status?: FeedbackStatus;
+		userId?: string;
+	}): Promise<{ feedback: Feedback[] }> {
+		const queryParams = new URLSearchParams();
+		if (params?.roomId) queryParams.append("roomId", params.roomId);
+		if (params?.status) queryParams.append("status", params.status);
+		if (params?.userId) queryParams.append("userId", params.userId);
+
+		const url = `${this.baseUrl}/api/feedback${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+
+		const response = await fetch(url, {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${this.authToken}`,
+				"Content-Type": "application/json",
+			},
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({
+				error: "Failed to fetch feedback",
+			}));
+			throw new Error((error as ApiError).error || "Failed to fetch feedback");
+		}
+
+		const data = await response.json();
+		return {
+			feedback: data.feedback || [],
+		};
+	}
+
+	async createFeedback(params: {
+		roomId: string;
+		message: string;
+	}): Promise<{ feedback: Feedback; message?: string }> {
+		const response = await fetch(`${this.baseUrl}/api/feedback`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${this.authToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(params),
+		});
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({
+				error: "Failed to create feedback",
+			}));
+			throw new Error((error as ApiError).error || "Failed to create feedback");
+		}
+
+		const data = await response.json();
+		return {
+			feedback: data.feedback,
+			message: data.message,
+		};
+	}
+
+	async updateFeedbackStatus(params: {
+		feedbackId: string;
+		status: FeedbackStatus;
+		comment: string;
+	}): Promise<{ feedback: Feedback; message?: string }> {
+		const response = await fetch(
+			`${this.baseUrl}/api/feedback/${params.feedbackId}/status`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: `Bearer ${this.authToken}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					status: params.status,
+					comment: params.comment,
+				}),
+			},
+		);
+
+		if (!response.ok) {
+			const error = await response.json().catch(() => ({
+				error: "Failed to update feedback status",
+			}));
+			throw new Error(
+				(error as ApiError).error || "Failed to update feedback status",
+			);
+		}
+
+		const data = await response.json();
+		return {
+			feedback: data.feedback,
+			message: data.message,
 		};
 	}
 }

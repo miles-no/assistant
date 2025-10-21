@@ -15,6 +15,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import authRoutes from "./routes/auth.routes";
 import bookingRoutes from "./routes/booking.routes";
 import calendarRoutes from "./routes/calendar.routes";
+import feedbackRoutes from "./routes/feedback.routes";
 import locationRoutes from "./routes/location.routes";
 import mcpRoutes from "./routes/mcp.routes";
 import roomRoutes from "./routes/room.routes";
@@ -66,6 +67,7 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/calendar", calendarRoutes);
+app.use("/api/feedback", feedbackRoutes);
 app.use("/api/mcp", mcpRoutes);
 
 // 404 handler

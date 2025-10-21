@@ -2,6 +2,7 @@ import { AvailabilityCommandHandler } from "../commands/availability-handler";
 import { BookingsCommandHandler } from "../commands/bookings-handler";
 import { BulkCancelCommandHandler } from "../commands/bulk-cancel-handler";
 import { CancelCommandHandler } from "../commands/cancel-handler";
+import { FeedbackCommandHandler } from "../commands/feedback-handler";
 import { RoomsCommandHandler } from "../commands/rooms-handler";
 import type {
 	AutocompleteCache,
@@ -15,8 +16,8 @@ import {
 	type ParsedIntent,
 } from "../utils/natural-language";
 import { MilesApiClient } from "./api-client";
-import { IrisEye } from "./iris-eye";
-import { LLMHealthService } from "./llm-health";
+import type { IrisEye } from "./iris-eye";
+import type { LLMHealthService } from "./llm-health";
 import { type LLMIntent, LLMService } from "./llm-service";
 
 /**
@@ -36,13 +37,16 @@ export class Terminal {
 	private historyIndex = -1;
 	private currentSuggestions: AutocompleteSuggestion[] = [];
 	private suggestionIndex = -1;
+	private demoInterval: NodeJS.Timeout | null = null;
 
 	constructor() {
 		this.apiClient = new MilesApiClient(config.API_URL);
-		this.irisEye = new IrisEye();
+		// Use global IrisEye instance (created in index.ts)
+		this.irisEye = (window as any).IrisEye;
 		this.nlpProcessor = new NaturalLanguageProcessor();
 		this.llmService = new LLMService(this.apiClient, config.API_URL);
-		this.llmHealth = new LLMHealthService(this.apiClient);
+		// Use global LLMHealth instance (created in index.ts)
+		this.llmHealth = (window as any).LLMHealth;
 
 		this.state = {
 			authToken: localStorage.getItem("irisAuthToken") || null,
@@ -59,10 +63,13 @@ export class Terminal {
 			lastFetch: 0,
 		};
 
-		// Monitor LLM health for fallback decisions
-		this.llmHealth.onStatusChange((status) => {
-			console.log(`LLM status: ${status}`);
-		});
+		// Monitor LLM health for fallback decisions and status indicator
+		if (this.llmHealth) {
+			this.llmHealth.onStatusChange((status) => {
+				console.log(`LLM status: ${status}`);
+				this.updateLLMStatusIndicator(status);
+			});
+		}
 
 		this.initialize();
 	}
@@ -470,6 +477,11 @@ export class Terminal {
 			return;
 		}
 
+		if (mainCmd === "feedback") {
+			await this.handleFeedbackCommand(parts);
+			return;
+		}
+
 		// Try hybrid natural language processing
 		const intent = this.nlpProcessor.parseIntent(command);
 
@@ -524,6 +536,20 @@ export class Terminal {
 		await handler.execute({ bookingId: parts[1] });
 	}
 
+	private async handleFeedbackCommand(parts: string[]): Promise<void> {
+		if (!this.state.currentUser) return;
+
+		const handler = new FeedbackCommandHandler(
+			this.apiClient,
+			this.state.currentUser,
+			this.state.userTimezone,
+		);
+
+		// Support optional roomId parameter: "feedback <roomId>"
+		const roomId = parts[1];
+		await handler.execute(roomId ? { roomId } : undefined);
+	}
+
 	private showHelp(): void {
 		const markdown = `
 # COMMAND REFERENCE
@@ -532,6 +558,8 @@ export class Terminal {
 
 ▸ **rooms** - Display all rooms
 ▸ **bookings** - Display active bookings
+▸ **feedback** - Display all room feedback
+▸ **feedback** \`<roomId>\` - Display feedback for specific room
 ▸ **cancel** \`<id>\` - Cancel booking by ID
 
 ## SYSTEM
@@ -588,15 +616,110 @@ This system is designed to process booking operations with maximum efficiency an
 	}
 
 	private startDemoMode(): void {
-		// For now, just show a message - full demo implementation would be complex
-		this.addOutput(
-			"[DEMO MODE] Animation showcase not yet implemented in TypeScript version",
-			"system-output",
-		);
+		// Stop any existing demo
+		if (this.demoInterval) {
+			this.stopDemoMode();
+		}
+
+		// Display demo header
+		const demoHeader = `
+╔════════════════════════════════════════╗
+║      IRIS ANIMATION SHOWCASE           ║
+║      Demonstrating Eye States          ║
+╚════════════════════════════════════════╝
+
+[DEMO] Starting animation sequence...
+`;
+		this.addOutput(demoHeader, "system-output");
+
+		const states = [
+			{
+				name: "IDLE",
+				method: () => this.irisEye.setIdle(),
+				description: "• Calm breathing animation",
+			},
+			{
+				name: "THINKING",
+				method: () => this.irisEye.setThinking(),
+				description: "• Processing state - analyzing input",
+			},
+			{
+				name: "ALERT",
+				method: () => this.irisEye.setAlert(),
+				description: "• Attention mode - important notification",
+			},
+			{
+				name: "ERROR",
+				method: () => this.irisEye.setError(),
+				description: "• Error state - pulsing red warning",
+			},
+			{
+				name: "BLINKING",
+				method: () => {
+					this.irisEye.setIdle();
+					setTimeout(() => this.irisEye.blink(), 200);
+				},
+				description: "• Natural blink animation",
+			},
+		];
+
+		let currentIndex = 0;
+
+		const runDemo = () => {
+			if (currentIndex >= states.length) {
+				// Demo complete - return to idle and show completion message
+				this.irisEye.setIdle();
+				this.addOutput(
+					"\n[DEMO] Animation sequence completed!\n[DEMO] Type 'stop' to acknowledge or run 'demo' again.\n",
+					"system-output",
+				);
+				this.demoInterval = null;
+				return;
+			}
+
+			const state = states[currentIndex];
+			this.addOutput(
+				`\n[DEMO] State ${currentIndex + 1}/${states.length}: ${state.name}`,
+				"system-output",
+			);
+			this.addOutput(`${state.description}`, "info");
+
+			// Apply the state
+			state.method();
+
+			currentIndex++;
+
+			// Schedule next state (4 seconds per state for visibility)
+			this.demoInterval = setTimeout(runDemo, 4000);
+		};
+
+		// Start the demo sequence
+		runDemo();
 	}
 
 	private stopDemoMode(): void {
-		this.addOutput("[DEMO MODE] Not running", "system-output");
+		if (this.demoInterval) {
+			clearTimeout(this.demoInterval);
+			this.demoInterval = null;
+			this.irisEye.setIdle();
+			this.addOutput(
+				"[DEMO] Sequence stopped - returning to idle",
+				"system-output",
+			);
+		} else {
+			this.addOutput("[DEMO] No demo currently running", "system-output");
+		}
+	}
+
+	private updateLLMStatusIndicator(status: "connected" | "disconnected"): void {
+		const indicator = document.getElementById("llm-status-indicator");
+		if (!indicator) return;
+
+		// Remove existing status classes
+		indicator.classList.remove("connected", "disconnected");
+
+		// Add current status class
+		indicator.classList.add(status);
 	}
 
 	private async handleSimpleNLPIntent(intent: ParsedIntent): Promise<void> {

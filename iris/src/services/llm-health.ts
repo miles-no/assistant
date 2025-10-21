@@ -71,10 +71,17 @@ export class LLMHealthService {
 	 */
 	private async checkLLMEndpoint(): Promise<boolean> {
 		try {
+			const authToken = this.getAuthToken();
+			if (!authToken) {
+				// No auth token available yet (user not logged in)
+				return false;
+			}
+
 			const response = await fetch(`${this.getBaseUrl()}/api/intent`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
+					Authorization: `Bearer ${authToken}`,
 				},
 				body: JSON.stringify({
 					command: "health_check",
@@ -85,6 +92,13 @@ export class LLMHealthService {
 		} catch (_error) {
 			return false;
 		}
+	}
+
+	/**
+	 * Get auth token from localStorage
+	 */
+	private getAuthToken(): string | null {
+		return localStorage.getItem("irisAuthToken");
 	}
 
 	/**
@@ -123,7 +137,9 @@ export class LLMHealthService {
 	 * Notify all listeners of status change
 	 */
 	private notifyListeners(): void {
-		this.listeners.forEach((listener) => listener(this.status));
+		for (const listener of this.listeners) {
+			listener(this.status);
+		}
 	}
 
 	/**

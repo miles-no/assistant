@@ -16,29 +16,27 @@ if (document.readyState === "loading") {
 
 function initializeIRIS(): void {
 	try {
-		// Initialize terminal and eye systems
-		new Terminal();
+		// Initialize IrisEye and LLMHealth FIRST, before Terminal
 		irisEye = new IrisEye();
 
 		// Initialize LLM health monitoring
 		const apiClient = new ApiClient(config.API_URL);
 		llmHealth = new LLMHealthService(apiClient);
 
-		// Connect health status to IRIS eye power state
-		llmHealth.onStatusChange((status) => {
-			const isPowered = status === "connected";
-			irisEye.setPowered(isPowered);
-		});
+		// Make IRIS eye and LLM health available globally BEFORE Terminal initialization
+		(window as any).IrisEye = irisEye;
+		(window as any).LLMHealth = llmHealth;
+
+		// NOW initialize terminal (it needs IrisEye and LLMHealth to be available)
+		new Terminal();
+
+		// LLM health monitoring (status indicator handled in Terminal class)
 
 		// Start health polling after a brief delay to let authentication happen
 		setTimeout(() => {
 			llmHealth.startPolling();
 			console.log("✅ LLM Health monitoring started");
 		}, 1000);
-
-		// Make IRIS eye available globally for backward compatibility
-		(window as any).IrisEye = irisEye;
-		(window as any).LLMHealth = llmHealth;
 
 		console.log("✅ IRIS TypeScript systems initialized");
 	} catch (error) {

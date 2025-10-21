@@ -25,16 +25,19 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm ci --production
+# Install all dependencies (need tsx to run TypeScript server, better-sqlite3 needs to compile)
+RUN npm ci
 
-# Copy built files from builder
+# Copy built frontend from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/server.js ./
-COPY --from=builder /app/llm-providers.js ./
-COPY --from=builder /app/database.js ./
-COPY --from=builder /app/fuzzy-match.js ./
+
+# Copy TypeScript server files and config
+COPY --from=builder /app/server.ts ./
+COPY --from=builder /app/llm-providers.ts ./
+COPY --from=builder /app/database.ts ./
+COPY --from=builder /app/fuzzy-match.ts ./
+COPY --from=builder /app/tsconfig.json ./
 
 # Create directory for SQLite database
 RUN mkdir -p /app/data
@@ -46,5 +49,5 @@ EXPOSE 3002
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start the server
-CMD ["node", "server.js"]
+# Start the server with tsx (TypeScript executor)
+CMD ["npx", "tsx", "server.ts"]

@@ -470,6 +470,125 @@ Examples:
 	}
 });
 
+// Alias for /api/parse-intent (frontend expects /api/intent)
+app.post("/api/intent", async (req: Request, res: Response) => {
+	const { command, userId, timezone } = req.body as IntentRequest;
+	const authToken = req.headers.authorization?.replace("Bearer ", "");
+
+	if (!authToken) {
+		return res.status(401).json({ error: "Authentication required" });
+	}
+
+	console.log("\n========================================");
+	console.log("🧠 IRIS Intent Parsing");
+	console.log("========================================");
+	console.log(`User:    ${userId}`);
+	console.log(`Command: ${command}`);
+	console.log(`Timezone: ${timezone || "UTC"}`);
+
+	const startTime = Date.now();
+	let intent: IntentResponse | null = null;
+	let _errorMsg: string | null = null;
+
+	try {
+		// Get current date/time in user's timezone for context
+		const now = new Date();
+		const userTimezone = timezone || "UTC";
+		const contextTime = now.toLocaleString("en-US", {
+			timeZone: userTimezone,
+			weekday: "long",
+			year: "numeric",
+			month: "long",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+		});
+
+		console.log(`Context: ${contextTime}`);
+
+		// Call LLM to extract intent
+		const llmPrompt = `You are an AI assistant that extracts structured intent from user commands for a room booking system.
+
+Current date/time: ${contextTime}
+User's timezone: ${userTimezone}
+
+Extract the intent from this command: "${command}"
+
+Respond with ONLY valid JSON in this exact format:
+{
+  "action": "book_room" | "list_rooms" | "cancel_booking" | "list_bookings" | "get_room_info" | "unknown",
+  "parameters": {
+    "roomName": "string (if applicable)",
+    "startTime": "ISO 8601 datetime string (if applicable)",
+    "endTime": "ISO 8601 datetime string (if applicable)",
+    "title": "string (if applicable)",
+    "description": "string (if applicable)"
+  },
+  "response": "A natural, conversational response to the user"
+}
+
+Important:
+- For time references like "tomorrow at 2pm", calculate the absolute datetime in ISO 8601 format
+- If the action is unclear, use "unknown"
+- Always include a friendly "response" field
+- Respond with ONLY the JSON, no other text`;
+
+		const llmResponse = await queryLLM(llmPrompt, userId, authToken);
+
+		// Try to parse the LLM response as JSON
+		let parsed: IntentResponse;
+		try {
+			// Clean up the response - remove markdown code blocks if present
+			let cleanedResponse = llmResponse.trim();
+			if (cleanedResponse.startsWith("```json")) {
+				cleanedResponse = cleanedResponse.slice(7);
+			}
+			if (cleanedResponse.startsWith("```")) {
+				cleanedResponse = cleanedResponse.slice(3);
+			}
+			if (cleanedResponse.endsWith("```")) {
+				cleanedResponse = cleanedResponse.slice(0, -3);
+			}
+			cleanedResponse = cleanedResponse.trim();
+
+			parsed = JSON.parse(cleanedResponse) as IntentResponse;
+			intent = parsed;
+
+			console.log(
+				`✓ Intent extracted: ${parsed.action} (${Date.now() - startTime}ms)`,
+			);
+			console.log("Parameters:", JSON.stringify(parsed.parameters, null, 2));
+		} catch (parseError: unknown) {
+			const msg =
+				parseError instanceof Error ? parseError.message : String(parseError);
+			console.error("Failed to parse LLM response as JSON:", msg);
+			console.error("Raw response:", llmResponse);
+
+			// Return unknown action with the LLM's raw response
+			parsed = {
+				action: "unknown",
+				response: llmResponse,
+				parameters: {},
+			};
+			intent = parsed;
+		}
+
+		res.json(intent);
+	} catch (error: unknown) {
+		const msg = error instanceof Error ? error.message : String(error);
+		_errorMsg = msg;
+		console.error("Error in intent parsing:", msg);
+		console.log(`✗ Intent parsing failed (${Date.now() - startTime}ms)`);
+
+		res.json({
+			action: "unknown",
+			response:
+				"System: Unable to parse intent. Processing command with full AI...",
+		});
+	}
+});
+
 // Main command processing endpoint (kept for backward compatibility)
 app.post("/api/command", async (req: Request, res: Response) => {
 	const { command, userId } = req.body as CommandRequest;

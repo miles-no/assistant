@@ -24,7 +24,6 @@ export class IrisEye {
 	// State management
 	private currentState: IrisEyeState = "idle";
 	private blinkInterval: number | null = null;
-	private isPowered: boolean = false;
 
 	// Warning messages for click interactions
 	private readonly warningMessages: WarningMessage[] = [
@@ -288,9 +287,6 @@ export class IrisEye {
 		this.elements.eye.classList.add(newState);
 		document.body.classList.add(`crt-${newState}`);
 
-		// Apply power state class
-		this.applyPowerState();
-
 		// Set depth based on state (more extreme values)
 		switch (newState) {
 			case "idle":
@@ -329,7 +325,7 @@ export class IrisEye {
 		scheduleBlink();
 	}
 
-	private blink(): void {
+	blink(): void {
 		// Don't blink if already blinking or in alert/error state
 		if (
 			this.currentState === "blinking" ||
@@ -382,32 +378,8 @@ export class IrisEye {
 		this.config.targetDepth = Math.max(0, Math.min(1, depth)); // Clamp 0-1
 	}
 
-	// Apply power state classes
-	private applyPowerState(): void {
-		if (this.isPowered) {
-			this.elements.eye.classList.add("iris-powered");
-			this.elements.eye.classList.remove("iris-unpowered");
-			document.body.classList.add("iris-powered");
-			document.body.classList.remove("iris-unpowered");
-		} else {
-			this.elements.eye.classList.add("iris-unpowered");
-			this.elements.eye.classList.remove("iris-powered");
-			document.body.classList.add("iris-unpowered");
-			document.body.classList.remove("iris-powered");
-		}
-	}
-
-	// Set LLM power state
-	setPowered(powered: boolean): void {
-		if (this.isPowered === powered) return;
-
-		this.isPowered = powered;
-		this.applyPowerState();
-
-		console.log(
-			`👁️  IRIS Power: ${powered ? "CONNECTED ⚡" : "DISCONNECTED 💤"}`,
-		);
-	}
+	// Power state system removed - eye always displays at full brightness
+	// LLM connection status now shown via dedicated status indicator
 
 	// Cleanup method
 	destroy(): void {
