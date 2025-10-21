@@ -28,6 +28,8 @@ const mockIrisEye = {
 	setIdle: vi.fn(),
 	setAlert: vi.fn(),
 	setError: vi.fn(),
+	blink: vi.fn(),
+	setDepth: vi.fn(),
 };
 
 // Mock document.getElementById
@@ -50,7 +52,7 @@ global.document = {
 				return null;
 		}
 	}),
-} as any;
+} as unknown as Document;
 
 // Mock localStorage
 const localStorageMock = {
@@ -58,17 +60,20 @@ const localStorageMock = {
 	setItem: vi.fn(),
 	removeItem: vi.fn(),
 	clear: vi.fn(),
+	length: 0,
+	key: vi.fn(),
 };
-global.localStorage = localStorageMock;
+global.localStorage = localStorageMock as unknown as Storage;
 
 // Mock window
 global.window = {
 	marked: {
 		setOptions: vi.fn(),
-		parse: vi.fn((markdown) => markdown),
+		parse: vi.fn((markdown: string) => markdown),
 	},
 	IrisEye: mockIrisEye,
-} as any;
+	LLMHealth: {} as LLMHealthService,
+} as unknown as Window & typeof globalThis;
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -85,25 +90,31 @@ describe("Hybrid Processing Logic", () => {
 			parseIntent: vi.fn(),
 			hasHighConfidence: vi.fn(),
 			shouldUseLLM: vi.fn(),
-		} as any;
+		} as unknown as NaturalLanguageProcessor;
 
 		mockLLMService = {
 			parseIntent: vi.fn(),
 			isAvailable: vi.fn(),
-		} as any;
+		} as unknown as LLMService;
 
 		mockLLMHealth = {
 			getStatus: vi.fn(),
 			onStatusChange: vi.fn(),
-		} as any;
+			startPolling: vi.fn(),
+			stopPolling: vi.fn(),
+		} as unknown as LLMHealthService;
 
 		// Create terminal with mocked dependencies
 		terminal = new Terminal();
 
 		// Replace the services with mocks
+		// biome-ignore lint/suspicious/noExplicitAny: Test code needs to access private properties
 		(terminal as any).nlpProcessor = mockNLP;
+		// biome-ignore lint/suspicious/noExplicitAny: Test code needs to access private properties
 		(terminal as any).llmService = mockLLMService;
+		// biome-ignore lint/suspicious/noExplicitAny: Test code needs to access private properties
 		(terminal as any).llmHealth = mockLLMHealth;
+		// biome-ignore lint/suspicious/noExplicitAny: Test code needs to access private properties
 		(terminal as any).state = {
 			authToken: "test-token",
 			currentUser: {
@@ -138,9 +149,12 @@ describe("Hybrid Processing Logic", () => {
 			mockNLP.hasHighConfidence.mockReturnValue(true);
 
 			// Mock the greeting handler
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs to spy on private methods
 			const addOutputSpy = vi.spyOn(terminal as any, "addOutput");
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs to spy on private methods
 			const stopThinkingSpy = vi.spyOn(terminal as any, "stopThinking");
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs to call private methods
 			await (terminal as any).processCommand("hello");
 
 			expect(mockNLP.parseIntent).toHaveBeenCalledWith("hello");
@@ -166,11 +180,13 @@ describe("Hybrid Processing Logic", () => {
 
 			// Mock the rooms command handler
 			const handleRoomsCommandSpy = vi.spyOn(
+				// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 				terminal as any,
 				"handleRoomsCommand",
 			);
 			handleRoomsCommandSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs to call private methods
 			await (terminal as any).processCommand("show rooms");
 
 			expect(mockNLP.parseIntent).toHaveBeenCalledWith("show rooms");
@@ -192,11 +208,13 @@ describe("Hybrid Processing Logic", () => {
 
 			// Mock the bookings command handler
 			const handleBookingsCommandSpy = vi.spyOn(
+				// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 				terminal as any,
 				"handleBookingsCommand",
 			);
 			handleBookingsCommandSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).processCommand("my bookings");
 
 			expect(mockNLP.parseIntent).toHaveBeenCalledWith("my bookings");
@@ -231,9 +249,11 @@ describe("Hybrid Processing Logic", () => {
 			mockLLMService.parseIntent.mockResolvedValue(mockLLMResponse);
 
 			// Mock the executeLLMIntent method
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const executeLLMIntentSpy = vi.spyOn(terminal as any, "executeLLMIntent");
 			executeLLMIntentSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).processCommand(
 				"book Conference Room A tomorrow at 2pm",
 			);
@@ -273,9 +293,11 @@ describe("Hybrid Processing Logic", () => {
 			mockLLMHealth.getStatus.mockReturnValue("connected");
 			mockLLMService.parseIntent.mockResolvedValue(mockLLMResponse);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const executeLLMIntentSpy = vi.spyOn(terminal as any, "executeLLMIntent");
 			executeLLMIntentSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).processCommand(
 				"when is Conference Room A available?",
 			);
@@ -301,11 +323,13 @@ describe("Hybrid Processing Logic", () => {
 
 			// Mock the simple NLP handler
 			const handleSimpleNLPIntentSpy = vi.spyOn(
+				// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 				terminal as any,
 				"handleSimpleNLPIntent",
 			);
 			handleSimpleNLPIntentSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).processCommand("book Conference Room A tomorrow");
 
 			expect(mockNLP.parseIntent).toHaveBeenCalledWith(
@@ -335,11 +359,13 @@ describe("Hybrid Processing Logic", () => {
 
 			// Mock the simple NLP handler
 			const handleSimpleNLPIntentSpy = vi.spyOn(
+				// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 				terminal as any,
 				"handleSimpleNLPIntent",
 			);
 			handleSimpleNLPIntentSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).processCommand("book Conference Room A tomorrow");
 
 			expect(mockLLMService.parseIntent).toHaveBeenCalled();
@@ -361,9 +387,12 @@ describe("Hybrid Processing Logic", () => {
 			mockNLP.shouldUseLLM.mockReturnValue(true);
 			mockLLMHealth.getStatus.mockReturnValue("disconnected");
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const addOutputSpy = vi.spyOn(terminal as any, "addOutput");
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const stopThinkingSpy = vi.spyOn(terminal as any, "stopThinking");
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).processCommand("completely unknown command");
 
 			expect(addOutputSpy).toHaveBeenCalledWith(
@@ -382,11 +411,13 @@ describe("Hybrid Processing Logic", () => {
 			};
 
 			const handleRoomsCommandSpy = vi.spyOn(
+				// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 				terminal as any,
 				"handleRoomsCommand",
 			);
 			handleRoomsCommandSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).executeLLMIntent(mockLLMIntent);
 
 			expect(handleRoomsCommandSpy).toHaveBeenCalled();
@@ -399,11 +430,13 @@ describe("Hybrid Processing Logic", () => {
 			};
 
 			const handleBookingsCommandSpy = vi.spyOn(
+				// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 				terminal as any,
 				"handleBookingsCommand",
 			);
 			handleBookingsCommandSpy.mockResolvedValue(undefined);
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).executeLLMIntent(mockLLMIntent);
 
 			expect(handleBookingsCommandSpy).toHaveBeenCalled();
@@ -416,9 +449,12 @@ describe("Hybrid Processing Logic", () => {
 				response: "Please specify start time and duration.",
 			};
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const addOutputSpy = vi.spyOn(terminal as any, "addOutput");
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const stopThinkingSpy = vi.spyOn(terminal as any, "stopThinking");
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).executeLLMIntent(mockLLMIntent);
 
 			expect(stopThinkingSpy).toHaveBeenCalled();
@@ -435,9 +471,12 @@ describe("Hybrid Processing Logic", () => {
 				response: "Query irrelevant. State operational requirements.",
 			};
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const addOutputSpy = vi.spyOn(terminal as any, "addOutput");
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			const stopThinkingSpy = vi.spyOn(terminal as any, "stopThinking");
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			await (terminal as any).executeLLMIntent(mockLLMIntent);
 
 			expect(stopThinkingSpy).toHaveBeenCalled();

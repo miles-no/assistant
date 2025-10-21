@@ -1,4 +1,3 @@
-import { config } from "../utils/config";
 import type { MilesApiClient } from "./api-client";
 
 export type LLMHealthStatus = "connected" | "disconnected";
@@ -46,72 +45,22 @@ export class LLMHealthService {
 	 */
 	private async checkHealth(): Promise<void> {
 		try {
-			// Check both API health and LLM intent endpoint
-			const [apiResponse, llmResponse] = await Promise.allSettled([
-				this.apiClient.health(),
-				this.checkLLMEndpoint(),
-			]);
+			// Just check API health - don't call LLM intent endpoint to avoid creating loading indicators
+			const apiResponse = await this.apiClient.health();
 
-			const apiHealthy =
-				apiResponse.status === "fulfilled" && apiResponse.value.status === "ok";
-			const llmHealthy = llmResponse.status === "fulfilled";
+			const apiHealthy = apiResponse.status === "ok";
 
-			const newStatus: LLMHealthStatus =
-				apiHealthy && llmHealthy ? "connected" : "disconnected";
+			// Assume LLM is connected if API is healthy
+			// We'll know if LLM fails when users actually try to use it
+			const newStatus: LLMHealthStatus = apiHealthy
+				? "connected"
+				: "disconnected";
 
 			this.updateStatus(newStatus);
 		} catch (_error) {
 			// Connection failed, mark as disconnected
 			this.updateStatus("disconnected");
 		}
-	}
-
-	/**
-	 * Check if LLM intent endpoint is responding
-	 */
-	private async checkLLMEndpoint(): Promise<boolean> {
-		try {
-			const authToken = this.getAuthToken();
-			if (!authToken) {
-				// No auth token available yet (user not logged in)
-				return false;
-			}
-
-			const response = await fetch(`${this.getBaseUrl()}/api/intent`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${authToken}`,
-				},
-				body: JSON.stringify({
-					command: "health_check",
-					userId: "system",
-				}),
-			});
-			return response.ok;
-		} catch (_error) {
-			return false;
-		}
-	}
-
-	/**
-	 * Get auth token from localStorage
-	 */
-	private getAuthToken(): string | null {
-		return localStorage.getItem("irisAuthToken");
-	}
-
-	/**
-	 * Get base URL for LLM endpoint
-	 */
-	private getBaseUrl(): string {
-		// Use the IRIS server URL (port 3002) for LLM intent endpoint
-		const baseUrl = config.API_URL;
-		if (baseUrl.includes(":3000")) {
-			return baseUrl.replace(":3000", ":3002");
-		}
-		// If API URL doesn't specify port 3000, assume IRIS server is on 3002
-		return "http://localhost:3002";
 	}
 
 	/**

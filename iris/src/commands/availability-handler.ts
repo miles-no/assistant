@@ -114,19 +114,24 @@ export class AvailabilityCommandHandler extends BaseCommandHandler {
 			conflictingBooking?: Booking;
 		}> = [];
 
-		// Sort bookings by start time
+		// Sort bookings by start time (filter ensures startTime and endTime exist)
 		const sortedBookings = bookings
-			.filter((booking) => booking.startTime && booking.endTime)
+			.filter(
+				(
+					booking,
+				): booking is typeof booking & { startTime: string; endTime: string } =>
+					Boolean(booking.startTime && booking.endTime),
+			)
 			.sort(
 				(a, b) =>
-					new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime(),
+					new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
 			);
 
 		let currentTime = new Date(startTime);
 
 		for (const booking of sortedBookings) {
-			const bookingStart = new Date(booking.startTime!);
-			const bookingEnd = new Date(booking.endTime!);
+			const bookingStart = new Date(booking.startTime);
+			const bookingEnd = new Date(booking.endTime);
 
 			// Skip bookings that end before our window
 			if (bookingEnd <= startTime) continue;

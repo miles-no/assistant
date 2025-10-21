@@ -24,8 +24,8 @@ function initializeIRIS(): void {
 		llmHealth = new LLMHealthService(apiClient);
 
 		// Make IRIS eye and LLM health available globally BEFORE Terminal initialization
-		(window as any).IrisEye = irisEye;
-		(window as any).LLMHealth = llmHealth;
+		window.IrisEye = irisEye;
+		window.LLMHealth = llmHealth;
 
 		// NOW initialize terminal (it needs IrisEye and LLMHealth to be available)
 		new Terminal();

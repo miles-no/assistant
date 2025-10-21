@@ -15,7 +15,7 @@ import {
 	NaturalLanguageProcessor,
 	type ParsedIntent,
 } from "../utils/natural-language";
-import { MilesApiClient } from "./api-client";
+import { MilesApiClient, type User } from "./api-client";
 import type { IrisEye } from "./iris-eye";
 import type { LLMHealthService } from "./llm-health";
 import { type LLMIntent, LLMService } from "./llm-service";
@@ -42,11 +42,11 @@ export class Terminal {
 	constructor() {
 		this.apiClient = new MilesApiClient(config.API_URL);
 		// Use global IrisEye instance (created in index.ts)
-		this.irisEye = (window as any).IrisEye;
+		this.irisEye = window.IrisEye;
 		this.nlpProcessor = new NaturalLanguageProcessor();
 		this.llmService = new LLMService(this.apiClient, config.API_URL);
 		// Use global LLMHealth instance (created in index.ts)
-		this.llmHealth = (window as any).LLMHealth;
+		this.llmHealth = window.LLMHealth;
 
 		this.state = {
 			authToken: localStorage.getItem("irisAuthToken") || null,
@@ -74,10 +74,10 @@ export class Terminal {
 		this.initialize();
 	}
 
-	private parseStoredUser(): any {
+	private parseStoredUser(): User | null {
 		try {
 			const userJson = localStorage.getItem("irisUser");
-			return userJson ? JSON.parse(userJson) : null;
+			return userJson ? (JSON.parse(userJson) as User) : null;
 		} catch {
 			return null;
 		}
@@ -344,7 +344,7 @@ export class Terminal {
 					.filter((b) => b.id?.startsWith(parts[1]))
 					.map((b) => ({
 						completion: `cancel ${b.id}`,
-						description: `${b.title} (${this.formatDate(b.startTime!)})`,
+						description: `${b.title} (${this.formatDate(b.startTime || "")})`,
 					}));
 			}
 		}
@@ -832,10 +832,12 @@ This system is designed to process booking operations with maximum efficiency an
 			return;
 		}
 
+		if (!this.state.currentUser) return;
+
 		// Use existing availability handler with fuzzy matching
 		const handler = new AvailabilityCommandHandler(
 			this.apiClient,
-			this.state.currentUser!,
+			this.state.currentUser,
 			this.state.userTimezone,
 		);
 
@@ -869,27 +871,35 @@ This system is designed to process booking operations with maximum efficiency an
 	}
 
 	private async handleCancelAllIntent(): Promise<void> {
+		if (!this.state.currentUser) return;
+
 		// Use existing bulk cancel handler
 		const handler = new BulkCancelCommandHandler(
 			this.apiClient,
-			this.state.currentUser!,
+			this.state.currentUser,
 			this.state.userTimezone,
 		);
 
 		await handler.execute({ filter: "all" });
 	}
 
-	private async handleAvailabilityCheck(_params?: any): Promise<void> {
+	private async handleAvailabilityCheck(
+		_params?: Record<string, unknown>,
+	): Promise<void> {
+		if (!this.state.currentUser) return;
+
 		const handler = new AvailabilityCommandHandler(
 			this.apiClient,
-			this.state.currentUser!,
+			this.state.currentUser,
 			this.state.userTimezone,
 		);
 
 		await handler.execute(_params);
 	}
 
-	private async handleBookingCreate(_params?: any): Promise<void> {
+	private async handleBookingCreate(
+		_params?: Record<string, unknown>,
+	): Promise<void> {
 		// For now, show that booking creation is not fully implemented in simple NLP
 		this.stopThinking();
 		this.addOutput(
@@ -898,8 +908,13 @@ This system is designed to process booking operations with maximum efficiency an
 		);
 	}
 
-	private async handleCancelBooking(params?: any): Promise<void> {
-		if (!params?.bookingId) {
+	private async handleCancelBooking(
+		params?: Record<string, unknown>,
+	): Promise<void> {
+		if (!this.state.currentUser) return;
+
+		const bookingId = params?.bookingId as string | undefined;
+		if (!bookingId) {
 			this.stopThinking();
 			this.addOutput("[ERROR] Booking ID required for cancellation.", "error");
 			return;
@@ -907,17 +922,21 @@ This system is designed to process booking operations with maximum efficiency an
 
 		const handler = new CancelCommandHandler(
 			this.apiClient,
-			this.state.currentUser!,
+			this.state.currentUser,
 			this.state.userTimezone,
 		);
 
-		await handler.execute({ bookingId: params.bookingId });
+		await handler.execute({ bookingId });
 	}
 
-	private async handleBulkCancel(params?: any): Promise<void> {
+	private async handleBulkCancel(
+		params?: Record<string, unknown>,
+	): Promise<void> {
+		if (!this.state.currentUser) return;
+
 		const handler = new BulkCancelCommandHandler(
 			this.apiClient,
-			this.state.currentUser!,
+			this.state.currentUser,
 			this.state.userTimezone,
 		);
 
@@ -994,9 +1013,13 @@ This system is designed to process booking operations with maximum efficiency an
 		const status = document.getElementById("hal-status");
 		if (status) status.textContent = "PROCESSING...";
 
-		// Add typing indicator
+		// Add typing indicator (remove any existing one first to prevent duplicates)
 		const output = document.getElementById("terminal-output");
 		if (!output) return;
+
+		// Remove any existing typing indicator
+		const existingIndicator = document.getElementById("typing-indicator");
+		if (existingIndicator) existingIndicator.remove();
 
 		const indicator = document.createElement("div");
 		indicator.className = "terminal-line typing-indicator";

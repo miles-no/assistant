@@ -32,7 +32,7 @@ export interface IntentRequest {
 
 export interface IntentResponse {
 	action: string;
-	params?: Record<string, any>;
+	params?: Record<string, unknown>;
 	response?: string;
 }
 

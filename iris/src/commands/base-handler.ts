@@ -104,11 +104,18 @@ export abstract class BaseCommandHandler {
 			window.IrisEye.setThinking();
 		}
 
-		document.getElementById("hal-status")!.textContent = "PROCESSING...";
+		const halStatus = document.getElementById("hal-status");
+		if (halStatus) {
+			halStatus.textContent = "PROCESSING...";
+		}
 
-		// Add typing indicator
+		// Add typing indicator (remove any existing one first to prevent duplicates)
 		const output = document.getElementById("terminal-output");
 		if (!output) return;
+
+		// Remove any existing typing indicator
+		const existingIndicator = document.getElementById("typing-indicator");
+		if (existingIndicator) existingIndicator.remove();
 
 		const indicator = document.createElement("div");
 		indicator.className = "terminal-line typing-indicator";
@@ -133,27 +140,13 @@ export abstract class BaseCommandHandler {
 			window.IrisEye.setIdle();
 		}
 
-		document.getElementById("hal-status")!.textContent = "IRIS v1.0 - ONLINE";
+		const halStatus = document.getElementById("hal-status");
+		if (halStatus) {
+			halStatus.textContent = "IRIS v1.0 - ONLINE";
+		}
 
 		// Remove typing indicator
 		const indicator = document.getElementById("typing-indicator");
 		indicator?.remove();
-	}
-}
-
-// Extend window interface for marked and IrisEye
-declare global {
-	interface Window {
-		marked?: {
-			setOptions(options: { breaks: boolean; gfm: boolean }): void;
-			parse(markdown: string): string;
-		};
-		IrisEye?: {
-			setIdle(): void;
-			setThinking(): void;
-			setAlert(): void;
-			setError(): void;
-			setDepth(depth: number): void;
-		};
 	}
 }

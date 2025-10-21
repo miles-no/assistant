@@ -534,7 +534,19 @@ Important:
 - Always include a friendly "response" field
 - Respond with ONLY the JSON, no other text`;
 
-		const llmResponse = await queryLLM(llmPrompt, userId, authToken);
+		console.log("\n🧠 Calling LLM for intent parsing...");
+
+		const llmResult = await llmProvider.chat([
+			{
+				role: "system",
+				content: "You are a precise intent parser. Return ONLY valid JSON.",
+			},
+			{ role: "user", content: llmPrompt },
+		]);
+
+		console.log("✓ LLM Response:", llmResult.content);
+
+		const llmResponse = llmResult.content;
 
 		// Try to parse the LLM response as JSON
 		let parsed: IntentResponse;

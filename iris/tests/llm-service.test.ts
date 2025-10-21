@@ -38,6 +38,7 @@ describe("LLM Service", () => {
 				response: null,
 			};
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
@@ -76,6 +77,7 @@ describe("LLM Service", () => {
 				response: null,
 			};
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
@@ -101,6 +103,7 @@ describe("LLM Service", () => {
 				response: "Specify start time and duration for booking.",
 			};
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
@@ -125,6 +128,7 @@ describe("LLM Service", () => {
 				response: "Query irrelevant. State operational requirements.",
 			};
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
@@ -142,6 +146,7 @@ describe("LLM Service", () => {
 		});
 
 		test("should throw error when service is unavailable", async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: false,
 				status: 503,
@@ -154,6 +159,7 @@ describe("LLM Service", () => {
 		});
 
 		test("should throw error when network fails", async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockRejectedValueOnce(new Error("Network error"));
 
 			await expect(
@@ -162,6 +168,7 @@ describe("LLM Service", () => {
 		});
 
 		test("should handle malformed JSON response", async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => {
@@ -177,6 +184,7 @@ describe("LLM Service", () => {
 
 	describe("isAvailable", () => {
 		test("should return true when health check succeeds", async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 			});
@@ -194,6 +202,7 @@ describe("LLM Service", () => {
 		});
 
 		test("should return false when health check fails", async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: false,
 			});
@@ -204,6 +213,7 @@ describe("LLM Service", () => {
 		});
 
 		test("should return false when network fails", async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockRejectedValueOnce(new Error("Network error"));
 
 			const result = await llmService.isAvailable();
@@ -217,6 +227,7 @@ describe("LLM Service", () => {
 			// This is tested indirectly through parseIntent
 			const mockResponse = { action: "getRooms", params: {} };
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
@@ -228,10 +239,12 @@ describe("LLM Service", () => {
 		});
 
 		test("should handle missing token", () => {
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(global.localStorage.getItem as any).mockReturnValue(null);
 
 			const mockResponse = { action: "getRooms", params: {} };
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockResponse,
@@ -254,6 +267,7 @@ describe("LLM Service", () => {
 		test("should replace port 3000 with 3002", async () => {
 			const service = new LLMService(mockApiClient, "http://localhost:3000");
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({ action: "getRooms", params: {} }),
@@ -270,6 +284,7 @@ describe("LLM Service", () => {
 		test("should use default port when API URL has no port", async () => {
 			const service = new LLMService(mockApiClient, "http://localhost");
 
+			// biome-ignore lint/suspicious/noExplicitAny: Test code needs access to private members
 			(fetch as any).mockResolvedValueOnce({
 				ok: true,
 				json: async () => ({ action: "getRooms", params: {} }),
