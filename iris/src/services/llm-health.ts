@@ -1,15 +1,16 @@
-import { ApiClient } from './api-client';
+import type { MilesApiClient } from './api-client';
+import { config } from '../utils/config';
 
 export type LLMHealthStatus = 'connected' | 'disconnected';
 
 export class LLMHealthService {
-  private apiClient: ApiClient;
+  private apiClient: MilesApiClient;
   private status: LLMHealthStatus = 'disconnected';
   private pollingInterval: NodeJS.Timeout | null = null;
   private listeners: Array<(status: LLMHealthStatus) => void> = [];
   private readonly POLL_INTERVAL_MS = 5000; // 5 seconds
 
-  constructor(apiClient: ApiClient) {
+  constructor(apiClient: MilesApiClient) {
     this.apiClient = apiClient;
   }
 
@@ -45,15 +46,58 @@ export class LLMHealthService {
    */
   private async checkHealth(): Promise<void> {
     try {
-      const response = await this.apiClient.health();
-      const newStatus: LLMHealthStatus =
-        response.status === 'operational' ? 'connected' : 'disconnected';
+      // Check both API health and LLM intent endpoint
+      const [apiResponse, llmResponse] = await Promise.allSettled([
+        this.apiClient.health(),
+        this.checkLLMEndpoint()
+      ]);
+
+      const apiHealthy = apiResponse.status === 'fulfilled' && 
+                       apiResponse.value.status === 'ok';
+      const llmHealthy = llmResponse.status === 'fulfilled';
+
+      const newStatus: LLMHealthStatus = 
+        (apiHealthy && llmHealthy) ? 'connected' : 'disconnected';
 
       this.updateStatus(newStatus);
     } catch (error) {
       // Connection failed, mark as disconnected
       this.updateStatus('disconnected');
     }
+  }
+
+  /**
+   * Check if LLM intent endpoint is responding
+   */
+  private async checkLLMEndpoint(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.getBaseUrl()}/api/intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          command: 'health_check',
+          userId: 'system'
+        }),
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Get base URL for LLM endpoint
+   */
+  private getBaseUrl(): string {
+    // Use the IRIS server URL (port 3002) for LLM intent endpoint
+    const baseUrl = config.API_URL;
+    if (baseUrl.includes(':3000')) {
+      return baseUrl.replace(':3000', ':3002');
+    }
+    // If API URL doesn't specify port 3000, assume IRIS server is on 3002
+    return 'http://localhost:3002';
   }
 
   /**

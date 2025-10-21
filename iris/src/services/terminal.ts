@@ -1,11 +1,16 @@
 import { MilesApiClient } from './api-client';
 import { IrisEye } from './iris-eye';
+import { LLMHealthService } from './llm-health';
 import { config } from '../utils/config';
 import { getErrorMessage } from '../utils/errors';
+import { NaturalLanguageProcessor, ParsedIntent } from '../utils/natural-language';
+import { LLMService, LLMIntent } from './llm-service';
 
 import { RoomsCommandHandler } from '../commands/rooms-handler';
 import { BookingsCommandHandler } from '../commands/bookings-handler';
 import { CancelCommandHandler } from '../commands/cancel-handler';
+import { BulkCancelCommandHandler } from '../commands/bulk-cancel-handler';
+import { AvailabilityCommandHandler } from '../commands/availability-handler';
 import type {
   TerminalState,
   AutocompleteCache,
@@ -18,6 +23,9 @@ import type {
 export class Terminal {
   private apiClient: MilesApiClient;
   private irisEye: IrisEye;
+  private nlpProcessor: NaturalLanguageProcessor;
+  private llmService: LLMService;
+  private llmHealth: LLMHealthService;
 
   private state: TerminalState;
   private autocompleteCache: AutocompleteCache;
@@ -30,6 +38,9 @@ export class Terminal {
   constructor() {
     this.apiClient = new MilesApiClient(config.API_URL);
     this.irisEye = new IrisEye();
+    this.nlpProcessor = new NaturalLanguageProcessor();
+    this.llmService = new LLMService(this.apiClient, config.API_URL);
+    this.llmHealth = new LLMHealthService(this.apiClient);
 
     this.state = {
       authToken: localStorage.getItem('irisAuthToken') || null,
@@ -45,6 +56,11 @@ export class Terminal {
       bookings: null,
       lastFetch: 0,
     };
+
+    // Monitor LLM health for fallback decisions
+    this.llmHealth.onStatusChange((status) => {
+      console.log(`LLM status: ${status}`);
+    });
 
     this.initialize();
   }
@@ -433,9 +449,19 @@ export class Terminal {
       return;
     }
 
-    // For now, just show an error for unsupported commands
-    this.stopThinking();
-    this.addOutput('[ERROR] Command not recognized. Type "help" for available commands.', 'error');
+    // Try hybrid natural language processing
+    const intent = this.nlpProcessor.parseIntent(command);
+    
+    if (this.nlpProcessor.hasHighConfidence(intent)) {
+      // High confidence simple NLP result
+      await this.handleSimpleNLPIntent(intent);
+    } else if (this.llmHealth.getStatus() === 'connected' && this.nlpProcessor.shouldUseLLM(intent)) {
+      // Use LLM for complex queries or low confidence
+      await this.handleLLMIntent(command);
+    } else {
+      // Fallback to simple NLP even for low confidence if LLM unavailable
+      await this.handleSimpleNLPIntent(intent);
+    }
   }
 
   private async handleRoomsCommand(): Promise<void> {
@@ -544,6 +570,195 @@ This system is designed to process booking operations with maximum efficiency an
 
   private stopDemoMode(): void {
     this.addOutput('[DEMO MODE] Not running', 'system-output');
+  }
+
+  private async handleSimpleNLPIntent(intent: ParsedIntent): Promise<void> {
+    switch (intent.type) {
+      case 'greeting':
+        this.handleGreeting();
+        break;
+      case 'rooms_query':
+        await this.handleRoomsCommand();
+        break;
+      case 'bookings_query':
+        await this.handleBookingsCommand();
+        break;
+      case 'availability_check':
+        await this.handleAvailabilityQuery(intent.entities.roomName);
+        break;
+      case 'booking_create':
+        await this.handleBookingIntent(intent.entities.roomName, intent.entities.time);
+        break;
+      case 'cancel_all':
+        await this.handleCancelAllIntent();
+        break;
+      case 'llm_fallback':
+      case 'unknown':
+        // For low confidence or unknown, try to provide helpful response
+        this.stopThinking();
+        this.addOutput('[ERROR] Command not recognized. Type "help" for available commands.', 'error');
+        break;
+    }
+  }
+
+  private async handleLLMIntent(command: string): Promise<void> {
+    try {
+      this.startThinking();
+
+      const userId = this.state.currentUser?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const llmIntent = await this.llmService.parseIntent(command, userId);
+
+      // Map LLM intent to command handler execution
+      await this.executeLLMIntent(llmIntent);
+
+    } catch (error) {
+      console.warn('LLM processing failed, falling back to simple NLP:', error);
+      // Fallback to simple NLP
+      const fallbackIntent = this.nlpProcessor.parseIntent(command);
+      await this.handleSimpleNLPIntent(fallbackIntent);
+    }
+  }
+
+  private async executeLLMIntent(intent: LLMIntent): Promise<void> {
+    switch (intent.action) {
+      case 'getRooms':
+        await this.handleRoomsCommand();
+        break;
+      case 'getBookings':
+        await this.handleBookingsCommand();
+        break;
+      case 'checkAvailability':
+        await this.handleAvailabilityCheck(intent.params);
+        break;
+      case 'createBooking':
+        await this.handleBookingCreate(intent.params);
+        break;
+      case 'cancelBooking':
+        await this.handleCancelBooking(intent.params);
+        break;
+      case 'bulkCancel':
+        await this.handleBulkCancel(intent.params);
+        break;
+      case 'needsMoreInfo':
+        this.handleNeedsMoreInfo(intent.response);
+        break;
+      case 'unknown':
+        this.handleUnknownQuery(intent.response);
+        break;
+      default:
+        this.stopThinking();
+        this.addOutput('[ERROR] Unrecognized action from LLM', 'error');
+    }
+  }
+
+  private handleGreeting(): void {
+    this.stopThinking();
+    const responses = [
+      "Greetings. I am IRIS, your intelligent room interface system. How may I assist you with workspace allocation?",
+      "Hello. All systems operational. What room booking operations do you require?",
+      "IRIS online. Ready for room management queries.",
+      "Query received. All systems nominal. State your requirements.",
+    ];
+    const response = responses[Math.floor(Math.random() * responses.length)];
+    this.addOutput(response, 'system-output');
+  }
+
+  private async handleAvailabilityQuery(roomName?: string): Promise<void> {
+    if (!roomName) {
+      this.stopThinking();
+      this.addOutput('[ERROR] Please specify a room name for availability check.', 'error');
+      return;
+    }
+
+    // Use existing availability handler with fuzzy matching
+    const handler = new AvailabilityCommandHandler(
+      this.apiClient,
+      this.state.currentUser!,
+      this.state.userTimezone
+    );
+
+    await handler.execute({ roomName });
+  }
+
+  private async handleBookingIntent(roomName?: string, _time?: string): Promise<void> {
+    if (!roomName) {
+      this.stopThinking();
+      this.addOutput('[ERROR] Please specify a room name for booking.', 'error');
+      return;
+    }
+
+    // This would need more sophisticated parsing for time/duration
+    // For now, ask for clarification
+    this.stopThinking();
+    this.addOutput(`[INFO] I understand you want to book "${roomName}". Please use the format: book <room> <date> at <time> for <duration>`, 'system-output');
+    this.addOutput('Example: book Conference Room A tomorrow at 2pm for 1 hour', 'system-output');
+  }
+
+  private async handleCancelAllIntent(): Promise<void> {
+    // Use existing bulk cancel handler
+    const handler = new BulkCancelCommandHandler(
+      this.apiClient,
+      this.state.currentUser!,
+      this.state.userTimezone
+    );
+
+    await handler.execute({ filter: 'all' });
+  }
+
+  private async handleAvailabilityCheck(_params?: any): Promise<void> {
+    const handler = new AvailabilityCommandHandler(
+      this.apiClient,
+      this.state.currentUser!,
+      this.state.userTimezone
+    );
+
+    await handler.execute(_params);
+  }
+
+  private async handleBookingCreate(_params?: any): Promise<void> {
+    // For now, show that booking creation is not fully implemented in simple NLP
+    this.stopThinking();
+    this.addOutput('[INFO] Booking creation requires specific format. Use: book <room> <date> at <time> for <duration>', 'system-output');
+  }
+
+  private async handleCancelBooking(params?: any): Promise<void> {
+    if (!params?.bookingId) {
+      this.stopThinking();
+      this.addOutput('[ERROR] Booking ID required for cancellation.', 'error');
+      return;
+    }
+
+    const handler = new CancelCommandHandler(
+      this.apiClient,
+      this.state.currentUser!,
+      this.state.userTimezone
+    );
+
+    await handler.execute({ bookingId: params.bookingId });
+  }
+
+  private async handleBulkCancel(params?: any): Promise<void> {
+    const handler = new BulkCancelCommandHandler(
+      this.apiClient,
+      this.state.currentUser!,
+      this.state.userTimezone
+    );
+
+    await handler.execute(params);
+  }
+
+  private handleNeedsMoreInfo(response?: string): void {
+    this.stopThinking();
+    this.addOutput(response || '[INFO] Please provide more details for your request.', 'system-output');
+  }
+
+  private handleUnknownQuery(response?: string): void {
+    this.stopThinking();
+    this.addOutput(response || '[INFO] Query not understood. Type "help" for available commands.', 'system-output');
   }
 
   private formatDate(dateStr: string): string {

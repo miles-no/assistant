@@ -17,7 +17,7 @@ if (document.readyState === 'loading') {
 function initializeIRIS(): void {
   try {
     // Initialize terminal and eye systems
-    const terminal = new Terminal();
+    new Terminal();
     irisEye = new IrisEye();
 
     // Initialize LLM health monitoring
