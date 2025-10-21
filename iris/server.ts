@@ -3,10 +3,10 @@
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Request, Response } from "express";
 import axios, { type AxiosError } from "axios";
 import cors from "cors";
 import dotenv from "dotenv";
+import type { Request, Response } from "express";
 import express from "express";
 import { logInteraction } from "./database.js";
 import { fuzzyReplaceRoomNames } from "./fuzzy-match.js";
@@ -241,12 +241,16 @@ async function executeMCPTool(
 		console.log(`  🔧 Executing tool: ${toolName}`);
 		console.log(`     Args:`, JSON.stringify(args, null, 2));
 
-		const response = await axios.post(`${MCP_API_URL}/tools/${toolName}`, args, {
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${authToken}`,
+		const response = await axios.post(
+			`${MCP_API_URL}/tools/${toolName}`,
+			args,
+			{
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${authToken}`,
+				},
 			},
-		});
+		);
 
 		console.log(`  ✓ Tool executed successfully`);
 		return response.data;

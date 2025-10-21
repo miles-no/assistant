@@ -236,7 +236,7 @@ export function fuzzyReplaceRoomNames(
 	}
 
 	// Step 3: If we found a good match, replace ONLY that word
-	if (bestMatch && bestMatch.match && bestWord) {
+	if (bestMatch?.match && bestWord) {
 		const regex = new RegExp(`\\b${bestWord}\\b`, "gi");
 		const correctedInput = input.replace(regex, bestMatch.match);
 

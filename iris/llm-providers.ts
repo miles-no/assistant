@@ -157,7 +157,8 @@ class AnthropicProvider extends BaseLLMProvider {
 			max_tokens: 4096,
 			system: systemMessage?.content || "",
 			messages: nonSystemMessages.map((msg) => ({
-				role: msg.role === "assistant" ? ("assistant" as const) : ("user" as const),
+				role:
+					msg.role === "assistant" ? ("assistant" as const) : ("user" as const),
 				content: msg.content,
 			})),
 		});
