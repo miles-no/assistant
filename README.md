@@ -451,25 +451,44 @@ make run
 
 ## 🐳 Docker Deployment
 
-### Quick Start
+**Complete Docker setup with nginx reverse proxy** - [📖 Full Docker Documentation](./README-DOCKER.md)
+
+### One-Command Start
 
 ```bash
+# Start all services (database, API, chat, IRIS, web, nginx)
 docker-compose up -d
 ```
 
-This starts:
+**Access Everything via Nginx (Port 80):**
+- 🌐 Web Frontend: http://localhost/
+- 🔌 API: http://localhost/api/
+- 💬 Chat: http://localhost/chat/
+- 🔴 IRIS: http://localhost/iris/
 
-- PostgreSQL on port 5433
-- API on port 3000
-- Chat Assistant on port 3001
+**Or Direct Service Access:**
+- API: http://localhost:3000
+- Chat: http://localhost:3001
+- IRIS: http://localhost:3002
+- Web: http://localhost:3003
 
-### Development Mode
+### Development with Hot-Reload
 
 ```bash
+# Use development config with volume mounts
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Or hybrid: Database in Docker, services local
+docker-compose up -d postgres
+cd api && npm run dev
+cd web && npm run dev
 ```
 
-Enables hot-reload for all services.
+See [README-DOCKER.md](./README-DOCKER.md) for:
+- 📋 Detailed setup instructions
+- 🔧 Development workflows
+- 🐛 Troubleshooting guide
+- 🚀 Production deployment
 
 ---
 

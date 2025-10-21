@@ -1,25 +1,83 @@
-# Development docker-compose with additional services
+# Docker Compose override for development with hot-reload
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 version: '3.8'
 
 services:
+  # API Backend - Development with nodemon hot-reload
   api:
-    build:
-      context: ./api
+    command: npm run dev
     environment:
       NODE_ENV: development
-    command: npm run dev
+      LOG_LEVEL: debug
     volumes:
-      - ./api:/app
+      # Mount source code for hot-reload
+      - ./api/src:/app/src:delegated
+      - ./api/prisma:/app/prisma:delegated
+      - ./api/package.json:/app/package.json:ro
+      - ./api/tsconfig.json:/app/tsconfig.json:ro
+      # Exclude node_modules (use container's version)
       - /app/node_modules
+    ports:
+      # Expose debug port for Node.js debugger
+      - "9229:9229"
 
+  # Chat Application - Development with node --watch
   chat-app:
-    build:
-      context: ./chat-app
+    command: node --watch server.js
     environment:
       NODE_ENV: development
-    command: npm run dev
+      LOG_LEVEL: debug
     volumes:
-      - ./chat-app:/app
+      # Mount source code for hot-reload
+      - ./chat-app:/app:delegated
+      # Exclude node_modules and data
       - /app/node_modules
+      - /app/data
+
+  # IRIS Terminal - Development with node --watch
+  iris:
+    command: node --watch server.js
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    volumes:
+      # Mount source code for hot-reload
+      - ./iris:/app:delegated
+      # Exclude node_modules and data
+      - /app/node_modules
+      - /app/data
+
+  # Web Frontend - Development with Vite HMR
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      NODE_ENV: development
+      # Vite needs to know the API URL
+      VITE_API_URL: http://localhost:3000
+    volumes:
+      # Mount source code for HMR
+      - ./web/src:/app/src:delegated
+      - ./web/public:/app/public:delegated
+      - ./web/index.html:/app/index.html:ro
+      - ./web/package.json:/app/package.json:ro
+      - ./web/vite.config.ts:/app/vite.config.ts:ro
+      - ./web/tsconfig.json:/app/tsconfig.json:ro
+      - ./web/tsconfig.node.json:/app/tsconfig.node.json:ro
+      - ./web/postcss.config.js:/app/postcss.config.js:ro
+      - ./web/tailwind.config.js:/app/tailwind.config.js:ro
+      # Exclude node_modules and dist
+      - /app/node_modules
+      - /app/dist
+    ports:
+      # Change port to 5173 for Vite dev server
+      - "5173:5173"
+
+  # Nginx - Disabled in development (use direct service access)
+  # Uncomment if you want to test nginx routing in development
+  # nginx:
+  #   profiles:
+  #     - production
