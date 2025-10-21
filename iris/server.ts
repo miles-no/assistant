@@ -3,13 +3,14 @@
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import axios from "axios";
+import type { Request, Response } from "express";
+import axios, { type AxiosError } from "axios";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { logInteraction } from "./database.js";
 import { fuzzyReplaceRoomNames } from "./fuzzy-match.js";
-import { getProvider } from "./llm-providers.js";
+import { getProvider, type LLMProvider } from "./llm-providers.js";
 
 dotenv.config();
 
@@ -17,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = Number.parseInt(process.env.PORT || "3002", 10);
 const MCP_API_URL = process.env.MCP_API_URL || "http://localhost:3000/api/mcp";
 
 // Middleware
@@ -27,13 +28,57 @@ app.use(express.static(path.join(__dirname, "dist")));
 app.use(express.static(path.join(__dirname, "public")));
 
 // LLM Provider
-const llmProvider = getProvider();
+const llmProvider: LLMProvider = getProvider();
 
 console.log("🤖 IRIS Server Configuration:");
 console.log(`  Port:         ${PORT}`);
 console.log(`  MCP API:      ${MCP_API_URL}`);
 console.log(`  LLM Provider: ${process.env.LLM_PROVIDER || "ollama"}`);
 console.log(`  Model:        ${llmProvider.model}`);
+
+// Types
+interface MCPTool {
+	name: string;
+	description: string;
+	inputSchema?: {
+		type: string;
+		properties?: Record<string, { type: string; description?: string }>;
+		required?: string[];
+	};
+}
+
+interface MCPResource {
+	uri: string;
+	name: string;
+	description: string;
+}
+
+interface MCPSchema {
+	tools: MCPTool[];
+	resources: MCPResource[];
+}
+
+interface ToolCall {
+	name: string;
+	arguments: Record<string, unknown>;
+}
+
+interface IntentRequest {
+	command: string;
+	userId: string;
+	timezone?: string;
+}
+
+interface IntentResponse {
+	action: string;
+	params?: Record<string, unknown>;
+	response?: string;
+}
+
+interface CommandRequest {
+	command: string;
+	userId: string;
+}
 
 // System prompt for IRIS personality
 const IRIS_SYSTEM_PROMPT = `You are IRIS (Miles AI Assistant), inspired by HAL-9000's calm, precise demeanor.
@@ -164,13 +209,13 @@ Remember: "I'm sorry Dave, I'm afraid I can't do that" - but explain why helpful
 `;
 
 // Fetch MCP tools and resources
-async function fetchMCPSchema(authToken) {
+async function fetchMCPSchema(authToken: string): Promise<MCPSchema> {
 	try {
 		const [toolsRes, resourcesRes] = await Promise.all([
-			axios.get(`${MCP_API_URL}/tools`, {
+			axios.get<{ tools: MCPTool[] }>(`${MCP_API_URL}/tools`, {
 				headers: { Authorization: `Bearer ${authToken}` },
 			}),
-			axios.get(`${MCP_API_URL}/resources`, {
+			axios.get<{ resources: MCPResource[] }>(`${MCP_API_URL}/resources`, {
 				headers: { Authorization: `Bearer ${authToken}` },
 			}),
 		]);
@@ -180,34 +225,36 @@ async function fetchMCPSchema(authToken) {
 			resources: resourcesRes.data.resources || [],
 		};
 	} catch (error) {
-		console.error("Error fetching MCP schema:", error.message);
+		const err = error as AxiosError;
+		console.error("Error fetching MCP schema:", err.message);
 		return { tools: [], resources: [] };
 	}
 }
 
 // Execute MCP tool
-async function executeMCPTool(toolName, args, authToken) {
+async function executeMCPTool(
+	toolName: string,
+	args: Record<string, unknown>,
+	authToken: string,
+): Promise<unknown> {
 	try {
 		console.log(`  🔧 Executing tool: ${toolName}`);
 		console.log(`     Args:`, JSON.stringify(args, null, 2));
 
-		const response = await axios.post(
-			`${MCP_API_URL}/tools/${toolName}`,
-			args,
-			{
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${authToken}`,
-				},
+		const response = await axios.post(`${MCP_API_URL}/tools/${toolName}`, args, {
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${authToken}`,
 			},
-		);
+		});
 
 		console.log(`  ✓ Tool executed successfully`);
 		return response.data;
 	} catch (error) {
+		const err = error as AxiosError;
 		console.error(
 			`  ✗ Tool execution failed:`,
-			error.response?.data || error.message,
+			err.response?.data || err.message,
 		);
 		throw error;
 	}
@@ -215,7 +262,7 @@ async function executeMCPTool(toolName, args, authToken) {
 
 // Get available room names for fuzzy matching
 // TODO: Fetch dynamically from MCP API when resource endpoint is clarified
-function getRoomNames() {
+function getRoomNames(): string[] {
 	// Known room names from the Miles booking system
 	// These are relatively stable - hardcoded for performance
 	return [
@@ -228,8 +275,8 @@ function getRoomNames() {
 }
 
 // Parse tool calls from LLM response
-function parseToolCalls(text) {
-	const toolCalls = [];
+function parseToolCalls(text: string): ToolCall[] {
+	const toolCalls: ToolCall[] = [];
 
 	// Look for tool call patterns: toolName(arg1, arg2, ...)
 	// or JSON format: {"tool": "toolName", "arguments": {...}}
@@ -238,14 +285,17 @@ function parseToolCalls(text) {
 	const jsonMatches = text.matchAll(/\{[^}]*"tool"[^}]*"arguments"[^}]*\}/g);
 	for (const match of jsonMatches) {
 		try {
-			const parsed = JSON.parse(match[0]);
+			const parsed = JSON.parse(match[0]) as {
+				tool: string;
+				arguments: Record<string, unknown>;
+			};
 			if (parsed.tool && parsed.arguments) {
 				toolCalls.push({
 					name: parsed.tool,
 					arguments: parsed.arguments,
 				});
 			}
-		} catch (_e) {
+		} catch {
 			// Not valid JSON, skip
 		}
 	}
@@ -255,13 +305,13 @@ function parseToolCalls(text) {
 	for (const match of funcMatches) {
 		try {
 			const name = match[1];
-			const args = JSON.parse(match[2]);
+			const args = JSON.parse(match[2]) as Record<string, unknown>;
 
 			// Check if it looks like a tool name
 			if (name.length > 2 && /^[a-z]+[A-Za-z]*$/.test(name)) {
 				toolCalls.push({ name, arguments: args });
 			}
-		} catch (_e) {
+		} catch {
 			// Not valid, skip
 		}
 	}
@@ -270,8 +320,8 @@ function parseToolCalls(text) {
 }
 
 // Intent parsing endpoint - LLM extracts structured intent
-app.post("/api/parse-intent", async (req, res) => {
-	const { command, userId, timezone } = req.body;
+app.post("/api/parse-intent", async (req: Request, res: Response) => {
+	const { command, userId, timezone } = req.body as IntentRequest;
 	const authToken = req.headers.authorization?.replace("Bearer ", "");
 
 	if (!authToken) {
@@ -286,8 +336,8 @@ app.post("/api/parse-intent", async (req, res) => {
 	console.log(`Timezone: ${timezone || "UTC"}`);
 
 	const startTime = Date.now();
-	let intent = null;
-	let errorMsg = null;
+	let intent: IntentResponse | null = null;
+	let errorMsg: string | null = null;
 
 	try {
 		// Get current date/time in user's timezone for context
@@ -370,7 +420,7 @@ Examples:
 			throw new Error("Invalid JSON response from LLM");
 		}
 
-		intent = JSON.parse(jsonMatch[0]);
+		intent = JSON.parse(jsonMatch[0]) as IntentResponse;
 
 		console.log("✓ Parsed Intent:", JSON.stringify(intent, null, 2));
 		console.log("========================================\n");
@@ -382,7 +432,7 @@ Examples:
 			userEmail: null, // We don't have email in this context
 			command,
 			intentAction: intent.action,
-			intentParams: intent.params,
+			intentParams: intent.params || null,
 			response: intent.response || null,
 			error: null,
 			durationMs,
@@ -390,8 +440,9 @@ Examples:
 
 		res.json(intent);
 	} catch (error) {
-		console.error("\n❌ Intent parsing error:", error.message);
-		errorMsg = error.message;
+		const err = error as Error;
+		console.error("\n❌ Intent parsing error:", err.message);
+		errorMsg = err.message;
 
 		// Log failed interaction
 		const durationMs = Date.now() - startTime;
@@ -416,8 +467,8 @@ Examples:
 });
 
 // Main command processing endpoint (kept for backward compatibility)
-app.post("/api/command", async (req, res) => {
-	const { command, userId } = req.body;
+app.post("/api/command", async (req: Request, res: Response) => {
+	const { command, userId } = req.body as CommandRequest;
 	const authToken = req.headers.authorization?.replace("Bearer ", "");
 
 	if (!authToken) {
@@ -442,11 +493,11 @@ app.post("/api/command", async (req, res) => {
 		if (fuzzyResult.replacements.length > 0) {
 			processedCommand = fuzzyResult.correctedInput;
 			console.log("🔍 Fuzzy Matching Applied:");
-			fuzzyResult.replacements.forEach((replacement) => {
+			for (const replacement of fuzzyResult.replacements) {
 				console.log(
 					`   "${replacement.original}" → "${replacement.replacement}" (${replacement.confidence.toFixed(1)}% confidence)`,
 				);
-			});
+			}
 			console.log(`   Overall confidence: ${fuzzyResult.confidence}`);
 		}
 
@@ -522,7 +573,13 @@ Execute the command immediately and display results.
 			console.log(`\n🔧 Found ${toolCalls.length} tool call(s)`);
 
 			// Execute all tool calls
-			const toolResults = [];
+			const toolResults: Array<{
+				tool: string;
+				success: boolean;
+				result?: unknown;
+				error?: string;
+			}> = [];
+
 			for (const toolCall of toolCalls) {
 				try {
 					const result = await executeMCPTool(
@@ -536,10 +593,12 @@ Execute the command immediately and display results.
 						result,
 					});
 				} catch (error) {
+					const err = error as AxiosError;
 					toolResults.push({
 						tool: toolCall.name,
 						success: false,
-						error: error.response?.data?.error || error.message,
+						error:
+							(err.response?.data as { error?: string })?.error || err.message,
 					});
 				}
 			}
@@ -549,9 +608,8 @@ Execute the command immediately and display results.
 				.map((r) => {
 					if (r.success) {
 						return `Tool: ${r.tool}\nResult: ${JSON.stringify(r.result, null, 2)}`;
-					} else {
-						return `Tool: ${r.tool}\nError: ${r.error}`;
 					}
+					return `Tool: ${r.tool}\nError: ${r.error}`;
 				})
 				.join("\n\n");
 
@@ -584,7 +642,8 @@ Execute the command immediately and display results.
 
 		res.json({ response: responseText });
 	} catch (error) {
-		console.error("\n❌ Error processing command:", error.message);
+		const err = error as AxiosError;
+		console.error("\n❌ Error processing command:", err.message);
 
 		// Log error to database
 		const durationMs = Date.now() - startTime;
@@ -595,28 +654,28 @@ Execute the command immediately and display results.
 			intentAction: "error",
 			intentParams: null,
 			response: null,
-			error: error.message,
+			error: err.message,
 			durationMs,
 		});
 
 		let errorMessage =
 			"I apologize, but I encountered an error processing your request.";
 
-		if (error.response?.status === 401) {
+		if (err.response?.status === 401) {
 			errorMessage = "Authentication error. Please log in again.";
-		} else if (error.code === "ECONNREFUSED") {
+		} else if (err.code === "ECONNREFUSED") {
 			errorMessage =
 				"Cannot connect to the booking system. Please ensure all services are running.";
 		}
 
 		res.status(500).json({
-			response: `**ERROR**: ${errorMessage}\n\nTechnical details: ${error.message}`,
+			response: `**ERROR**: ${errorMessage}\n\nTechnical details: ${err.message}`,
 		});
 	}
 });
 
 // Health check
-app.get("/health", (_req, res) => {
+app.get("/health", (_req: Request, res: Response) => {
 	res.json({
 		status: "operational",
 		service: "IRIS",
@@ -628,7 +687,7 @@ app.get("/health", (_req, res) => {
 });
 
 // Serve index.html for all other routes (SPA)
-app.get("*", (req, res) => {
+app.get("*", (req: Request, res: Response) => {
 	// Only serve HTML for routes that don't have file extensions (SPA routing)
 	if (req.path.includes(".")) {
 		return res.status(404).send("File not found");

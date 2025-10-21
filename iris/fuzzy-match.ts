@@ -3,14 +3,35 @@
  * Uses Levenshtein distance algorithm for string similarity
  */
 
+// Types
+export interface MatchResult {
+	name: string;
+	confidence: number;
+}
+
+export interface BestMatchResult {
+	match: string | null;
+	confidence: number;
+	allMatches: MatchResult[];
+}
+
+export interface Replacement {
+	original: string;
+	replacement: string;
+	confidence: number;
+}
+
+export interface FuzzyReplaceResult {
+	correctedInput: string;
+	replacements: Replacement[];
+	confidence: "high" | "medium" | "low";
+}
+
 /**
  * Calculate Levenshtein distance between two strings
- * @param {string} a - First string
- * @param {string} b - Second string
- * @returns {number} - Edit distance
  */
-function levenshteinDistance(a, b) {
-	const matrix = [];
+function levenshteinDistance(a: string, b: string): number {
+	const matrix: number[][] = [];
 
 	// Initialize matrix
 	for (let i = 0; i <= b.length; i++) {
@@ -40,11 +61,8 @@ function levenshteinDistance(a, b) {
 
 /**
  * Calculate similarity score (0-100) between two strings
- * @param {string} input - User input
- * @param {string} target - Target string to match against
- * @returns {number} - Similarity percentage (0-100)
  */
-function calculateSimilarity(input, target) {
+function calculateSimilarity(input: string, target: string): number {
 	// Normalize strings (lowercase, trim)
 	const normalizedInput = input.toLowerCase().trim();
 	const normalizedTarget = target.toLowerCase().trim();
@@ -77,17 +95,17 @@ function calculateSimilarity(input, target) {
 
 /**
  * Find best matching room name with confidence score
- * @param {string} input - User input (e.g., "teamrom", "focus", "skagen")
- * @param {Array<string>} roomNames - Available room names
- * @returns {Object} - { match: string, confidence: number (0-100), allMatches: Array }
  */
-export function findBestRoomMatch(input, roomNames) {
+export function findBestRoomMatch(
+	input: string,
+	roomNames: string[],
+): BestMatchResult {
 	if (!input || !roomNames || roomNames.length === 0) {
 		return { match: null, confidence: 0, allMatches: [] };
 	}
 
 	// Calculate similarity for each room
-	const matches = roomNames.map((roomName) => ({
+	const matches: MatchResult[] = roomNames.map((roomName) => ({
 		name: roomName,
 		confidence: calculateSimilarity(input, roomName),
 	}));
@@ -104,10 +122,10 @@ export function findBestRoomMatch(input, roomNames) {
 
 /**
  * Get confidence level category
- * @param {number} confidence - Confidence score (0-100)
- * @returns {string} - 'high' | 'medium' | 'low'
  */
-export function getConfidenceLevel(confidence) {
+export function getConfidenceLevel(
+	confidence: number,
+): "high" | "medium" | "low" {
 	if (confidence >= 80) return "high";
 	if (confidence >= 40) return "medium";
 	return "low";
@@ -115,11 +133,11 @@ export function getConfidenceLevel(confidence) {
 
 /**
  * Replace room names in user input with fuzzy matched names
- * @param {string} input - User input command
- * @param {Array<string>} roomNames - Available room names
- * @returns {Object} - { correctedInput: string, replacements: Array, confidence: string }
  */
-export function fuzzyReplaceRoomNames(input, roomNames) {
+export function fuzzyReplaceRoomNames(
+	input: string,
+	roomNames: string[],
+): FuzzyReplaceResult {
 	if (!input || !roomNames || roomNames.length === 0) {
 		return { correctedInput: input, replacements: [], confidence: "low" };
 	}
@@ -160,8 +178,8 @@ export function fuzzyReplaceRoomNames(input, roomNames) {
 		"lab",
 	];
 
-	let bestMatch = null;
-	let bestWord = null;
+	let bestMatch: BestMatchResult | null = null;
+	let bestWord: string | null = null;
 
 	// First try: Single words with high confidence (substring matches)
 	for (const word of words) {
@@ -218,7 +236,7 @@ export function fuzzyReplaceRoomNames(input, roomNames) {
 	}
 
 	// Step 3: If we found a good match, replace ONLY that word
-	if (bestMatch && bestWord) {
+	if (bestMatch && bestMatch.match && bestWord) {
 		const regex = new RegExp(`\\b${bestWord}\\b`, "gi");
 		const correctedInput = input.replace(regex, bestMatch.match);
 

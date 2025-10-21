@@ -7,10 +7,26 @@ import Anthropic from "@anthropic-ai/sdk";
 import axios from "axios";
 import OpenAI from "openai";
 
+// Types
+export interface LLMMessage {
+	role: "system" | "user" | "assistant";
+	content: string;
+}
+
+export interface LLMResponse {
+	content: string;
+}
+
+export interface LLMProvider {
+	model: string;
+	chat(messages: LLMMessage[]): Promise<LLMResponse>;
+	getName(): string;
+}
+
 /**
  * Get the configured LLM provider
  */
-function getProvider() {
+export function getProvider(): LLMProvider {
 	const provider = process.env.LLM_PROVIDER || "ollama";
 
 	switch (provider) {
@@ -24,30 +40,31 @@ function getProvider() {
 }
 
 /**
- * Base Provider Interface
+ * Base Provider Class
  */
-class LLMProvider {
-	async chat(_messages) {
-		throw new Error("Not implemented");
-	}
-
-	getName() {
-		throw new Error("Not implemented");
-	}
+abstract class BaseLLMProvider implements LLMProvider {
+	abstract model: string;
+	abstract chat(messages: LLMMessage[]): Promise<LLMResponse>;
+	abstract getName(): string;
 }
 
 /**
  * Ollama Provider (Local LLM)
  */
-class OllamaProvider extends LLMProvider {
+class OllamaProvider extends BaseLLMProvider {
+	public model: string;
+	private url: string;
+
 	constructor() {
 		super();
 		this.url = process.env.OLLAMA_URL || "http://localhost:11434";
 		this.model = process.env.OLLAMA_MODEL || "qwen2.5:7b";
 	}
 
-	async chat(messages) {
-		const response = await axios.post(`${this.url}/api/chat`, {
+	async chat(messages: LLMMessage[]): Promise<LLMResponse> {
+		const response = await axios.post<{
+			message: { content: string };
+		}>(`${this.url}/api/chat`, {
 			model: this.model,
 			messages: messages,
 			stream: false,
@@ -56,7 +73,7 @@ class OllamaProvider extends LLMProvider {
 		return { content: response.data.message.content };
 	}
 
-	getName() {
+	getName(): string {
 		return `Ollama (${this.model})`;
 	}
 }
@@ -64,24 +81,27 @@ class OllamaProvider extends LLMProvider {
 /**
  * OpenAI Provider (ChatGPT)
  */
-class OpenAIProvider extends LLMProvider {
+class OpenAIProvider extends BaseLLMProvider {
+	public model: string;
+	private client: OpenAI;
+
 	constructor() {
 		super();
-		this.apiKey = process.env.OPENAI_API_KEY;
+		const apiKey = process.env.OPENAI_API_KEY;
 		this.model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-		if (!this.apiKey) {
+		if (!apiKey) {
 			throw new Error(
 				"OPENAI_API_KEY environment variable is required when using OpenAI provider",
 			);
 		}
 
 		this.client = new OpenAI({
-			apiKey: this.apiKey,
+			apiKey: apiKey,
 		});
 	}
 
-	async chat(messages) {
+	async chat(messages: LLMMessage[]): Promise<LLMResponse> {
 		const response = await this.client.chat.completions.create({
 			model: this.model,
 			messages: messages.map((msg) => ({
@@ -90,10 +110,15 @@ class OpenAIProvider extends LLMProvider {
 			})),
 		});
 
-		return { content: response.choices[0].message.content };
+		const content = response.choices[0].message.content;
+		if (!content) {
+			throw new Error("No content in OpenAI response");
+		}
+
+		return { content };
 	}
 
-	getName() {
+	getName(): string {
 		return `OpenAI (${this.model})`;
 	}
 }
@@ -101,24 +126,27 @@ class OpenAIProvider extends LLMProvider {
 /**
  * Anthropic Provider (Claude)
  */
-class AnthropicProvider extends LLMProvider {
+class AnthropicProvider extends BaseLLMProvider {
+	public model: string;
+	private client: Anthropic;
+
 	constructor() {
 		super();
-		this.apiKey = process.env.ANTHROPIC_API_KEY;
+		const apiKey = process.env.ANTHROPIC_API_KEY;
 		this.model = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
 
-		if (!this.apiKey) {
+		if (!apiKey) {
 			throw new Error(
 				"ANTHROPIC_API_KEY environment variable is required when using Anthropic provider",
 			);
 		}
 
 		this.client = new Anthropic({
-			apiKey: this.apiKey,
+			apiKey: apiKey,
 		});
 	}
 
-	async chat(messages) {
+	async chat(messages: LLMMessage[]): Promise<LLMResponse> {
 		// Claude API expects messages without system in the array
 		// System prompt is a separate parameter
 		const systemMessage = messages.find((m) => m.role === "system");
@@ -129,15 +157,20 @@ class AnthropicProvider extends LLMProvider {
 			max_tokens: 4096,
 			system: systemMessage?.content || "",
 			messages: nonSystemMessages.map((msg) => ({
-				role: msg.role === "assistant" ? "assistant" : "user",
+				role: msg.role === "assistant" ? ("assistant" as const) : ("user" as const),
 				content: msg.content,
 			})),
 		});
 
-		return { content: response.content[0].text };
+		const content = response.content[0];
+		if (content.type !== "text") {
+			throw new Error("Unexpected content type from Claude");
+		}
+
+		return { content: content.text };
 	}
 
-	getName() {
+	getName(): string {
 		return `Anthropic (${this.model})`;
 	}
 }
@@ -145,7 +178,11 @@ class AnthropicProvider extends LLMProvider {
 /**
  * Helper to format provider info for logging
  */
-function getProviderInfo() {
+export function getProviderInfo(): {
+	name: string;
+	type: string;
+	error?: string;
+} {
 	try {
 		const provider = getProvider();
 		return {
@@ -153,12 +190,11 @@ function getProviderInfo() {
 			type: process.env.LLM_PROVIDER || "ollama",
 		};
 	} catch (error) {
+		const err = error as Error;
 		return {
 			name: "Error",
 			type: "unknown",
-			error: error.message,
+			error: err.message,
 		};
 	}
 }
-
-export { getProvider, getProviderInfo };

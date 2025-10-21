@@ -42,6 +42,31 @@ db.exec(`
 
 console.log("✅ SQLite interaction logging initialized:", dbPath);
 
+// Types
+export interface InteractionLog {
+	userId: string | null;
+	userEmail: string | null;
+	command: string;
+	intentAction: string;
+	intentParams: Record<string, unknown> | null;
+	response: string | null;
+	error: string | null;
+	durationMs: number;
+}
+
+export interface InteractionRow {
+	id: number;
+	timestamp: string;
+	user_id: string | null;
+	user_email: string | null;
+	command: string | null;
+	intent_action: string | null;
+	intent_params: string | null;
+	response: string | null;
+	error: string | null;
+	duration_ms: number | null;
+}
+
 // Prepared statements for better performance
 const insertInteraction = db.prepare(`
   INSERT INTO interactions (
@@ -56,27 +81,27 @@ const insertInteraction = db.prepare(`
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
-const getRecentInteractions = db.prepare(`
+const getRecentInteractions = db.prepare<[number]>(`
   SELECT * FROM interactions
   ORDER BY timestamp DESC
   LIMIT ?
 `);
 
-const getInteractionsByUser = db.prepare(`
+const getInteractionsByUser = db.prepare<[string, number]>(`
   SELECT * FROM interactions
   WHERE user_id = ?
   ORDER BY timestamp DESC
   LIMIT ?
 `);
 
-const getInteractionsByAction = db.prepare(`
+const getInteractionsByAction = db.prepare<[string, number]>(`
   SELECT * FROM interactions
   WHERE intent_action = ?
   ORDER BY timestamp DESC
   LIMIT ?
 `);
 
-const getErrorInteractions = db.prepare(`
+const getErrorInteractions = db.prepare<[number]>(`
   SELECT * FROM interactions
   WHERE error IS NOT NULL AND error != ''
   ORDER BY timestamp DESC
@@ -93,7 +118,7 @@ export function logInteraction({
 	response,
 	error,
 	durationMs,
-}) {
+}: InteractionLog): number | bigint | null {
 	try {
 		const result = insertInteraction.run(
 			userId || null,
@@ -107,43 +132,48 @@ export function logInteraction({
 		);
 		return result.lastInsertRowid;
 	} catch (err) {
-		console.error("Failed to log interaction:", err.message);
+		const error = err as Error;
+		console.error("Failed to log interaction:", error.message);
 		return null;
 	}
 }
 
-export function getRecent(limit = 50) {
+export function getRecent(limit = 50): InteractionRow[] {
 	try {
-		return getRecentInteractions.all(limit);
+		return getRecentInteractions.all(limit) as InteractionRow[];
 	} catch (err) {
-		console.error("Failed to fetch recent interactions:", err.message);
+		const error = err as Error;
+		console.error("Failed to fetch recent interactions:", error.message);
 		return [];
 	}
 }
 
-export function getByUser(userId, limit = 50) {
+export function getByUser(userId: string, limit = 50): InteractionRow[] {
 	try {
-		return getInteractionsByUser.all(userId, limit);
+		return getInteractionsByUser.all(userId, limit) as InteractionRow[];
 	} catch (err) {
-		console.error("Failed to fetch user interactions:", err.message);
+		const error = err as Error;
+		console.error("Failed to fetch user interactions:", error.message);
 		return [];
 	}
 }
 
-export function getByAction(action, limit = 50) {
+export function getByAction(action: string, limit = 50): InteractionRow[] {
 	try {
-		return getInteractionsByAction.all(action, limit);
+		return getInteractionsByAction.all(action, limit) as InteractionRow[];
 	} catch (err) {
-		console.error("Failed to fetch action interactions:", err.message);
+		const error = err as Error;
+		console.error("Failed to fetch action interactions:", error.message);
 		return [];
 	}
 }
 
-export function getErrors(limit = 50) {
+export function getErrors(limit = 50): InteractionRow[] {
 	try {
-		return getErrorInteractions.all(limit);
+		return getErrorInteractions.all(limit) as InteractionRow[];
 	} catch (err) {
-		console.error("Failed to fetch error interactions:", err.message);
+		const error = err as Error;
+		console.error("Failed to fetch error interactions:", error.message);
 		return [];
 	}
 }
