@@ -1,1 +1,2 @@
-cd iris && npx @biomejs/biome check --write --unsafe
+#!/bin/sh
+cd iris && npx @biomejs/biome check --write --staged .
