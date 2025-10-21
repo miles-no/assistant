@@ -12,6 +12,7 @@ export class AvailabilityCommandHandler extends BaseCommandHandler {
 		const endTime = params?.endTime as string;
 
 		if (!roomId && !roomName) {
+			this.stopThinking();
 			this.addOutput(
 				"[ERROR] Room ID or name required for availability check",
 				"error",
@@ -25,6 +26,7 @@ export class AvailabilityCommandHandler extends BaseCommandHandler {
 			if (roomName && !roomId) {
 				const foundRoomId = await this.findRoomIdByName(roomName);
 				if (!foundRoomId) {
+					this.stopThinking();
 					this.addOutput(`[ERROR] Room not found: ${roomName}`, "error");
 					return;
 				}
@@ -32,6 +34,7 @@ export class AvailabilityCommandHandler extends BaseCommandHandler {
 			}
 
 			if (!actualRoomId) {
+				this.stopThinking();
 				this.addOutput("[ERROR] Unable to determine room ID", "error");
 				return;
 			}
@@ -58,6 +61,7 @@ export class AvailabilityCommandHandler extends BaseCommandHandler {
 			);
 
 			// Display results
+			this.stopThinking();
 			this.displayAvailability(
 				availabilitySlots,
 				roomName || roomId || "Unknown Room",

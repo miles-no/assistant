@@ -37,6 +37,7 @@ COPY --from=builder /app/server.ts ./
 COPY --from=builder /app/llm-providers.ts ./
 COPY --from=builder /app/database.ts ./
 COPY --from=builder /app/fuzzy-match.ts ./
+COPY --from=builder /app/session-context.ts ./
 COPY --from=builder /app/tsconfig.json ./
 
 # Create directory for SQLite database

@@ -71,11 +71,29 @@ export class NaturalLanguageProcessor {
 		/\bcancel all this week\b/i,
 	];
 
+	private contextualPhrases = [
+		/\b(book it|reserve it|get it|take it)\b/i,
+		/\b(that room|this room|same room|the room)\b/i,
+		/\b(same time|that time|this time)\b/i,
+		/\b(book that|reserve that|book this|reserve this)\b/i,
+		/^(it|that|this)$/i,
+	];
+
 	/**
 	 * Parse user input into intent with confidence scoring
 	 */
 	parseIntent(input: string): ParsedIntent {
 		const trimmedInput = input.trim();
+
+		// Check for contextual references first - always use LLM for these
+		if (this.contextualPhrases.some((pattern) => pattern.test(trimmedInput))) {
+			return {
+				type: "llm_fallback",
+				entities: {},
+				confidence: 0.1, // Force LLM usage for context resolution
+				useLLM: true,
+			};
+		}
 
 		// Check greetings first (highest confidence)
 		if (this.greetingPatterns.some((pattern) => pattern.test(trimmedInput))) {

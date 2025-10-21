@@ -11,6 +11,11 @@ import express from "express";
 import { logInteraction } from "./database.js";
 import { fuzzyReplaceRoomNames } from "./fuzzy-match.js";
 import { getProvider, type LLMProvider } from "./llm-providers.js";
+import {
+	addToContext,
+	type ContextEntry,
+	getContext,
+} from "./session-context.js";
 
 dotenv.config();
 
@@ -507,11 +512,30 @@ app.post("/api/intent", async (req: Request, res: Response) => {
 
 		console.log(`Context: ${contextTime}`);
 
+		// Get conversation history for context
+		const conversationHistory = getContext(userId);
+		const hasHistory = conversationHistory.length > 0;
+
+		// Build context summary from recent interactions
+		let contextSummary = "";
+		if (hasHistory) {
+			contextSummary = "\n\nRECENT CONVERSATION HISTORY:\n";
+			conversationHistory.slice(-3).forEach((entry: ContextEntry) => {
+				contextSummary += `- User: "${entry.command}" → Action: ${entry.action}`;
+				if (entry.params && Object.keys(entry.params).length > 0) {
+					contextSummary += ` | Params: ${JSON.stringify(entry.params)}`;
+				}
+				contextSummary += "\n";
+			});
+			contextSummary +=
+				"\nUse this history to resolve references like 'it', 'that room', 'same time', etc.\n";
+		}
+
 		// Call LLM to extract intent
 		const llmPrompt = `You are an AI assistant that extracts structured intent from user commands for a room booking system.
 
 Current date/time: ${contextTime}
-User's timezone: ${userTimezone}
+User's timezone: ${userTimezone}${contextSummary}
 
 Extract the intent from this command: "${command}"
 
@@ -537,6 +561,8 @@ Important:
 - Use "unknown" only if the request is completely irrelevant to room booking
 - For booking requests, use "createBooking" action
 - Always include a "response" field for needsMoreInfo and unknown actions
+- CONTEXTUAL REFERENCES: When the user says "book it", "that room", "same time", etc., look at the conversation history above and extract the relevant parameters (roomName, roomId, startTime, duration) from the most recent interaction
+- If user says "book it" after a checkAvailability action, use the same room and time parameters from that previous command
 - Respond with ONLY the JSON, no other text`;
 
 		console.log("\n🧠 Calling LLM for intent parsing...");
@@ -576,6 +602,9 @@ Important:
 				`✓ Intent extracted: ${parsed.action} (${Date.now() - startTime}ms)`,
 			);
 			console.log("Parameters:", JSON.stringify(parsed.params, null, 2));
+
+			// Add this interaction to the session context
+			addToContext(userId, command, parsed.action, parsed.params);
 		} catch (parseError: unknown) {
 			const msg =
 				parseError instanceof Error ? parseError.message : String(parseError);

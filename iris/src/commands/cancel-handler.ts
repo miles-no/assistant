@@ -8,6 +8,7 @@ export class CancelCommandHandler extends BaseCommandHandler {
 		const bookingId = params?.bookingId as string;
 
 		if (!bookingId) {
+			this.stopThinking();
 			this.addOutput("[ERROR] Usage: cancel <booking-id>", "error");
 			return;
 		}
@@ -21,6 +22,7 @@ export class CancelCommandHandler extends BaseCommandHandler {
 
 **Status:** CANCELLED`;
 
+			this.stopThinking();
 			this.addMarkdownOutput(markdown, "system-output");
 		} catch (error) {
 			this.handleError(error, "Booking cancellation");

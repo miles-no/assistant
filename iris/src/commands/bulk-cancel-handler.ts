@@ -9,6 +9,7 @@ export class BulkCancelCommandHandler extends BaseCommandHandler {
 		const filter = params?.filter as string;
 
 		if (!filter || !["all", "today", "tomorrow", "week"].includes(filter)) {
+			this.stopThinking();
 			this.addOutput(
 				"[ERROR] Usage: bulk-cancel <filter> where filter is: all, today, tomorrow, week",
 				"error",
@@ -21,6 +22,7 @@ export class BulkCancelCommandHandler extends BaseCommandHandler {
 			const bookingsToCancel = await this.getBookingsToCancel(filter);
 
 			if (bookingsToCancel.length === 0) {
+				this.stopThinking();
 				this.addOutput(
 					`[WARNING] No bookings found for filter: ${filter}`,
 					"system-output",
@@ -121,6 +123,7 @@ export class BulkCancelCommandHandler extends BaseCommandHandler {
 			markdown += "No bookings were cancelled.\n";
 		}
 
+		this.stopThinking();
 		this.addMarkdownOutput(markdown, "system-output");
 	}
 }

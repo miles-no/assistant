@@ -56,7 +56,9 @@ IRIS is a HAL-9000 inspired terminal interface for the Miles booking system. It 
   - 🦙 Ollama (local, privacy-first)
   - 🤖 OpenAI (ChatGPT)
   - 🧠 Anthropic (Claude)
-- **Context-Aware**: Understands booking system context and user permissions
+- **Conversational Context**: IRIS remembers your last 10 interactions for 30 minutes, allowing natural follow-up commands
+- **Contextual References**: Use phrases like "book it", "that room", "same time" after checking availability
+- **System Context**: Understands booking system context and user permissions
 - **Tool Integration**: Direct access to Miles MCP booking tools
 - **Interaction Logging**: SQLite database logs all interactions for troubleshooting
 
@@ -337,6 +339,55 @@ IRIS understands natural language. Try:
 > I need a room with a TV for 6 people
 ```
 
+### Contextual Conversations
+
+IRIS remembers your recent interactions, enabling natural follow-up commands:
+
+**Example 1: Checking availability and booking**
+```
+> Check skagen tomorrow at 8
+[OK] Room availability checked
+
+Room: skagen
+Time Window: 10/22/25, 8:00 AM - 10/23/25, 8:00 AM
+...
+
+> book it
+[OK] Booking confirmed
+Booking ID: abc123
+Room: skagen
+Time: 10/22/25, 8:00 AM - 9:00 AM
+```
+
+**Example 2: Using contextual references**
+```
+> Is the Innovation Lab available tomorrow afternoon?
+[OK] Room is available from 2:00 PM to 5:00 PM
+
+> reserve that room for 2 hours starting at 2pm
+[OK] Booking confirmed for Innovation Lab...
+
+> actually, cancel that
+[OK] Booking cancelled
+```
+
+**Example 3: Building on previous queries**
+```
+> Show me rooms with capacity over 10
+[Lists large conference rooms]
+
+> What about that first one?
+[Shows details for first room from previous list]
+
+> Book it for next Monday at 9am
+[Creates booking for the room]
+```
+
+**How it works:**
+- IRIS stores your last 10 interactions for 30 minutes
+- Contextual phrases like "it", "that", "same time" automatically reference previous commands
+- The conversation context resets after 30 minutes of inactivity
+
 ### HAL Personality
 
 IRIS adopts a calm, precise HAL-9000 inspired personality:
@@ -406,6 +457,7 @@ iris/
 │   │   ├── terminal.ts           # Terminal service & state management
 │   │   ├── iris-eye.ts           # HAL eye animation system
 │   │   ├── api-client.ts         # Type-safe API client (OpenAPI)
+│   │   ├── llm-service.ts        # LLM intent parsing service
 │   │   └── llm-health.ts         # LLM health monitoring service
 │   ├── commands/                 # Modular command handlers
 │   │   ├── base-handler.ts       # Base command handler
@@ -417,9 +469,11 @@ iris/
 │   │   └── bulk-cancel-handler.ts
 │   ├── types/
 │   │   ├── iris-eye.ts           # Eye animation types
-│   │   └── terminal.ts           # Terminal types
+│   │   ├── terminal.ts           # Terminal types
+│   │   └── window.d.ts           # Global window interface extensions
 │   └── utils/
 │       ├── config.ts             # Configuration constants
+│       ├── natural-language.ts   # Simple NLP for routing
 │       └── errors.ts             # Error handling utilities
 ├── public/                       # Static assets
 │   ├── terminal.css              # HAL-9000 styling & animations
@@ -427,9 +481,11 @@ iris/
 ├── types/
 │   └── api.ts                    # OpenAPI generated types
 ├── dist/                         # Built output (generated)
-├── server.js                     # Express backend server
-├── llm-providers.js              # LLM abstraction layer
-├── database.js                   # SQLite interaction logging
+├── server.ts                     # Express backend server
+├── llm-providers.ts              # LLM abstraction layer
+├── database.ts                   # SQLite interaction logging
+├── session-context.ts            # Conversation context manager
+├── fuzzy-match.ts                # Room name fuzzy matching
 ├── package.json                  # Dependencies & scripts
 ├── tsconfig.json                 # TypeScript configuration
 ├── vite.config.js                # Vite bundler configuration
@@ -442,6 +498,85 @@ iris/
     ├── iris.spec.js              # Terminal UI tests (16 tests)
     └── booking-flow.spec.js      # Booking workflow tests (14 tests)
 ```
+
+### Conversational Context System
+
+IRIS implements a sophisticated context management system for natural follow-up commands:
+
+**Architecture:**
+
+```typescript
+// session-context.ts - In-memory conversation store
+export interface ContextEntry {
+  timestamp: Date;
+  command: string;      // User's original command
+  action: string;       // Parsed action (e.g., "checkAvailability")
+  params?: Record<string, unknown>;  // Extracted parameters
+  response?: string;    // Optional response text
+}
+```
+
+**How Context Resolution Works:**
+
+1. **Frontend Detection** (`natural-language.ts`):
+   - Detects contextual phrases: "book it", "that room", "same time", etc.
+   - Routes these commands to LLM instead of simple pattern matching
+   - Ensures context-dependent queries get full conversation history
+
+2. **Backend Context Injection** (`server.ts`):
+   - Retrieves last 3 interactions from session context
+   - Builds context summary with previous commands and parameters
+   - Passes history to LLM with explicit instructions for resolution
+
+3. **LLM Resolution**:
+   - LLM receives: current command + recent conversation history
+   - Extracts parameters from previous interactions
+   - Example: "book it" after availability check → extracts room and time
+
+4. **Context Storage** (`session-context.ts`):
+   - Stores each parsed intent with timestamp
+   - Maintains last 10 interactions per user
+   - 30-minute session timeout with automatic cleanup
+   - In-memory storage (can be migrated to Redis for production)
+
+**Example Flow:**
+
+```typescript
+// User: "check skagen tomorrow at 8"
+Context: []
+LLM Response: {
+  action: "checkAvailability",
+  params: { roomName: "skagen", startTime: "2025-10-22T08:00:00Z" }
+}
+→ Stored in context ✓
+
+// User: "book it"
+Context: [
+  {
+    command: "check skagen tomorrow at 8",
+    action: "checkAvailability",
+    params: { roomName: "skagen", startTime: "2025-10-22T08:00:00Z" }
+  }
+]
+LLM receives history → Resolves "it" to skagen at 8am
+LLM Response: {
+  action: "createBooking",
+  params: {
+    roomName: "skagen",
+    startTime: "2025-10-22T08:00:00Z",
+    duration: 60
+  }
+}
+→ Booking created! ✓
+```
+
+**Session Management:**
+
+- **Timeout**: 30 minutes of inactivity
+- **Capacity**: 10 most recent interactions
+- **Cleanup**: Automatic background job every 15 minutes
+- **Isolation**: Per-user session context (keyed by userId)
+- **Scalability**: In-memory for MVP, Redis-ready for production
 
 ### Running in Development
 

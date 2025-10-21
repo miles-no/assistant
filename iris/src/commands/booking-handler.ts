@@ -99,6 +99,7 @@ export class BookingCommandHandler extends BaseCommandHandler {
 
 Booking operation complete.`;
 
+		this.stopThinking();
 		this.addMarkdownOutput(markdown, "system-output");
 	}
 }
