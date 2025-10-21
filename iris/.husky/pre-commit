@@ -1,0 +1,1 @@
+cd iris && npx @biomejs/biome check --write --unsafe
