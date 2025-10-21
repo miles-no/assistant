@@ -1,0 +1,51 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build outputs
+dist
+
+# Testing
+tests
+playwright-report
+test-results
+.playwright
+
+# Development files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Logs
+*.log
+logs
+
+# Database (will be in volume)
+data/*.db
+data/*.db-journal
+iris-logs.db
+iris-logs.db-journal
+
+# Misc
+README.md
+.editorconfig

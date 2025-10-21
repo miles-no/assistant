@@ -289,3 +289,6 @@ export class MilesApiClient {
     };
   }
 }
+
+// Export ApiClient as an alias for backward compatibility
+export const ApiClient = MilesApiClient;

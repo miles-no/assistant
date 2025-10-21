@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRIS - Miles AI Assistant</title>
+    <link rel="stylesheet" href="/public/terminal.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- CRT Effects -->
+    <div class="scanlines"></div>
+    <div class="static-noise"></div>
+
+    <!-- Main App Container -->
+    <div class="app-container">
+        <!-- IRIS Eye -->
+        <div class="hal-eye-container">
+            <div class="hal-eye" id="hal-eye">
+                <div class="hal-eye-glow"></div>
+                <div class="hal-eye-sclera"></div>
+                <div class="hal-eye-iris" id="iris">
+                    <div class="iris-texture"></div>
+                    <div class="hal-eye-pupil" id="pupil"></div>
+                    <div class="eye-highlight"></div>
+                </div>
+            </div>
+            <div class="hal-status" id="hal-status">IRIS v1.0 - ONLINE</div>
+        </div>
+
+        <!-- Terminal Container -->
+        <div class="terminal-container">
+        <!-- Login Screen (shown initially) -->
+        <div class="login-screen" id="login-screen">
+            <div class="login-box">
+                <pre class="ascii-art">
+██╗██████╗ ██╗███████╗
+██║██╔══██╗██║██╔════╝
+██║██████╔╝██║███████╗
+██║██╔══██╗██║╚════██║
+██║██║  ██║██║███████║
+╚═╝╚═╝  ╚═╝╚═╝╚══════╝
+                </pre>
+                <p class="tagline">Miles' AI Assistant</p>
+                <p class="sub-tagline">IRIS – Intelligent Resource and Information System</p>
+
+                <form id="login-form" class="login-form">
+                    <div class="form-group">
+                        <label for="email">&gt; EMAIL:</label>
+                        <input type="email" id="email" name="email" required autocomplete="email"
+                               placeholder="user@miles.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">&gt; PASSWORD:</label>
+                        <input type="password" id="password" name="password" required autocomplete="current-password"
+                               placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="terminal-button">
+                        <span class="button-bracket">[</span> CONNECT <span class="button-bracket">]</span>
+                    </button>
+                    <div class="login-error" id="login-error"></div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Terminal Interface (shown after login) -->
+        <div class="terminal" id="terminal" style="display: none;">
+            <div class="terminal-header">
+                <span class="terminal-title">IRIS TERMINAL</span>
+                <span class="terminal-info" id="user-info"></span>
+                <div class="terminal-logout-wrapper">
+                    <button class="terminal-logout" id="logout-btn">[DISCONNECT]</button>
+                </div>
+            </div>
+
+            <div class="terminal-output" id="terminal-output">
+                <!-- Output will be dynamically added here -->
+            </div>
+
+            <div class="terminal-input-line">
+                <span class="terminal-prompt" id="terminal-prompt">&gt;</span>
+                <input type="text"
+                       id="terminal-input"
+                       class="terminal-input"
+                       autocomplete="off"
+                       spellcheck="false"
+                       placeholder="Type 'help' for commands...">
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
+    <!-- Vite will transform this to the TypeScript source in dev mode -->
+    <script type="module" src="/src/index.ts"></script>
+</body>
+</html>

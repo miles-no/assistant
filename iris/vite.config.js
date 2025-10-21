@@ -1,16 +1,10 @@
 import { defineConfig } from 'vite'
-import legacy from '@vitejs/plugin-legacy'
 
 export default defineConfig({
-  plugins: [
-    legacy({
-      targets: ['defaults', 'not IE 11']
-    })
-  ],
+  publicDir: 'public',
   build: {
     outDir: 'dist',
     rollupOptions: {
-      input: 'src/index.ts',
       output: {
         entryFileNames: 'index.js',
         chunkFileNames: '[name].js',
@@ -20,8 +14,10 @@ export default defineConfig({
   },
   server: {
     port: 3003,
+    open: true, // Auto-open browser in dev mode
     proxy: {
-      '/api': 'http://localhost:3002'
+      '/api': 'http://localhost:3002',
+      '/health': 'http://localhost:3002'
     }
   }
 })

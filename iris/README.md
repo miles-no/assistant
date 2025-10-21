@@ -43,6 +43,7 @@ IRIS is a HAL-9000 inspired terminal interface for the Miles booking system. It 
 
 ### 🎨 Visual Effects
 - **HAL-9000 Red Eye**: Animated, pulsing red eye that "thinks" during processing
+- **LLM Connection Indicator**: Eye shows power state - bright/pulsing when LLM is connected, dimmed when disconnected
 - **CRT Scanlines**: Authentic cathode ray tube screen effect
 - **Terminal Glow**: Retro phosphor screen green/red glow effects
 - **Glitch Effects**: Occasional screen artifacts for authenticity
@@ -76,14 +77,15 @@ graph TB
     subgraph Client[Browser - Terminal Interface]
         HTML[HAL Terminal UI]
         CSS[Retro CRT Styles]
-        JS[Terminal Logic]
-        ANIM[Animation Effects]
+        TS[TypeScript Services]
+        VITE[Vite Dev Server - Port 3003]
     end
 
     subgraph IRIS[IRIS Server - Port 3002]
         API[Express API]
         LLM[LLM Provider Abstraction]
         PARSE[Tool Call Parser]
+        HEALTH[Health Check]
     end
 
     subgraph Backend[Miles Backend - Port 3000]
@@ -92,17 +94,28 @@ graph TB
         DB[(Prisma DB)]
     end
 
-    HTML -->|WebSocket-style| API
+    HTML -->|Commands| API
+    TS -->|Health Polling| HEALTH
+    HEALTH -->|Status| TS
     API -->|Chat| LLM
     LLM -->|Tool Calls| PARSE
     PARSE -->|HTTP| MCP
     MCP --> TOOLS
     TOOLS --> DB
+    VITE -.->|Dev Proxy| API
 
     style IRIS fill:#330000,stroke:#ff0000,color:#fff
     style Client fill:#000,stroke:#ff0000,color:#fff
     style Backend fill:#1a1a1a,stroke:#666,color:#fff
 ```
+
+### Tech Stack
+
+- **Frontend**: TypeScript + Vite (hot-reload development)
+- **Backend**: Node.js + Express
+- **LLM Integration**: Multi-provider abstraction (Ollama/OpenAI/Anthropic)
+- **Database**: SQLite (interaction logging)
+- **Testing**: Playwright (30 E2E tests)
 
 ---
 
@@ -117,7 +130,7 @@ graph TB
   - OpenAI API key
   - Anthropic API key
 
-### Installation
+### Option 1: Development Mode (with hot-reload)
 
 1. **Clone and navigate:**
    ```bash
@@ -135,12 +148,48 @@ graph TB
    nano .env  # Edit configuration
    ```
 
-4. **Start IRIS:**
+4. **Build TypeScript:**
    ```bash
+   npm run build
+   ```
+
+5. **Start backend server (Terminal 1):**
+   ```bash
+   npm run dev:server
+   ```
+   Express server starts on `http://localhost:3002`
+
+6. **Start Vite dev server (Terminal 2):**
+   ```bash
+   npm run dev
+   ```
+   Vite opens browser at `http://localhost:3003` with hot-reload
+
+### Option 2: Production Mode
+
+1. **Build and start:**
+   ```bash
+   npm run build
    npm start
    ```
 
-5. **Access terminal:**
+2. **Access terminal:**
+   Open `http://localhost:3002` in your browser
+
+### Option 3: Docker (Recommended for Production)
+
+1. **Using Docker Compose:**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Or build and run manually:**
+   ```bash
+   docker build -t miles-iris .
+   docker run -p 3002:3002 --env-file .env miles-iris
+   ```
+
+3. **Access terminal:**
    Open `http://localhost:3002` in your browser
 
 ---
@@ -310,6 +359,20 @@ IRIS: I'm sorry, but I cannot locate that room in our system.
 
 ### Visual States
 
+#### Powered State (LLM Connected) ⚡
+```
+HAL eye: Bright, energized red glow with strong pulsing
+Enhanced box-shadow effects
+Health check: Status "operational"
+```
+
+#### Unpowered State (LLM Disconnected) 💤
+```
+HAL eye: Dimmed to 40% opacity, faded red
+Reduced saturation and minimal glow
+Health check: Failed or status not "operational"
+```
+
 #### Idle State
 ```
 HAL eye pulses gently
@@ -337,45 +400,192 @@ Optional screen shake or glitch effect
 
 ```
 iris/
-├── server.js              # Main Express server
-├── llm-providers.js       # LLM abstraction layer
-├── database.js            # SQLite interaction logging
-├── package.json           # Dependencies
-├── playwright.config.js   # Playwright test configuration
-├── .env                   # Configuration
-├── .env.example          # Configuration template
-├── .gitignore            # Git ignore patterns
-├── README.md             # This file
-├── public/
-│   ├── index.html        # Terminal UI structure
-│   ├── terminal.css      # HAL-9000 styling
-│   ├── terminal.js       # Terminal logic & commands
-│   └── iris-eye.js       # HAL eye animations
+├── src/                          # TypeScript source code
+│   ├── index.ts                  # Application entry point
+│   ├── services/
+│   │   ├── terminal.ts           # Terminal service & state management
+│   │   ├── iris-eye.ts           # HAL eye animation system
+│   │   ├── api-client.ts         # Type-safe API client (OpenAPI)
+│   │   └── llm-health.ts         # LLM health monitoring service
+│   ├── commands/                 # Modular command handlers
+│   │   ├── base-handler.ts       # Base command handler
+│   │   ├── rooms-handler.ts      # Room commands
+│   │   ├── bookings-handler.ts   # Booking commands
+│   │   ├── availability-handler.ts
+│   │   ├── booking-handler.ts
+│   │   ├── cancel-handler.ts
+│   │   └── bulk-cancel-handler.ts
+│   ├── types/
+│   │   ├── iris-eye.ts           # Eye animation types
+│   │   └── terminal.ts           # Terminal types
+│   └── utils/
+│       ├── config.ts             # Configuration constants
+│       └── errors.ts             # Error handling utilities
+├── public/                       # Static assets
+│   ├── terminal.css              # HAL-9000 styling & animations
+│   └── animations.js             # Legacy animation utilities
+├── types/
+│   └── api.ts                    # OpenAPI generated types
+├── dist/                         # Built output (generated)
+├── server.js                     # Express backend server
+├── llm-providers.js              # LLM abstraction layer
+├── database.js                   # SQLite interaction logging
+├── package.json                  # Dependencies & scripts
+├── tsconfig.json                 # TypeScript configuration
+├── vite.config.js                # Vite bundler configuration
+├── playwright.config.js          # E2E test configuration
+├── index.html                    # Root HTML (for Vite dev)
+├── Dockerfile                    # Docker container definition
+├── docker-compose.yml            # Docker Compose orchestration
+├── .env                          # Environment configuration
 └── tests/
-    ├── iris.spec.js           # Terminal UI tests (16 tests)
-    └── booking-flow.spec.js   # Booking workflow tests (14 tests)
+    ├── iris.spec.js              # Terminal UI tests (16 tests)
+    └── booking-flow.spec.js      # Booking workflow tests (14 tests)
 ```
 
 ### Running in Development
 
-```bash
-# Auto-restart on changes
-npm run dev
+**Two-server setup for hot-reload development:**
 
-# Production mode
+```bash
+# Terminal 1: Start Express backend with auto-restart
+npm run dev:server
+
+# Terminal 2: Start Vite frontend dev server with hot-reload
+npm run dev
+```
+
+**Other commands:**
+
+```bash
+# Build TypeScript
+npm run build
+
+# Build and watch for changes
+npm run build:watch
+
+# Type checking only (no build)
+npm run type-check
+
+# Production mode (serves built files)
 npm start
+
+# Run tests
+npm test
 ```
 
 ### Adding Custom Commands
 
-Edit `public/terminal.js` in the `processCommand` function:
+1. **Create a new command handler** in `src/commands/`:
 
-```javascript
-if (cmd === 'mycommand') {
-    stopThinking();
-    addOutput('My custom output', 'system-output');
-    return;
+```typescript
+// src/commands/my-command-handler.ts
+import { BaseCommandHandler } from './base-handler';
+
+export class MyCommandHandler extends BaseCommandHandler {
+  async execute(params: any): Promise<void> {
+    this.terminal.addOutput('My custom output', 'system-output');
+  }
 }
+```
+
+2. **Register it** in `src/services/terminal.ts`:
+
+```typescript
+import { MyCommandHandler } from '../commands/my-command-handler';
+
+// In the processCommand method:
+if (intent === 'my_command') {
+  const handler = new MyCommandHandler(this, this.apiClient);
+  await handler.execute(extractedParams);
+}
+```
+
+---
+
+## 🐳 Docker Deployment
+
+IRIS includes Docker support for easy deployment and production use.
+
+### Quick Start with Docker Compose
+
+```bash
+# Start IRIS in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f iris
+
+# Stop IRIS
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up -d --build
+```
+
+### Environment Configuration
+
+The `docker-compose.yml` supports environment variables from your `.env` file:
+
+```yaml
+# Example .env for Docker
+PORT=3002
+MCP_API_URL=http://host.docker.internal:3000/api/mcp
+LLM_PROVIDER=ollama
+OLLAMA_URL=http://host.docker.internal:11434
+OLLAMA_MODEL=qwen2.5:7b
+```
+
+**Note:** Use `host.docker.internal` to access services running on your host machine (Ollama, Miles API).
+
+### Building the Docker Image
+
+```bash
+# Build the image
+docker build -t miles-iris .
+
+# Run with environment file
+docker run -p 3002:3002 --env-file .env miles-iris
+
+# Run with individual environment variables
+docker run -p 3002:3002 \
+  -e LLM_PROVIDER=ollama \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  -e MCP_API_URL=http://host.docker.internal:3000/api/mcp \
+  miles-iris
+```
+
+### Docker Features
+
+- **Multi-stage build**: Optimized image size (~200MB)
+- **Health checks**: Built-in health monitoring
+- **Persistent data**: SQLite database stored in Docker volume
+- **Production-ready**: Only production dependencies included
+- **Auto-restart**: Container restarts automatically on failure
+
+### Accessing Logs
+
+```bash
+# Follow logs
+docker-compose logs -f iris
+
+# Last 100 lines
+docker-compose logs --tail=100 iris
+
+# Logs with timestamps
+docker-compose logs -f --timestamps iris
+```
+
+### Health Check
+
+The container includes a health check that monitors the `/health` endpoint:
+
+```bash
+# Check container health status
+docker ps
+
+# Inspect health details
+docker inspect --format='{{json .State.Health}}' miles-iris
 ```
 
 ---
