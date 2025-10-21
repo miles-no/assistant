@@ -40,10 +40,10 @@ router.get("/tools", async (_req: Request, res: Response) => {
 			count: tools.length,
 			tools,
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		res.status(500).json({
 			success: false,
-			error: error.message,
+			error: error instanceof Error ? error.message : "Unknown error",
 		});
 	}
 });
@@ -60,13 +60,13 @@ router.post("/tools/:toolName", async (req: Request, res: Response) => {
 
 		const result = await callTool(toolName, args);
 		res.json(result);
-	} catch (error: any) {
+	} catch (error: unknown) {
 		res.status(400).json({
 			content: [
 				{
 					type: "text",
 					text: JSON.stringify({
-						error: error.message,
+						error: error instanceof Error ? error.message : "Unknown error",
 					}),
 				},
 			],
@@ -87,10 +87,10 @@ router.get("/resources", async (_req: Request, res: Response) => {
 			count: resources.length,
 			resources,
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		res.status(500).json({
 			success: false,
-			error: error.message,
+			error: error instanceof Error ? error.message : "Unknown error",
 		});
 	}
 });
@@ -129,14 +129,14 @@ router.get("/resources/*", async (req: Request, res: Response) => {
 		}
 
 		res.json(result);
-	} catch (error: any) {
+	} catch (error: unknown) {
 		res.status(400).json({
 			contents: [
 				{
 					uri: "error",
 					mimeType: "application/json",
 					text: JSON.stringify({
-						error: error.message,
+						error: error instanceof Error ? error.message : "Unknown error",
 					}),
 				},
 			],
@@ -242,13 +242,13 @@ router.post("/messages", async (req: Request, res: Response) => {
 					},
 				});
 		}
-	} catch (error: any) {
+	} catch (error: unknown) {
 		res.status(500).json({
 			jsonrpc: "2.0",
 			id: req.body.id || null,
 			error: {
 				code: -32603,
-				message: `Internal error: ${error.message}`,
+				message: `Internal error: ${error instanceof Error ? error.message : "Unknown error"}`,
 			},
 		});
 	}

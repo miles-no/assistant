@@ -1,8 +1,28 @@
+import type { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 import { createEvents, type EventAttributes } from "ics";
 import prisma from "../utils/prisma";
 
-const convertBookingToICalEvent = (booking: any): EventAttributes => {
+type BookingWithRelations = Prisma.BookingGetPayload<{
+	include: {
+		room: {
+			include: {
+				location: true;
+			};
+		};
+		user: {
+			select: {
+				firstName: true;
+				lastName: true;
+				email: true;
+			};
+		};
+	};
+}>;
+
+const convertBookingToICalEvent = (
+	booking: BookingWithRelations,
+): EventAttributes => {
 	const start = new Date(booking.startTime);
 	const end = new Date(booking.endTime);
 

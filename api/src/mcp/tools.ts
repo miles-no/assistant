@@ -1,4 +1,9 @@
-import { BookingStatus, FeedbackStatus, Role } from "@prisma/client";
+import {
+	BookingStatus,
+	FeedbackStatus,
+	type Prisma,
+	Role,
+} from "@prisma/client";
 import { z } from "zod";
 import {
 	sendFeedbackNotification,
@@ -363,7 +368,7 @@ export function registerTools() {
 }
 
 // Tool execution
-export async function callTool(name: string, args: any) {
+export async function callTool(name: string, args: unknown) {
 	switch (name) {
 		case "create_booking":
 			return await createBooking(args);
@@ -389,7 +394,7 @@ export async function callTool(name: string, args: any) {
 }
 
 // Tool implementations
-async function createBooking(args: any) {
+async function createBooking(args: unknown) {
 	const data = createBookingSchema.parse(args);
 
 	// Verify user exists
@@ -521,7 +526,7 @@ async function createBooking(args: any) {
 	};
 }
 
-async function updateBooking(args: any) {
+async function updateBooking(args: unknown) {
 	const data = updateBookingSchema.parse(args);
 
 	// Get the booking
@@ -642,7 +647,7 @@ async function updateBooking(args: any) {
 	}
 
 	// Update booking
-	const updateData: any = {};
+	const updateData: Prisma.BookingUpdateInput = {};
 	if (data.startTime) updateData.startTime = new Date(data.startTime);
 	if (data.endTime) updateData.endTime = new Date(data.endTime);
 	if (data.title !== undefined) updateData.title = data.title;
@@ -681,7 +686,7 @@ async function updateBooking(args: any) {
 	};
 }
 
-async function cancelBooking(args: any) {
+async function cancelBooking(args: unknown) {
 	const data = cancelBookingSchema.parse(args);
 
 	// Get the booking
@@ -781,7 +786,7 @@ async function cancelBooking(args: any) {
 	};
 }
 
-async function createRoom(args: any) {
+async function createRoom(args: unknown) {
 	const data = createRoomSchema.parse(args);
 
 	// Get user
@@ -866,7 +871,7 @@ async function createRoom(args: any) {
 	};
 }
 
-async function updateRoom(args: any) {
+async function updateRoom(args: unknown) {
 	const data = updateRoomSchema.parse(args);
 
 	// Get room
@@ -928,7 +933,7 @@ async function updateRoom(args: any) {
 	}
 
 	// Update room
-	const updateData: any = {};
+	const updateData: Prisma.RoomUpdateInput = {};
 	if (data.name) updateData.name = data.name;
 	if (data.capacity) updateData.capacity = data.capacity;
 	if (data.amenities) updateData.amenities = data.amenities;
@@ -956,14 +961,14 @@ async function updateRoom(args: any) {
 	};
 }
 
-async function findAvailableRooms(args: any) {
+async function findAvailableRooms(args: unknown) {
 	const data = findAvailableRoomsSchema.parse(args);
 
 	const startTime = new Date(data.startTime);
 	const endTime = new Date(data.endTime);
 
 	// Build room filter
-	const roomFilter: any = {
+	const roomFilter: Prisma.RoomWhereInput = {
 		isActive: true,
 	};
 
@@ -1048,7 +1053,7 @@ async function findAvailableRooms(args: any) {
 	};
 }
 
-async function suggestBookingTime(args: any) {
+async function suggestBookingTime(args: unknown) {
 	const data = suggestBookingTimeSchema.parse(args);
 
 	// Verify room exists
@@ -1171,7 +1176,7 @@ async function suggestBookingTime(args: any) {
 	};
 }
 
-async function createRoomFeedback(args: any) {
+async function createRoomFeedback(args: unknown) {
 	const data = createRoomFeedbackSchema.parse(args);
 
 	// Verify user exists
@@ -1279,7 +1284,7 @@ async function createRoomFeedback(args: any) {
 	};
 }
 
-async function updateFeedbackStatus(args: any) {
+async function updateFeedbackStatus(args: unknown) {
 	const data = updateFeedbackStatusSchema.parse(args);
 
 	// Get feedback with all relations

@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import prisma from "../utils/prisma";
@@ -61,7 +62,7 @@ export const getAllBookings = async (
 		const { roomId, locationId, startDate, endDate } = req.query;
 
 		// Build where clause based on user role
-		const whereClause: any = {};
+		const whereClause: Prisma.BookingWhereInput = {};
 
 		// Regular users can only see their own bookings
 		if (req.user?.role === "USER") {
@@ -88,8 +89,8 @@ export const getAllBookings = async (
 		}
 
 		if (locationId) {
+			// Override with specific location filter
 			whereClause.room = {
-				...whereClause.room,
 				locationId: locationId as string,
 			};
 		}
@@ -250,7 +251,7 @@ export const createBooking = async (
 		const booking = await prisma.booking.create({
 			data: {
 				roomId: data.roomId,
-				userId: req.user?.userId,
+				userId: req.user?.userId || "",
 				startTime,
 				endTime,
 				title: data.title,

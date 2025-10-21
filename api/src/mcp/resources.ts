@@ -1,4 +1,8 @@
-import { BookingStatus, type FeedbackStatus } from "@prisma/client";
+import {
+	BookingStatus,
+	type FeedbackStatus,
+	type Prisma,
+} from "@prisma/client";
 import ical from "ics";
 import prisma from "../utils/prisma.js";
 
@@ -98,7 +102,8 @@ export async function readResource(uri: string) {
 	}
 
 	if (baseUri.match(/^miles:\/\/locations\/[^/]+$/)) {
-		const locationId = baseUri.split("/").pop()!;
+		const parts = baseUri.split("/");
+		const locationId = parts[parts.length - 1];
 		return await getLocationDetails(locationId);
 	}
 
@@ -107,7 +112,8 @@ export async function readResource(uri: string) {
 	}
 
 	if (baseUri.match(/^miles:\/\/rooms\/[^/]+$/)) {
-		const roomId = baseUri.split("/").pop()!;
+		const parts = baseUri.split("/");
+		const roomId = parts[parts.length - 1];
 		return await getRoomDetails(roomId);
 	}
 
@@ -129,22 +135,26 @@ export async function readResource(uri: string) {
 	}
 
 	if (baseUri.match(/^miles:\/\/bookings\/[^/]+$/)) {
-		const bookingId = baseUri.split("/").pop()!;
+		const parts = baseUri.split("/");
+		const bookingId = parts[parts.length - 1];
 		return await getBookingDetails(bookingId);
 	}
 
 	if (baseUri.match(/^miles:\/\/calendar\/location\/[^/]+$/)) {
-		const locationId = baseUri.split("/").pop()!;
+		const parts = baseUri.split("/");
+		const locationId = parts[parts.length - 1];
 		return await getLocationCalendar(locationId);
 	}
 
 	if (baseUri.match(/^miles:\/\/calendar\/room\/[^/]+$/)) {
-		const roomId = baseUri.split("/").pop()!;
+		const parts = baseUri.split("/");
+		const roomId = parts[parts.length - 1];
 		return await getRoomCalendar(roomId);
 	}
 
 	if (baseUri.match(/^miles:\/\/calendar\/user\/[^/]+$/)) {
-		const userId = baseUri.split("/").pop()!;
+		const parts = baseUri.split("/");
+		const userId = parts[parts.length - 1];
 		return await getUserCalendar(userId);
 	}
 
@@ -504,7 +514,7 @@ async function getBookings(
 	roomId: string | null,
 	status: string | null,
 ) {
-	const where: any = {};
+	const where: Prisma.BookingWhereInput = {};
 
 	if (userId) {
 		where.userId = userId;
@@ -869,7 +879,7 @@ async function getAllFeedback(
 	status: string | null,
 	userId: string | null,
 ) {
-	const where: any = {};
+	const where: Prisma.RoomFeedbackWhereInput = {};
 
 	if (roomId) {
 		where.roomId = roomId;

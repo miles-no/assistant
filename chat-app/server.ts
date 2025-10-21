@@ -252,9 +252,9 @@ function parseToolCalls(text: string): ParsedToolCalls {
 
 	// Look for tool call patterns like: TOOL_CALL: tool_name({"param": "value"}) or TOOL_CALL: read_resource_name({})
 	const toolCallRegex = /TOOL_CALL:\s*(\w+)\((.*?)\)/gs;
-	let match;
+	let match: RegExpExecArray | null = toolCallRegex.exec(text);
 
-	while ((match = toolCallRegex.exec(text)) !== null) {
+	while (match !== null) {
 		const toolName = match[1];
 		const paramsStr = match[2].trim();
 
@@ -309,6 +309,9 @@ function parseToolCalls(text: string): ParsedToolCalls {
 				);
 			}
 		}
+
+		// Get next match
+		match = toolCallRegex.exec(text);
 	}
 
 	return { toolCalls, resourceReads };
@@ -356,7 +359,10 @@ app.post("/api/chat", async (req: Request, res: Response) => {
 		if (!conversations.has(conversationId)) {
 			conversations.set(conversationId, []);
 		}
-		const history = conversations.get(conversationId)!;
+		const history = conversations.get(conversationId);
+		if (!history) {
+			throw new Error("Failed to get conversation history");
+		}
 
 		// Get MCP tools and resources for context
 		const tools = await getMCPTools();
