@@ -13,6 +13,10 @@ export interface TerminalSettings {
 	voiceOutputVolume: number; // 0.0 - 1.0
 	voiceOutputRate: number; // Speech rate (0.1 - 10.0)
 	voiceOutputPitch: number; // Speech pitch (0.0 - 2.0)
+	// Screensaver settings
+	screensaverEnabled: boolean; // Enable/disable screensaver
+	screensaverTimeout: number; // Timeout in seconds (default 300 = 5min)
+	screensaverStyle: "hal" | "minimal"; // Screensaver style
 }
 
 export interface TerminalState {

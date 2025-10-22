@@ -22,6 +22,7 @@ import { HALVoiceService } from "./hal-voice";
 import type { IrisEye } from "./iris-eye";
 import type { LLMHealthService } from "./llm-health";
 import { type LLMIntent, LLMService } from "./llm-service";
+import { ScreensaverService } from "./screensaver";
 import { VoiceInputService } from "./voice-input";
 
 /**
@@ -36,6 +37,7 @@ export class Terminal {
 	private easterEggs: EasterEggs;
 	private voiceInput: VoiceInputService;
 	private halVoice: HALVoiceService;
+	private screensaver: ScreensaverService;
 	private isVoiceMode = false;
 
 	private state: TerminalState;
@@ -82,6 +84,13 @@ export class Terminal {
 		this.voiceInput = new VoiceInputService(this.state.settings);
 		this.halVoice = new HALVoiceService(this.state.settings);
 
+		// Initialize screensaver
+		this.screensaver = new ScreensaverService({
+			enabled: this.state.settings.screensaverEnabled,
+			timeout: this.state.settings.screensaverTimeout,
+			style: this.state.settings.screensaverStyle,
+		});
+
 		// Monitor LLM health for fallback decisions and status indicator
 		if (this.llmHealth) {
 			this.llmHealth.onStatusChange((status) => {
@@ -122,6 +131,10 @@ export class Terminal {
 			voiceOutputVolume: 0.8,
 			voiceOutputRate: 0.8, // HAL's calm, measured pace
 			voiceOutputPitch: 0.9, // Slightly lower pitch
+			// Screensaver defaults
+			screensaverEnabled: true,
+			screensaverTimeout: 300, // 5 minutes
+			screensaverStyle: "hal",
 		};
 	}
 
@@ -142,6 +155,9 @@ export class Terminal {
 		const voiceOutputStatus = this.state.settings.voiceOutputEnabled
 			? "ON"
 			: "OFF";
+		const screensaverStatus = this.state.settings.screensaverEnabled
+			? "ON"
+			: "OFF";
 
 		const markdown = `
 ## CURRENT SETTINGS
@@ -150,6 +166,7 @@ export class Terminal {
 **LLM Parsing (AI-Powered):** ${llmStatus}
 **Voice Input:** ${voiceInputStatus}
 **HAL Voice Output:** ${voiceOutputStatus}
+**Screensaver:** ${screensaverStatus}
 
 ### USAGE
 
@@ -160,6 +177,8 @@ export class Terminal {
 ▸ \`settings voice\` - Show voice settings
 ▸ \`settings voice input [on|off]\` - Toggle voice input
 ▸ \`settings voice output [on|off]\` - Toggle HAL voice output
+▸ \`settings screensaver\` - Show screensaver settings
+▸ \`settings screensaver [on|off]\` - Toggle screensaver
 
 **Note:** At least one text processing method (NLP or LLM) must be enabled.
 `;
@@ -168,7 +187,7 @@ export class Terminal {
 	}
 
 	private handleSettingsCommand(parts: string[]): void {
-		// settings [nlp|llm|voice] [input|output] [on|off]
+		// settings [nlp|llm|voice|screensaver] [input|output] [on|off]
 		if (parts.length === 1) {
 			// Just "settings" - show current settings
 			this.showSettings();
@@ -183,10 +202,16 @@ export class Terminal {
 			return;
 		}
 
+		// Handle screensaver settings
+		if (setting === "screensaver") {
+			this.handleScreensaverSettings(parts);
+			return;
+		}
+
 		// Handle simple on/off settings
 		if (parts.length !== 3) {
 			this.addOutput(
-				"[ERROR] Usage: settings [nlp|llm|voice] [on|off] or settings voice [input|output] [on|off]",
+				"[ERROR] Usage: settings [nlp|llm|voice|screensaver] [on|off] or settings voice [input|output] [on|off]",
 				"error",
 			);
 			return;
@@ -196,7 +221,7 @@ export class Terminal {
 
 		if (!["nlp", "llm"].includes(setting)) {
 			this.addOutput(
-				"[ERROR] Invalid setting. Use 'nlp', 'llm', or 'voice'",
+				"[ERROR] Invalid setting. Use 'nlp', 'llm', 'voice', or 'screensaver'",
 				"error",
 			);
 			return;
@@ -335,6 +360,82 @@ export class Terminal {
 		this.addMarkdownOutput(markdown, "system-output");
 	}
 
+	private handleScreensaverSettings(parts: string[]): void {
+		if (parts.length === 2) {
+			// "settings screensaver" - show screensaver settings
+			this.showScreensaverSettings();
+			return;
+		}
+
+		if (parts.length !== 3) {
+			this.addOutput("[ERROR] Usage: settings screensaver [on|off]", "error");
+			return;
+		}
+
+		const value = parts[2].toLowerCase();
+
+		if (!["on", "off"].includes(value)) {
+			this.addOutput("[ERROR] Invalid value. Use 'on' or 'off'", "error");
+			return;
+		}
+
+		const enable = value === "on";
+
+		// Update screensaver setting
+		this.state.settings.screensaverEnabled = enable;
+
+		// Update screensaver service
+		this.screensaver.updateSettings({
+			enabled: enable,
+			timeout: this.state.settings.screensaverTimeout,
+			style: this.state.settings.screensaverStyle,
+		});
+
+		// Save settings
+		this.saveSettings();
+
+		const status = enable ? "enabled" : "disabled";
+		this.addOutput(`[OK] Screensaver ${status}`, "system-output");
+	}
+
+	private showScreensaverSettings(): void {
+		const status = this.state.settings.screensaverEnabled ? "ON" : "OFF";
+		const timeout = Math.floor(this.state.settings.screensaverTimeout / 60);
+		const style = this.state.settings.screensaverStyle;
+
+		const markdown = `
+## SCREENSAVER SETTINGS
+
+**Screensaver:** ${status}
+**Timeout:** ${timeout} minutes
+**Style:** ${style}
+
+### SCREENSAVER FEATURES
+
+- **HAL Mode**: Full IRIS personality with ASCII art creation and poetry
+- **Activation**: After ${timeout} minutes of inactivity
+- **Phases**: Scanning → Searching → Creating Art → Writing Poetry → Gallery
+- **Exit**: Any mouse/keyboard activity
+
+### COMMANDS
+
+▸ \`settings screensaver [on|off]\` - Toggle screensaver
+▸ \`screensaver test\` - Manually start screensaver for testing
+
+### ASCII ART GALLERY
+
+Contains 20+ different space-themed ASCII artworks including:
+- Planets (Saturn, Earth, Mars variations)
+- Space scenes and solar systems
+- Creative typography and patterns
+- HAL-9000 inspired designs
+
+**Note:** Screensaver activates automatically when idle. Use mouse/keyboard to exit.
+`;
+
+		this.addMarkdownOutput(markdown, "system-output");
+	}
+
 	private handleVoiceCommand(parts: string[]): void {
 		if (parts.length < 2) {
 			this.addOutput("[ERROR] Usage: voice [mode|test] [on|off]", "error");
@@ -371,6 +472,36 @@ export class Terminal {
 		} else {
 			this.addOutput(
 				"[ERROR] Unknown voice command. Use 'voice mode [on|off]', 'voice test', or 'voice voices'",
+				"error",
+			);
+		}
+	}
+
+	private handleScreensaverCommand(parts: string[]): void {
+		if (parts.length < 2) {
+			this.addOutput("[ERROR] Usage: screensaver [test|status]", "error");
+			return;
+		}
+
+		const subCmd = parts[1].toLowerCase();
+
+		if (subCmd === "test") {
+			if (!this.state.settings.screensaverEnabled) {
+				this.addOutput(
+					"[ERROR] Screensaver is disabled. Use 'settings screensaver on'",
+					"error",
+				);
+				return;
+			}
+			this.addOutput("[OK] Starting screensaver test...", "system-output");
+			this.screensaver.start();
+		} else if (subCmd === "status") {
+			const isRunning = this.screensaver.isRunning();
+			const status = isRunning ? "ACTIVE" : "INACTIVE";
+			this.addOutput(`[SCREENSAVER] Status: ${status}`, "system-output");
+		} else {
+			this.addOutput(
+				"[ERROR] Unknown screensaver command. Use 'screensaver test' or 'screensaver status'",
 				"error",
 			);
 		}
@@ -1029,6 +1160,13 @@ export class Terminal {
 			return;
 		}
 
+		// Screensaver Commands
+		if (mainCmd === "screensaver") {
+			this.stopThinking();
+			this.handleScreensaverCommand(parts);
+			return;
+		}
+
 		// Easter Egg Commands
 		if (cmd === "sudo open pod bay doors" || cmd === "open pod bay doors") {
 			this.stopThinking();
@@ -1508,6 +1646,7 @@ This system is designed to process booking operations with maximum efficiency an
 ### ADVANCED COMMANDS
 ▸ **demo** - Run eye animation demo
 ▸ **stop** - Stop demo or voice operations
+▸ **screensaver test** - Test screensaver manually
 
 ### EXAMPLES
 \`\`\`

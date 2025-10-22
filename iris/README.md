@@ -410,6 +410,43 @@ IRIS supports voice input and output for a fully hands-free experience:
 - Automatic voice responses for system messages and confirmations
 - Configurable voice parameters (rate, pitch, volume)
 
+### Screensaver Mode
+
+IRIS features a sophisticated HAL-9000 inspired screensaver that activates during periods of inactivity:
+
+| Command | Description |
+|---------|-------------|
+| `settings screensaver [on\|off]` | Enable/disable screensaver |
+| `screensaver test` | Manually start screensaver for testing |
+| `screensaver status` | Check screensaver status |
+
+**Screensaver Features:**
+- **Automatic Activation**: Starts after 5 minutes of inactivity (configurable)
+- **HAL Personality**: Embodies IRIS's calm, calculating nature
+- **Multi-Phase Experience**:
+  - **Scanning**: IRIS searches for user activity
+  - **Creating**: Generates ASCII art from 20+ space-themed pieces
+  - **Writing**: Composes poetry and lyrics (including HAL-9000 references)
+  - **Gallery**: Showcases completed artwork with navigation
+- **Interactive Exit**: Click anywhere or press any key to return
+- **ASCII Art Gallery**: 20+ different space-themed artworks including planets, solar systems, and creative typography
+
+**Screensaver Setup:**
+```bash
+> settings screensaver on
+[OK] Screensaver enabled
+
+> screensaver test
+[OK] Starting screensaver test...
+```
+
+**Art Gallery Examples:**
+- Saturn, Earth, Mars (various styles)
+- Solar system diagrams
+- Space scenes with stars and planets
+- Creative ASCII typography
+- HAL-9000 inspired patterns
+
 ### Natural Language Examples
 
 IRIS understands natural language. Try:
