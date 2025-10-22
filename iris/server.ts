@@ -1,6 +1,7 @@
 // IRIS - Miles AI Assistant Server
 // HAL-9000 inspired terminal interface with MCP integration
 
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import axios, { type AxiosError } from "axios";
@@ -29,8 +30,67 @@ const MCP_API_URL = process.env.MCP_API_URL || "http://localhost:3000/api/mcp";
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve index.html with API URL injection (before static files)
+app.get("/", (_req, res) => {
+	const indexPath = path.join(__dirname, "dist", "index.html");
+	fs.readFile(indexPath, "utf8", (err, data) => {
+		if (err) {
+			return res.status(500).send("Error loading page");
+		}
+
+		// Inject the API URL
+		const apiUrl = process.env.API_URL || "";
+		const modifiedHtml = data.replace(
+			"window.API_URL = '';",
+			`window.API_URL = '${apiUrl}';`,
+		);
+
+		res.send(modifiedHtml);
+	});
+});
+
 app.use(express.static(path.join(__dirname, "dist")));
 app.use(express.static(path.join(__dirname, "public")));
+
+// API proxy for frontend requests
+app.use(["/api", "/health"], async (req, res) => {
+	try {
+		// Handle special case for health endpoint
+		let apiPath = req.originalUrl;
+		if (req.originalUrl === "/health" || req.originalUrl === "/api/health") {
+			apiPath = "/health";
+		}
+
+		// Construct the API URL
+		const apiUrl = `${MCP_API_URL.replace("/api/mcp", "")}${apiPath}`;
+		console.log(
+			`Proxying API request: ${req.method} ${req.originalUrl} -> ${apiUrl}`,
+		);
+
+		const response = await axios({
+			method: req.method,
+			url: apiUrl,
+			headers: {
+				...req.headers,
+				host: "api:3000", // Use Docker service name
+				"content-type": req.headers["content-type"] || "application/json",
+			},
+			data:
+				req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
+			timeout: 10000,
+		});
+
+		res.status(response.status).json(response.data);
+	} catch (error) {
+		console.error("API proxy error:", error);
+		if (axios.isAxiosError(error) && error.response) {
+			res.status(error.response.status).json(error.response.data);
+		} else {
+			res.status(500).json({ error: "API connection failed" });
+		}
+	}
+});
 
 // LLM Provider
 const llmProvider: LLMProvider = getProvider();

@@ -1558,6 +1558,52 @@ body.iris-click-intensity-extreme .static-noise {
 	}
 }
 
+/* System Status Indicator */
+.system-status {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	margin: 10px 0;
+	font-size: 12px;
+	color: var(--terminal-text-dim);
+}
+
+.status-indicator {
+	font-size: 14px;
+	font-weight: bold;
+	min-width: 16px;
+	text-align: center;
+}
+
+.status-indicator.connected {
+	color: var(--hal-red);
+}
+
+.status-indicator.disconnected {
+	color: #ff4444;
+}
+
+.status-indicator.checking {
+	color: #ffff44;
+	animation: pulse-yellow 1s infinite;
+}
+
+.status-text {
+	font-family: inherit;
+	white-space: nowrap;
+}
+
+@keyframes pulse-yellow {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
 /* Settings Modal */
 .modal-backdrop {
 	position: fixed;

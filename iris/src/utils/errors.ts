@@ -115,6 +115,24 @@ export function getErrorMessage(error: unknown): string {
 	}
 
 	if (error instanceof Error) {
+		// Handle specific network errors
+		if (
+			error.message.includes("Failed to fetch") ||
+			error.message.includes("NetworkError") ||
+			error.message.includes("ERR_CONNECTION_REFUSED") ||
+			error.message.includes("ERR_NETWORK")
+		) {
+			return "Cannot connect to the booking system. Please ensure all services are running and try again.";
+		}
+
+		// Handle timeout errors
+		if (
+			error.message.includes("timeout") ||
+			error.message.includes("TimeoutError")
+		) {
+			return "Connection timed out. The booking system may be experiencing high load.";
+		}
+
 		return error.message;
 	}
 

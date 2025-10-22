@@ -15,7 +15,11 @@ declare const process: {
 
 // Environment configuration
 export const config = {
-	API_URL: process.env.API_URL || "http://localhost:3000",
+	API_URL:
+		(typeof window !== "undefined" &&
+			(window as { API_URL?: string }).API_URL) ||
+		process.env.API_URL ||
+		"",
 	PORT: parseInt(process.env.PORT || "3002", 10),
 	isDevelopment: process.env.NODE_ENV === "development",
 	isProduction: process.env.NODE_ENV === "production",

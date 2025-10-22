@@ -62,6 +62,19 @@ IRIS is a HAL-9000 inspired terminal interface for the Miles booking system. It 
 - **Tool Integration**: Direct access to Miles MCP booking tools
 - **Interaction Logging**: SQLite database logs all interactions for troubleshooting
 
+### 🎙️ Voice Mode (HAL-9000 TTS)
+- **Voice Input**: Speech-to-text using Web Speech API (microphone required)
+- **HAL Voice Output**: Text-to-speech with British English HAL-9000 personality
+- **Voice Commands**: Say "listen" to activate voice input in voice mode
+- **Voice Settings**: Configure voice input/output rates, pitch, and volume
+- **Voice Mode UI**: Dedicated voice interface with status indicators and animations
+
+### 🔍 System Status Indicator
+- **Real-time Connectivity**: Live system health monitoring on login screen
+- **API Health Checks**: Automatic polling of backend services every 30 seconds
+- **Visual Feedback**: Animated status indicator with connection state
+- **Error Handling**: Clear error messages for network connectivity issues
+
 ### 🏢 Booking Features
 - View available rooms with capacity and amenities
 - Create and manage bookings
@@ -310,6 +323,13 @@ Email:    john.doe@miles.com
 Password: ********
 ```
 
+**System Status Indicator:**
+- **⟳ Checking system status...**: Initial connection check
+- **✓ System online**: All services operational
+- **✗ Cannot connect to system**: Network or service issues
+
+The status indicator automatically checks system health every 30 seconds and provides real-time feedback on connectivity.
+
 ### Built-in Commands
 
 | Command | Description |
@@ -320,6 +340,38 @@ Password: ********
 | `about`, `info` | About IRIS |
 | `rooms` | List all available rooms |
 | `bookings` | Show your bookings |
+
+### Voice Mode Commands
+
+IRIS supports voice input and output for a fully hands-free experience:
+
+| Command | Description |
+|---------|-------------|
+| `settings voice input [on\|off]` | Enable/disable voice input (speech-to-text) |
+| `settings voice output [on\|off]` | Enable/disable HAL voice output (text-to-speech) |
+| `voice mode [on\|off]` | Toggle voice mode UI (hides text input, shows voice controls) |
+| `listen` | Start voice listening (when voice mode is active) |
+
+**Voice Mode Setup:**
+```bash
+> settings voice input on
+> settings voice output on
+> voice mode on
+[VOICE] Voice mode activated. Say 'listen' or use voice commands.
+```
+
+**Using Voice Input:**
+```bash
+> listen
+🎙️ [listening for voice command...]
+🎙️ "show me available rooms"
+[OK] Processing voice command...
+```
+
+**HAL Voice Output:**
+- British English accent preferred for authentic HAL-9000 experience
+- Automatic voice responses for system messages and confirmations
+- Configurable voice parameters (rate, pitch, volume)
 
 ### Natural Language Examples
 
@@ -458,7 +510,9 @@ iris/
 │   │   ├── iris-eye.ts           # HAL eye animation system
 │   │   ├── api-client.ts         # Type-safe API client (OpenAPI)
 │   │   ├── llm-service.ts        # LLM intent parsing service
-│   │   └── llm-health.ts         # LLM health monitoring service
+│   │   ├── llm-health.ts         # LLM health monitoring service
+│   │   ├── voice-input.ts        # Speech-to-text service
+│   │   └── hal-voice.ts          # HAL-9000 text-to-speech service
 │   ├── commands/                 # Modular command handlers
 │   │   ├── base-handler.ts       # Base command handler
 │   │   ├── rooms-handler.ts      # Room commands

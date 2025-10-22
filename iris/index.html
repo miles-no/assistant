@@ -60,6 +60,10 @@
                     <button type="submit" class="terminal-button">
                         <span class="button-bracket">[</span> CONNECT <span class="button-bracket">]</span>
                     </button>
+                    <div class="system-status" id="system-status">
+                        <span class="status-indicator" id="status-indicator">⟳</span>
+                        <span class="status-text" id="status-text">Checking system status...</span>
+                    </div>
                     <div class="login-error" id="login-error"></div>
                 </form>
             </div>
@@ -91,6 +95,12 @@
         </div>
         </div>
     </div>
+
+    <!-- Config -->
+    <script>
+        // API URL for client-side use (will be set by server)
+        window.API_URL = '';
+    </script>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
