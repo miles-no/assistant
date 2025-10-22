@@ -25,7 +25,7 @@ export default defineConfig({
 
 	// Run local dev server before tests
 	webServer: {
-		command: "node server.js",
+		command: "npm run dev:server",
 		url: "http://localhost:3002/health",
 		reuseExistingServer: !process.env.CI,
 		timeout: 10000,
