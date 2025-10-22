@@ -1472,6 +1472,92 @@ body.iris-click-intensity-extreme .static-noise {
 	}
 }
 
+/* ========================================
+   VOICE MODE STYLES
+   ======================================== */
+
+/* Voice mode - hide input, expand output */
+.terminal.voice-mode .terminal-input-line {
+	display: none;
+}
+
+.terminal.voice-mode .terminal-output {
+	/* Output expands to fill space previously occupied by input */
+	flex: 1;
+	padding-bottom: 40px; /* Add bottom padding for voice status */
+}
+
+/* Voice status bar at bottom of output area */
+.voice-status-bar {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 40px;
+	background: rgba(0, 0, 0, 0.8);
+	border-top: 1px solid var(--hal-red);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 20px;
+	font-size: 12px;
+	color: var(--terminal-text-dim);
+}
+
+.voice-status-bar.listening {
+	background: rgba(255, 0, 0, 0.1);
+	box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.2);
+}
+
+.voice-status-bar.listening .voice-indicator {
+	color: var(--hal-red);
+	animation: pulse-red 1s infinite;
+}
+
+.voice-status-bar.speaking .voice-indicator {
+	color: var(--hal-red);
+	animation: glow-red 0.5s ease-in-out infinite alternate;
+}
+
+.voice-indicator {
+	font-size: 14px;
+}
+
+.voice-text {
+	flex: 1;
+	text-align: center;
+	font-family: inherit;
+}
+
+/* Voice input styling */
+.terminal-line.voice-input {
+	color: var(--hal-red);
+	font-style: italic;
+}
+
+/* Animations for voice status */
+@keyframes pulse-red {
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.7;
+		transform: scale(1.1);
+	}
+}
+
+@keyframes glow-red {
+	0%,
+	100% {
+		text-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+	}
+	50% {
+		text-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+	}
+}
+
 /* Settings Modal */
 .modal-backdrop {
 	position: fixed;
@@ -1490,7 +1576,9 @@ body.iris-click-intensity-extreme .static-noise {
 .settings-modal {
 	background: var(--terminal-bg);
 	border: 2px solid var(--hal-red);
-	box-shadow: 0 0 20px var(--hal-red-glow), inset 0 0 20px rgba(255, 0, 0, 0.1);
+	box-shadow:
+		0 0 20px var(--hal-red-glow),
+		inset 0 0 20px rgba(255, 0, 0, 0.1);
 	max-width: 600px;
 	width: 90%;
 	max-height: 80vh;
@@ -1730,8 +1818,10 @@ body.matrix-mode::after {
 	height: 100%;
 	pointer-events: none;
 	z-index: 999;
-	background-image:
-		linear-gradient(transparent 30%, rgba(0, 255, 0, 0.05) 100%);
+	background-image: linear-gradient(
+		transparent 30%,
+		rgba(0, 255, 0, 0.05) 100%
+	);
 	background-size: 100% 20px;
 	animation: matrix-rain 3s linear infinite;
 }
@@ -1761,7 +1851,8 @@ body.screensaver-active .hal-eye {
 }
 
 @keyframes screensaver-eye-wander {
-	0%, 100% {
+	0%,
+	100% {
 		transform: translate(0, 0) scale(1);
 	}
 	25% {
@@ -1788,7 +1879,8 @@ body.screensaver-active .scanlines {
 }
 
 @keyframes screensaver-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 0.3;
 	}
 	50% {

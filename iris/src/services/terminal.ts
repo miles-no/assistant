@@ -18,9 +18,11 @@ import {
 } from "../utils/natural-language";
 import { MilesApiClient, type User } from "./api-client";
 import { EasterEggs } from "./easter-eggs";
+import { HALVoiceService } from "./hal-voice";
 import type { IrisEye } from "./iris-eye";
 import type { LLMHealthService } from "./llm-health";
 import { type LLMIntent, LLMService } from "./llm-service";
+import { VoiceInputService } from "./voice-input";
 
 /**
  * IRIS Terminal - Main command processing and UI management
@@ -32,6 +34,9 @@ export class Terminal {
 	private llmService: LLMService;
 	private llmHealth: LLMHealthService;
 	private easterEggs: EasterEggs;
+	private voiceInput: VoiceInputService;
+	private halVoice: HALVoiceService;
+	private isVoiceMode = false;
 
 	private state: TerminalState;
 	private autocompleteCache: AutocompleteCache;
@@ -73,6 +78,10 @@ export class Terminal {
 			lastFetch: 0,
 		};
 
+		// Initialize voice services after state is set up
+		this.voiceInput = new VoiceInputService(this.state.settings);
+		this.halVoice = new HALVoiceService(this.state.settings);
+
 		// Monitor LLM health for fallback decisions and status indicator
 		if (this.llmHealth) {
 			this.llmHealth.onStatusChange((status) => {
@@ -103,10 +112,16 @@ export class Terminal {
 			// Fall through to defaults
 		}
 
-		// Default settings - NLP off, LLM on
+		// Default settings - NLP off, LLM on, voice disabled
 		return {
 			useSimpleNLP: false,
 			useLLM: true,
+			// Voice defaults - disabled by default for privacy
+			voiceInputEnabled: false,
+			voiceOutputEnabled: false,
+			voiceOutputVolume: 0.8,
+			voiceOutputRate: 0.8, // HAL's calm, measured pace
+			voiceOutputPitch: 0.9, // Slightly lower pitch
 		};
 	}
 
@@ -121,12 +136,20 @@ export class Terminal {
 	private showSettings(): void {
 		const nlpStatus = this.state.settings.useSimpleNLP ? "ON" : "OFF";
 		const llmStatus = this.state.settings.useLLM ? "ON" : "OFF";
+		const voiceInputStatus = this.state.settings.voiceInputEnabled
+			? "ON"
+			: "OFF";
+		const voiceOutputStatus = this.state.settings.voiceOutputEnabled
+			? "ON"
+			: "OFF";
 
 		const markdown = `
 ## CURRENT SETTINGS
 
 **Simple NLP (Pattern Matching):** ${nlpStatus}
 **LLM Parsing (AI-Powered):** ${llmStatus}
+**Voice Input:** ${voiceInputStatus}
+**HAL Voice Output:** ${voiceOutputStatus}
 
 ### USAGE
 
@@ -134,31 +157,48 @@ export class Terminal {
 ▸ \`settings nlp off\` - Disable simple NLP
 ▸ \`settings llm on\` - Enable LLM parsing
 ▸ \`settings llm off\` - Disable LLM parsing
+▸ \`settings voice\` - Show voice settings
+▸ \`settings voice input [on|off]\` - Toggle voice input
+▸ \`settings voice output [on|off]\` - Toggle HAL voice output
 
-**Note:** At least one method must be enabled.
+**Note:** At least one text processing method (NLP or LLM) must be enabled.
 `;
 
 		this.addMarkdownOutput(markdown, "system-output");
 	}
 
 	private handleSettingsCommand(parts: string[]): void {
-		// settings [nlp|llm] [on|off]
+		// settings [nlp|llm|voice] [input|output] [on|off]
 		if (parts.length === 1) {
 			// Just "settings" - show current settings
 			this.showSettings();
 			return;
 		}
 
-		if (parts.length !== 3) {
-			this.addOutput("[ERROR] Usage: settings [nlp|llm] [on|off]", "error");
+		const setting = parts[1].toLowerCase();
+
+		// Handle voice settings (more complex)
+		if (setting === "voice") {
+			this.handleVoiceSettings(parts);
 			return;
 		}
 
-		const setting = parts[1].toLowerCase();
+		// Handle simple on/off settings
+		if (parts.length !== 3) {
+			this.addOutput(
+				"[ERROR] Usage: settings [nlp|llm|voice] [on|off] or settings voice [input|output] [on|off]",
+				"error",
+			);
+			return;
+		}
+
 		const value = parts[2].toLowerCase();
 
 		if (!["nlp", "llm"].includes(setting)) {
-			this.addOutput("[ERROR] Invalid setting. Use 'nlp' or 'llm'", "error");
+			this.addOutput(
+				"[ERROR] Invalid setting. Use 'nlp', 'llm', or 'voice'",
+				"error",
+			);
 			return;
 		}
 
@@ -197,6 +237,305 @@ export class Terminal {
 		const settingName = setting === "nlp" ? "Simple NLP" : "LLM Parsing";
 		const status = enable ? "enabled" : "disabled";
 		this.addOutput(`[OK] ${settingName} ${status}`, "system-output");
+	}
+
+	private handleVoiceSettings(parts: string[]): void {
+		if (parts.length === 2) {
+			// "settings voice" - show voice settings
+			this.showVoiceSettings();
+			return;
+		}
+
+		if (parts.length !== 4) {
+			this.addOutput(
+				"[ERROR] Usage: settings voice [input|output] [on|off]",
+				"error",
+			);
+			return;
+		}
+
+		const subsystem = parts[2].toLowerCase();
+		const value = parts[3].toLowerCase();
+
+		if (!["input", "output"].includes(subsystem)) {
+			this.addOutput(
+				"[ERROR] Invalid voice subsystem. Use 'input' or 'output'",
+				"error",
+			);
+			return;
+		}
+
+		if (!["on", "off"].includes(value)) {
+			this.addOutput("[ERROR] Invalid value. Use 'on' or 'off'", "error");
+			return;
+		}
+
+		const enable = value === "on";
+
+		// Update voice setting
+		if (subsystem === "input") {
+			this.state.settings.voiceInputEnabled = enable;
+			this.voiceInput.updateSettings(this.state.settings);
+		} else {
+			this.state.settings.voiceOutputEnabled = enable;
+			this.halVoice.updateSettings(this.state.settings);
+		}
+
+		// Save settings
+		this.saveSettings();
+
+		const settingName =
+			subsystem === "input" ? "Voice Input" : "HAL Voice Output";
+		const status = enable ? "enabled" : "disabled";
+		this.addOutput(`[OK] ${settingName} ${status}`, "system-output");
+
+		// Warn about browser compatibility
+		if (enable && subsystem === "input" && !this.voiceInput.isSupported()) {
+			this.addOutput(
+				"[WARNING] Voice input not supported in this browser",
+				"error",
+			);
+		}
+		if (enable && subsystem === "output" && !this.halVoice.isSupported()) {
+			this.addOutput(
+				"[WARNING] Voice output not supported in this browser",
+				"error",
+			);
+		}
+	}
+
+	private showVoiceSettings(): void {
+		const inputStatus = this.state.settings.voiceInputEnabled ? "ON" : "OFF";
+		const outputStatus = this.state.settings.voiceOutputEnabled ? "ON" : "OFF";
+		const inputSupported = this.voiceInput.isSupported() ? "✓" : "✗";
+		const outputSupported = this.halVoice.isSupported() ? "✓" : "✗";
+
+		const markdown = `
+## VOICE SETTINGS
+
+**Voice Input (Speech-to-Text):** ${inputStatus} ${inputSupported}
+**HAL Voice Output (Text-to-Speech):** ${outputStatus} ${outputSupported}
+
+### VOICE COMMANDS
+
+▸ \`settings voice input [on|off]\` - Toggle voice input
+▸ \`settings voice output [on|off]\` - Toggle HAL voice output
+▸ \`voice mode [on|off]\` - Toggle voice mode UI
+▸ \`listen\` - Start voice listening (when voice mode active)
+
+### REQUIREMENTS
+
+- Voice input requires microphone permission
+- Voice output requires browser TTS support
+- British English voice preferred for HAL-9000
+`;
+
+		this.addMarkdownOutput(markdown, "system-output");
+	}
+
+	private handleVoiceCommand(parts: string[]): void {
+		if (parts.length < 2) {
+			this.addOutput("[ERROR] Usage: voice mode [on|off]", "error");
+			return;
+		}
+
+		const subCmd = parts[1].toLowerCase();
+
+		if (subCmd === "mode") {
+			if (parts.length !== 3) {
+				this.addOutput("[ERROR] Usage: voice mode [on|off]", "error");
+				return;
+			}
+
+			const action = parts[2].toLowerCase();
+			if (action === "on") {
+				if (!this.state.settings.voiceInputEnabled) {
+					this.addOutput(
+						"[ERROR] Voice input must be enabled first. Use 'settings voice input on'",
+						"error",
+					);
+					return;
+				}
+				this.enableVoiceMode();
+			} else if (action === "off") {
+				this.disableVoiceMode();
+			} else {
+				this.addOutput("[ERROR] Usage: voice mode [on|off]", "error");
+			}
+		} else {
+			this.addOutput(
+				"[ERROR] Unknown voice command. Use 'voice mode [on|off]'",
+				"error",
+			);
+		}
+	}
+
+	private enableVoiceMode() {
+		if (this.isVoiceMode) return;
+
+		this.isVoiceMode = true;
+		const terminal = document.getElementById("terminal");
+		terminal?.classList.add("voice-mode");
+
+		// Hide input line
+		const inputLine = document.querySelector(".terminal-input-line");
+		inputLine?.setAttribute("style", "display: none");
+
+		// Add voice status bar
+		this.addVoiceStatusBar();
+
+		// Update header
+		this.updateHeaderForVoiceMode();
+
+		this.addOutput(
+			"[VOICE] Voice mode activated. Say 'listen' or use voice commands.",
+			"system-output",
+		);
+	}
+
+	private disableVoiceMode() {
+		if (!this.isVoiceMode) return;
+
+		this.isVoiceMode = false;
+		const terminal = document.getElementById("terminal");
+		terminal?.classList.remove("voice-mode");
+
+		// Show input line
+		const inputLine = document.querySelector(".terminal-input-line");
+		inputLine?.removeAttribute("style");
+
+		// Remove voice status bar
+		this.removeVoiceStatusBar();
+
+		// Update header
+		this.updateHeaderForVoiceMode();
+
+		// Stop any ongoing voice operations
+		this.voiceInput.stopListening();
+		this.halVoice.stop();
+
+		this.addOutput(
+			"[VOICE] Voice mode deactivated. Text input restored.",
+			"system-output",
+		);
+	}
+
+	private addVoiceStatusBar() {
+		const output = document.getElementById("terminal-output");
+		if (!output) return;
+
+		const statusBar = document.createElement("div");
+		statusBar.className = "voice-status-bar";
+		statusBar.innerHTML = `
+			<span class="voice-indicator">🎙️</span>
+			<span class="voice-text">Ready for voice commands</span>
+			<span class="voice-indicator">🔊</span>
+		`;
+
+		// Position at bottom of output area
+		statusBar.style.position = "absolute";
+		statusBar.style.bottom = "0";
+		statusBar.style.left = "0";
+		statusBar.style.right = "0";
+
+		output.appendChild(statusBar);
+	}
+
+	private removeVoiceStatusBar() {
+		const statusBar = document.querySelector(".voice-status-bar");
+		statusBar?.remove();
+	}
+
+	private updateHeaderForVoiceMode() {
+		const title = document.querySelector(".terminal-title");
+		if (!title) return;
+
+		const voiceIndicator = title.querySelector(".voice-mode-indicator");
+		if (this.isVoiceMode) {
+			if (!voiceIndicator) {
+				const indicator = document.createElement("span");
+				indicator.className = "voice-mode-indicator";
+				indicator.textContent = " [VOICE MODE]";
+				indicator.style.color = "var(--hal-red)";
+				indicator.style.fontSize = "10px";
+				indicator.style.letterSpacing = "1px";
+				indicator.style.textShadow = "0 0 5px var(--terminal-glow)";
+				title.appendChild(indicator);
+			}
+		} else {
+			voiceIndicator?.remove();
+		}
+	}
+
+	private updateVoiceStatus(
+		status: "idle" | "listening" | "processing" | "speaking",
+	) {
+		const statusBar = document.querySelector(".voice-status-bar");
+		const text = statusBar?.querySelector(".voice-text");
+
+		if (!statusBar || !text) return;
+
+		// Remove existing status classes
+		statusBar.classList.remove("listening", "speaking");
+
+		switch (status) {
+			case "listening":
+				statusBar.classList.add("listening");
+				text.textContent = "Listening...";
+				break;
+			case "processing":
+				text.textContent = "Processing...";
+				break;
+			case "speaking":
+				statusBar.classList.add("speaking");
+				text.textContent = "Speaking...";
+				break;
+			default:
+				text.textContent = "Ready for voice commands";
+		}
+	}
+
+	private async startVoiceListening() {
+		if (!this.isVoiceMode) {
+			this.addOutput(
+				"[ERROR] Voice mode must be active. Use 'voice mode on'",
+				"error",
+			);
+			return;
+		}
+
+		if (!this.state.settings.voiceInputEnabled) {
+			this.addOutput(
+				"[ERROR] Voice input is disabled. Use 'settings voice input on'",
+				"error",
+			);
+			return;
+		}
+
+		try {
+			this.updateVoiceStatus("listening");
+			const transcript = await this.voiceInput.startListening();
+			this.updateVoiceStatus("processing");
+
+			// Process the voice command
+			await this.processVoiceCommand(transcript);
+		} catch (error) {
+			this.updateVoiceStatus("idle");
+			const message = error instanceof Error ? error.message : String(error);
+			this.addOutput(`[VOICE ERROR] ${message}`, "error");
+		}
+	}
+
+	private async processVoiceCommand(transcript: string) {
+		// Show what was heard
+		this.addOutput(`🎙️ "${transcript}"`, "voice-input");
+
+		// Process as normal command
+		await this.processCommand(transcript);
+
+		// For now, voice output will speak system responses as they appear
+		// Future enhancement: capture command responses for voice output
+		this.updateVoiceStatus("idle");
 	}
 
 	private initialize(): void {
@@ -583,6 +922,12 @@ export class Terminal {
 			return;
 		}
 
+		if (cmd === "help" || cmd === "?") {
+			this.stopThinking();
+			this.showHelp();
+			return;
+		}
+
 		if (mainCmd === "settings" || mainCmd === "config") {
 			this.stopThinking();
 			this.handleSettingsCommand(parts);
@@ -600,6 +945,19 @@ export class Terminal {
 		if (cmd === "stop") {
 			this.stopThinking();
 			this.stopDemoMode();
+			return;
+		}
+
+		// Voice Commands
+		if (mainCmd === "voice") {
+			this.stopThinking();
+			this.handleVoiceCommand(parts);
+			return;
+		}
+
+		if (cmd === "listen") {
+			this.stopThinking();
+			this.startVoiceListening();
 			return;
 		}
 
@@ -911,37 +1269,6 @@ export class Terminal {
 		await handler.execute(roomId ? { roomId } : undefined);
 	}
 
-	private showHelp(): void {
-		const markdown = `
-# COMMAND REFERENCE
-
-## DATA QUERIES
-
-▸ **rooms** - Display all rooms
-▸ **bookings** - Display active bookings
-▸ **feedback** - Display all room feedback
-▸ **feedback** \`<roomId>\` - Display feedback for specific room
-▸ **cancel** \`<id>\` - Cancel booking by ID
-
-## SYSTEM
-
-▸ **help** - Display this reference
-▸ **clear, cls** - Clear terminal buffer
-▸ **status** - System diagnostic
-▸ **about** - System information
-▸ **settings** - Show current settings
-▸ **settings nlp [on|off]** - Toggle simple NLP
-▸ **settings llm [on|off]** - Toggle LLM parsing
-
-## DEMO
-
-▸ **demo** - Start animation showcase
-▸ **stop** - Stop demo mode
-`;
-
-		this.addMarkdownOutput(markdown, "system-output");
-	}
-
 	private showStatus(): void {
 		if (!this.state.currentUser) return;
 
@@ -1084,6 +1411,57 @@ This system is designed to process booking operations with maximum efficiency an
 
 		// Add current status class
 		indicator.classList.add(status);
+	}
+
+	private showHelp(): void {
+		const markdown = `
+## IRIS TERMINAL HELP
+
+### BASIC COMMANDS
+▸ **help** - Show this help message
+▸ **status** - Show system status
+▸ **about** - Show system information
+▸ **settings** - Show/manage settings
+▸ **clear** - Clear terminal output
+
+### BOOKING COMMANDS
+▸ **rooms** - List all rooms
+▸ **bookings** - Show your bookings
+▸ **book <room> [time] [duration]** - Create booking
+▸ **cancel <id>** - Cancel booking
+▸ **cancel all** - Cancel all bookings
+
+### VOICE COMMANDS (when enabled)
+▸ **settings voice input on** - Enable voice input
+▸ **settings voice output on** - Enable HAL voice output
+▸ **voice mode on** - Activate voice mode UI
+▸ **listen** - Start voice listening (in voice mode)
+
+### ADVANCED COMMANDS
+▸ **demo** - Run eye animation demo
+▸ **stop** - Stop demo or voice operations
+
+### EXAMPLES
+\`\`\`
+rooms
+book "Conference Room A" tomorrow 2pm for 1 hour
+cancel all today
+settings voice input on
+voice mode on
+listen
+\`\`\`
+
+### VOICE MODE
+When voice mode is active:
+- Text input is hidden
+- Voice status bar appears
+- Say "listen" to start voice input
+- HAL-9000 voice responds (if enabled)
+
+Type any command or use natural language like "show me available rooms tomorrow".
+`;
+
+		this.addMarkdownOutput(markdown, "system-output");
 	}
 
 	private async handleSimpleNLPIntent(intent: ParsedIntent): Promise<void> {
