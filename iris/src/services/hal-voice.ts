@@ -14,9 +14,9 @@ export class HALVoiceService {
 		this.synth = window.speechSynthesis;
 		this.settings = settings;
 
-		// Configure HAL-9000 voice characteristics
+		// Configure IRIS voice characteristics
 		this.settings.voiceOutputRate = 0.9; // Slightly slower for authority
-		this.settings.voiceOutputPitch = 0.8; // Lower pitch for male sound
+		this.settings.voiceOutputPitch = 1.1; // Higher pitch for female sound
 		this.settings.voiceOutputVolume = 0.8; // Good volume
 
 		// Always set up the voices changed listener
@@ -41,27 +41,31 @@ export class HALVoiceService {
 			);
 		});
 
-		// Prefer British English male voices for HAL-9000 personality
+		// Prefer British English female voices for IRIS personality
 		this.voice =
-			// Look for voices that might sound authoritative/male
+			// Look for voices that might sound authoritative/female
 			voices.find(
 				(voice) =>
 					voice.lang.startsWith("en-GB") &&
-					(voice.name.toLowerCase().includes("male") ||
-						voice.name.toLowerCase().includes("daniel") ||
-						voice.name.toLowerCase().includes("arthur") ||
-						voice.name.toLowerCase().includes("alex") ||
-						!voice.name.toLowerCase().includes("female")),
+					(voice.name.toLowerCase().includes("female") ||
+						voice.name.toLowerCase().includes("karen") ||
+						voice.name.toLowerCase().includes("samantha") ||
+						voice.name.toLowerCase().includes("victoria") ||
+						!voice.name.toLowerCase().includes("male")),
+			) ||
+			// Also check for Google UK English Female specifically
+			voices.find((voice) =>
+				voice.name.toLowerCase().includes("google uk english female"),
 			) ||
 			// Fallback to any British English voice
 			voices.find((voice) => voice.lang.startsWith("en-GB")) ||
-			// Fallback to any English male-sounding voice
+			// Fallback to any English female-sounding voice
 			voices.find(
 				(voice) =>
 					voice.lang.startsWith("en") &&
-					(voice.name.toLowerCase().includes("male") ||
-						voice.name.toLowerCase().includes("alex") ||
-						voice.name.toLowerCase().includes("daniel")),
+					(voice.name.toLowerCase().includes("female") ||
+						voice.name.toLowerCase().includes("samantha") ||
+						voice.name.toLowerCase().includes("karen")),
 			) ||
 			// Fallback to any English voice
 			voices.find((voice) => voice.lang.startsWith("en")) ||
