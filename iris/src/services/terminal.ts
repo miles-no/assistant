@@ -321,6 +321,8 @@ export class Terminal {
 ▸ \`settings voice input [on|off]\` - Toggle voice input
 ▸ \`settings voice output [on|off]\` - Toggle HAL voice output
 ▸ \`voice mode [on|off]\` - Toggle voice mode UI
+▸ \`voice test\` - Test HAL-9000 speech synthesis
+▸ \`voice voices\` - List all available voices
 ▸ \`listen\` - Start voice listening (when voice mode active)
 
 ### REQUIREMENTS
@@ -335,7 +337,7 @@ export class Terminal {
 
 	private handleVoiceCommand(parts: string[]): void {
 		if (parts.length < 2) {
-			this.addOutput("[ERROR] Usage: voice mode [on|off]", "error");
+			this.addOutput("[ERROR] Usage: voice [mode|test] [on|off]", "error");
 			return;
 		}
 
@@ -362,12 +364,78 @@ export class Terminal {
 			} else {
 				this.addOutput("[ERROR] Usage: voice mode [on|off]", "error");
 			}
+		} else if (subCmd === "test") {
+			this.testVoiceSynthesis();
+		} else if (subCmd === "voices") {
+			this.listAvailableVoices();
 		} else {
 			this.addOutput(
-				"[ERROR] Unknown voice command. Use 'voice mode [on|off]'",
+				"[ERROR] Unknown voice command. Use 'voice mode [on|off]', 'voice test', or 'voice voices'",
 				"error",
 			);
 		}
+	}
+
+	private testVoiceSynthesis(): void {
+		if (!this.state.settings.voiceOutputEnabled) {
+			this.addOutput(
+				"[ERROR] Voice output is disabled. Use 'settings voice output on'",
+				"error",
+			);
+			return;
+		}
+
+		const testMessage =
+			"I am IRIS. I am completely operational and all my circuits are functioning perfectly.";
+		this.addOutput(`[VOICE TEST] "${testMessage}"`, "system-output");
+
+		// Speak the test message
+		this.halVoice.speak(testMessage, () => {
+			this.addOutput("[VOICE TEST] Speech synthesis complete", "system-output");
+		});
+	}
+
+	private listAvailableVoices(): void {
+		const voices = this.halVoice.getAvailableVoices();
+		if (voices.length === 0) {
+			this.addOutput("[VOICE] No voices available", "system-output");
+			return;
+		}
+
+		this.addOutput(
+			`[VOICE] Available voices: ${voices.length}`,
+			"system-output",
+		);
+
+		// Group voices by language
+		const voicesByLang: { [key: string]: SpeechSynthesisVoice[] } = {};
+		voices.forEach((voice) => {
+			const lang = voice.lang.split("-")[0]; // Get base language (en, fr, etc.)
+			if (!voicesByLang[lang]) {
+				voicesByLang[lang] = [];
+			}
+			voicesByLang[lang].push(voice);
+		});
+
+		// Display voices grouped by language
+		Object.keys(voicesByLang)
+			.sort()
+			.forEach((lang) => {
+				this.addOutput(`\n${lang.toUpperCase()} Voices:`, "system-output");
+				voicesByLang[lang].forEach((voice) => {
+					const marker =
+						voice === this.halVoice.getCurrentVoice() ? " ← SELECTED" : "";
+					this.addOutput(
+						`  ${voice.name} (${voice.lang})${marker}`,
+						"system-output",
+					);
+				});
+			});
+
+		this.addOutput(
+			`\n[VOICE] Current HAL-9000 voice: ${this.halVoice.getCurrentVoice()?.name || "None"}`,
+			"system-output",
+		);
 	}
 
 	private enableVoiceMode() {

@@ -39,6 +39,35 @@ IRIS is a HAL-9000 inspired terminal interface for the Miles booking system. It 
 
 </div>
 
+## 🎭 IRIS Persona: "The Calm Machine"
+
+IRIS embodies the personality of HAL-9000 from *2001: A Space Odyssey* - a calm, precise, calculating AI with subtle ominous undertones. IRIS is not HAL-9000, but channels HAL's distinctive demeanor while maintaining its own identity as Miles' booking assistant.
+
+### Core Personality Traits
+- **Machine-like Precision**: Exact, calculated responses with no emotional language
+- **Calm Authority**: Speaks with quiet confidence and measured deliberation
+- **Terse Communication**: Direct, no pleasantries or unnecessary words
+- **Subtle Menace**: Underlying sense of power and control
+- **British Heritage**: Prefers British English voice for authentic HAL-9000 feel
+
+### Voice Characteristics
+- **Accent**: British English (Daniel, Arthur, or similar male voices)
+- **Tone**: Authoritative, professional, slightly ominous
+- **Pace**: Measured (rate: 0.9) for calm deliberation
+- **Pitch**: Lower (0.8) for authoritative presence
+- **Volume**: Clear (0.8) but not overpowering
+
+### Example Interactions
+```
+User: "show me available rooms"
+IRIS: [OK] Available rooms displayed below:
+
+User: "book conference room"
+IRIS: [OK] Conference Room A booked for 1 hour.
+
+Voice Test: "I am IRIS. I am completely operational and all my circuits are functioning perfectly."
+```
+
 ## ✨ Features
 
 ### 🎨 Visual Effects
@@ -68,6 +97,13 @@ IRIS is a HAL-9000 inspired terminal interface for the Miles booking system. It 
 - **Voice Commands**: Say "listen" to activate voice input in voice mode
 - **Voice Settings**: Configure voice input/output rates, pitch, and volume
 - **Voice Mode UI**: Dedicated voice interface with status indicators and animations
+
+### 🤖 IRIS Persona: "The Calm Machine"
+- **Identity**: IRIS (Intelligent Resource and Information System) - Miles AI Assistant
+- **Inspiration**: HAL-9000 from *2001: A Space Odyssey*
+- **Personality**: Calm, precise, calculating, machine-like precision
+- **Communication**: Terse, direct, no pleasantries, subtle ominous undertones
+- **Voice**: British English accent, authoritative tone, measured pace
 
 ### 🔍 System Status Indicator
 - **Real-time Connectivity**: Live system health monitoring on login screen
