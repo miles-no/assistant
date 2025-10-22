@@ -134,10 +134,21 @@ export class IrisEye {
 		const deltaX = e.clientX - eyeCenterX;
 		const deltaY = e.clientY - eyeCenterY;
 
-		// Normalize based on screen dimensions for consistent range
-		const maxDistance = Math.max(window.innerWidth, window.innerHeight);
-		this.position.mouseX = (deltaX / maxDistance) * 2;
-		this.position.mouseY = (deltaY / maxDistance) * 2;
+		// Calculate angle and distance for natural eye tracking
+		const angle = Math.atan2(deltaY, deltaX);
+		const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+		// Apply non-linear response (eyes more sensitive to close objects)
+		const normalizedDistance = Math.min(
+			distance / IRIS_CONSTANTS.EYE_TRACKING_RANGE,
+			1,
+		);
+		const response = normalizedDistance ** IRIS_CONSTANTS.EYE_RESPONSE_CURVE;
+
+		// Calculate constrained circular movement
+		const maxRadius = IRIS_CONSTANTS.MAX_IRIS_RADIUS;
+		this.position.mouseX = Math.cos(angle) * response * maxRadius;
+		this.position.mouseY = Math.sin(angle) * response * maxRadius;
 
 		// Clear any existing idle timeout
 		if (this.interaction.mouseIdleTimeout !== null) {
@@ -236,14 +247,11 @@ export class IrisEye {
 	}
 
 	private animate(): void {
-		// Smooth interpolation towards mouse position
-		const targetX = this.position.mouseX * this.config.maxMovement;
-		const targetY = this.position.mouseY * this.config.maxMovement;
-
+		// Smooth interpolation towards mouse position (already constrained)
 		this.position.currentX +=
-			(targetX - this.position.currentX) * this.config.smoothing;
+			(this.position.mouseX - this.position.currentX) * this.config.smoothing;
 		this.position.currentY +=
-			(targetY - this.position.currentY) * this.config.smoothing;
+			(this.position.mouseY - this.position.currentY) * this.config.smoothing;
 
 		// Smooth depth interpolation with subtle breathing in idle state
 		let adjustedTargetDepth = this.config.targetDepth;
