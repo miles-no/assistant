@@ -1,5 +1,6 @@
 import { interpret } from "xstate";
 import { AvailabilityCommandHandler } from "../commands/availability-handler";
+import { BookingCommandHandler } from "../commands/booking-handler";
 import { BookingsCommandHandler } from "../commands/bookings-handler";
 import { BulkCancelCommandHandler } from "../commands/bulk-cancel-handler";
 import { CancelCommandHandler } from "../commands/cancel-handler";
@@ -1101,6 +1102,7 @@ This system is designed to process booking operations with maximum efficiency an
 		const startTime = params?.startTime as string | undefined;
 		const endTime = params?.endTime as string | undefined;
 		const duration = params?.duration as number | undefined;
+		const title = params?.title as string | undefined;
 		const location = params?.location as string | undefined;
 
 		// Scenario 1: Has location but no specific room - show available rooms
@@ -1179,15 +1181,25 @@ This system is designed to process booking operations with maximum efficiency an
 
 		// Scenario 6: All params ready - create booking
 		if (actualRoomId && startTime && actualEndTime) {
-			// Simulate booking creation for test purposes
-			// If duration > 4 hours, simulate unavailable
-			if (duration && duration > 240) {
+			try {
+				const bookingParams = {
+					roomId: actualRoomId,
+					startTime,
+					endTime: actualEndTime,
+					title: title || `Meeting - ${this.currentUser?.firstName || "User"}`,
+				};
+
+				const handler = new BookingCommandHandler(
+					this.apiClient,
+					this.currentUser!,
+					this.userTimezone,
+				);
+
+				await handler.execute(bookingParams);
+			} catch (error) {
+				console.error("Booking creation failed:", error);
 				if (this.onOutput) {
-					this.onOutput("[ERROR] Room is not available", "error");
-				}
-			} else {
-				if (this.onOutput) {
-					this.onOutput("[OK] Booking confirmed", "success");
+					this.onOutput("[ERROR] Failed to create booking", "error");
 				}
 			}
 			return;
