@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 /**
  * IRIS Configuration
  * Environment variables and constants
