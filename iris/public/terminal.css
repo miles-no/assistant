@@ -1490,7 +1490,9 @@ body.iris-click-intensity-extreme .static-noise {
 .settings-modal {
 	background: var(--terminal-bg);
 	border: 2px solid var(--hal-red);
-	box-shadow: 0 0 20px var(--hal-red-glow), inset 0 0 20px rgba(255, 0, 0, 0.1);
+	box-shadow:
+		0 0 20px var(--hal-red-glow),
+		inset 0 0 20px rgba(255, 0, 0, 0.1);
 	max-width: 600px;
 	width: 90%;
 	max-height: 80vh;
@@ -1730,8 +1732,10 @@ body.matrix-mode::after {
 	height: 100%;
 	pointer-events: none;
 	z-index: 999;
-	background-image:
-		linear-gradient(transparent 30%, rgba(0, 255, 0, 0.05) 100%);
+	background-image: linear-gradient(
+		transparent 30%,
+		rgba(0, 255, 0, 0.05) 100%
+	);
 	background-size: 100% 20px;
 	animation: matrix-rain 3s linear infinite;
 }
@@ -1761,7 +1765,8 @@ body.screensaver-active .hal-eye {
 }
 
 @keyframes screensaver-eye-wander {
-	0%, 100% {
+	0%,
+	100% {
 		transform: translate(0, 0) scale(1);
 	}
 	25% {
@@ -1788,7 +1793,8 @@ body.screensaver-active .scanlines {
 }
 
 @keyframes screensaver-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 0.3;
 	}
 	50% {

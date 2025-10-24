@@ -187,7 +187,7 @@ export const terminalStateMachine = createMachine<
 		guards: {},
 
 		actions: {
-			logStateEntry: (context, event, meta) => {
+			logStateEntry: (_context, event, meta) => {
 				const stateId = meta.state.value as TerminalStateValue;
 				logStateTransition("terminal", "previous", stateId, event.type);
 			},
@@ -232,7 +232,7 @@ export const terminalStateMachine = createMachine<
 				authError: null,
 			}),
 
-			setAuthenticated: assign((context, event) => {
+			setAuthenticated: assign((_context, event) => {
 				if (event.type === "LOGIN_SUCCESS") {
 					logActionExecution("terminal", "setAuthenticated", {
 						userId: event.user.id,
@@ -248,7 +248,7 @@ export const terminalStateMachine = createMachine<
 				return {};
 			}),
 
-			setAuthError: assign((context, event) => {
+			setAuthError: assign((_context, event) => {
 				if (event.type === "LOGIN_FAILURE") {
 					return {
 						authError: event.error,
@@ -324,7 +324,7 @@ export const terminalStateMachine = createMachine<
 				}
 			},
 
-			setSettingsError: assign((context, event) => {
+			setSettingsError: assign((_context, event) => {
 				if (event.type === "SETTINGS_ERROR") {
 					return {
 						settingsError: event.error,
@@ -333,7 +333,7 @@ export const terminalStateMachine = createMachine<
 				return {};
 			}),
 
-			setSessionError: assign((context, event) => {
+			setSessionError: assign((_context, event) => {
 				if (event.type === "SESSION_ERROR") {
 					return {
 						sessionError: event.error,

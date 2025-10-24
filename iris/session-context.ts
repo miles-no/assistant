@@ -71,7 +71,7 @@ export function getContext(userId: string): ContextEntry[] {
 	}
 
 	// Check if session has expired
-	const now = new Date().getTime();
+	const now = Date.now();
 	const lastUpdate = session.lastUpdated.getTime();
 
 	if (now - lastUpdate > SESSION_TIMEOUT_MS) {
@@ -102,7 +102,7 @@ export function clearContext(userId: string): void {
  * Clean up expired sessions (call periodically)
  */
 export function cleanupExpiredSessions(): number {
-	const now = new Date().getTime();
+	const now = Date.now();
 	let cleanedCount = 0;
 
 	for (const [userId, session] of sessions.entries()) {

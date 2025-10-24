@@ -4,10 +4,7 @@ import type {
 } from "../types/terminal";
 import { config } from "../utils/config";
 import { getErrorMessage } from "../utils/errors";
-import {
-	NaturalLanguageProcessor,
-	type ParsedIntent,
-} from "../utils/natural-language";
+import { NaturalLanguageProcessor } from "../utils/natural-language";
 import { MilesApiClient } from "./api-client";
 import { CommandProcessor } from "./command-processor";
 import { EasterEggs } from "./easter-eggs";

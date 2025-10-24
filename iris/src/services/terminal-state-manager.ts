@@ -3,7 +3,6 @@ import { setupXState } from "../utils/xstate-config";
 import type { User } from "./api-client";
 import {
 	type TerminalContext,
-	type TerminalEvent,
 	type TerminalStateValue,
 	terminalStateMachine,
 } from "./terminal-state.machine";

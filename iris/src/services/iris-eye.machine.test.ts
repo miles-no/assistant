@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, beforeEach, describe, describe, expect, expect, it, it, vi, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { interpret } from "xstate";
 import {
 	clearPersistedState,
@@ -11,7 +11,7 @@ import {
 // Use the global localStorage mock from setup.ts
 
 describe("IRIS Eye State Machine", () => {
-	let stateMachine: ReturnType<typeof interpret<typeof irisEyeMachine>>;
+	let stateMachine: any;
 
 	beforeEach(() => {
 		// Clear all mocks
