@@ -145,7 +145,7 @@ export class TerminalStateManager {
 		return this.getContext().authToken;
 	}
 
-	public getSettings() {
+	public getSettings(): TerminalContext["settings"] {
 		return this.getContext().settings;
 	}
 
