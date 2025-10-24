@@ -26,11 +26,11 @@ export function setupXState() {
  */
 export const XSTATE_CONFIG = {
 	// Development settings
-	devTools: isDev ?? false,
+	devTools: isDev,
 
 	// Logging configuration
-	logEvents: isDev ?? false,
-	logExecutions: isDev ?? false,
+	logEvents: isDev,
+	logExecutions: isDev,
 
 	// Error handling
 	strict: true, // Throw on invalid transitions in development
