@@ -323,12 +323,8 @@ export const irisEyeMachine = createMachine<
 					clearTimeout(context.blinkTimeoutId);
 				}
 
-				// Schedule next blink (3-10 seconds)
+				// Calculate next blink interval (3-10 seconds)
 				const interval = 3000 + Math.random() * 7000;
-				const timeoutId = window.setTimeout(() => {
-					// This would need to be sent as an event to the machine
-					// For now, we'll handle this in the service layer
-				}, interval);
 
 				logActionExecution("irisEye", "scheduleBlink", { interval });
 
@@ -336,15 +332,14 @@ export const irisEyeMachine = createMachine<
 				const now = Date.now();
 				const shouldUpdateBlinkTime = context.lastBlinkTime === 0;
 
+				// Note: Actual timeout scheduling is handled in the service layer
+				// to avoid memory leaks and allow proper event sending
 				if (shouldUpdateBlinkTime) {
 					return {
-						blinkTimeoutId: timeoutId,
 						lastBlinkTime: now,
 					};
 				} else {
-					return {
-						blinkTimeoutId: timeoutId,
-					};
+					return {};
 				}
 			}),
 

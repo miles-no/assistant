@@ -97,6 +97,7 @@ export class IrisEye {
 			hoverDepthBoost: 0,
 			clickRecoilTime: 0,
 			mouseIdleTimeout: null,
+			blinkTimeout: null,
 		};
 
 		this.init();
@@ -149,6 +150,17 @@ export class IrisEye {
 
 		// Update DOM classes for CSS styling
 		this.updateDOMClasses(currentState);
+
+		// Clear blink timeout when blinking starts
+		if (currentState === "blinking" && this.interaction.blinkTimeout) {
+			clearTimeout(this.interaction.blinkTimeout);
+			this.interaction.blinkTimeout = null;
+		}
+
+		// Schedule blink when entering idle or thinking states
+		if (currentState === "idle" || currentState === "thinking") {
+			this.scheduleBlink();
+		}
 	}
 
 	private updateDOMClasses(state: IrisEyeState): void {
@@ -358,6 +370,19 @@ export class IrisEye {
 
 	private sendEvent(event: IrisEyeMachineEvent): void {
 		this.stateMachine.send(event);
+	}
+
+	private scheduleBlink(): void {
+		// Clear any existing blink timeout
+		if (this.interaction.blinkTimeout) {
+			clearTimeout(this.interaction.blinkTimeout);
+		}
+
+		// Schedule next blink (3-10 seconds)
+		const interval = 3000 + Math.random() * 7000;
+		this.interaction.blinkTimeout = window.setTimeout(() => {
+			this.blink();
+		}, interval);
 	}
 
 	blink(): void {

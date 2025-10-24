@@ -26,6 +26,7 @@ export interface IrisEyeInteraction {
 	hoverDepthBoost: number;
 	clickRecoilTime: number;
 	mouseIdleTimeout: number | null;
+	blinkTimeout: number | null;
 }
 
 export interface IrisEyeElements {
