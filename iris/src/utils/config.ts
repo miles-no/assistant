@@ -1,24 +1,16 @@
+/// <reference types="vite/client" />
+
 /**
  * IRIS Configuration
  * Environment variables and constants
  */
 
-interface Environment {
-	readonly NODE_ENV: "development" | "production";
-	readonly API_URL: string;
-	readonly PORT: string;
-}
-
-declare const process: {
-	env: Environment;
-};
-
 // Environment configuration
 export const config = {
-	API_URL: process.env.API_URL || "http://localhost:3000",
-	PORT: parseInt(process.env.PORT || "3002", 10),
-	isDevelopment: process.env.NODE_ENV === "development",
-	isProduction: process.env.NODE_ENV === "production",
+	API_URL: (import.meta.env?.VITE_API_URL as string) || "http://localhost:3000",
+	PORT: parseInt((import.meta.env?.VITE_PORT as string) || "3002", 10),
+	isDevelopment: (import.meta.env?.MODE as string) === "development",
+	isProduction: (import.meta.env?.MODE as string) === "production",
 } as const;
 
 // IRIS-specific constants

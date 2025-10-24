@@ -1,3 +1,4 @@
+import { interpret } from "xstate";
 import type {
 	IrisEyeConfig,
 	IrisEyeElements,
@@ -7,6 +8,12 @@ import type {
 	WarningMessage,
 } from "../types/iris-eye";
 import { IRIS_CONSTANTS } from "../utils/config";
+import { setupXState } from "../utils/xstate-config";
+import {
+	type IrisEyeMachineContext,
+	type IrisEyeMachineEvent,
+	irisEyeMachine,
+} from "./iris-eye.machine";
 
 /**
  * IRIS Eye Tracking & Personality System
@@ -21,9 +28,8 @@ export class IrisEye {
 	private position: IrisEyePosition;
 	private interaction: IrisEyeInteraction;
 
-	// State management
-	private currentState: IrisEyeState = "idle";
-	private blinkInterval: number | null = null;
+	// XState machine
+	private stateMachine = interpret(irisEyeMachine);
 	private onClickCallback?: () => void;
 
 	// Warning messages for click interactions
@@ -91,14 +97,25 @@ export class IrisEye {
 			hoverDepthBoost: 0,
 			clickRecoilTime: 0,
 			mouseIdleTimeout: null,
+			blinkTimeout: null,
+			alertTimeout: null,
+			errorRecoveryTimeout: null,
 		};
 
 		this.init();
 	}
 
 	private init(): void {
-		// Set initial state
-		this.setState("idle");
+		// Set up XState in development
+		setupXState();
+
+		// Start the state machine
+		this.stateMachine.start();
+
+		// Subscribe to state changes
+		this.stateMachine.subscribe((state) => {
+			this.onStateChange(state);
+		});
 
 		// Track mouse movement
 		document.addEventListener("mousemove", (e) => this.onMouseMove(e));
@@ -118,10 +135,79 @@ export class IrisEye {
 		// Start animation loop
 		this.animate();
 
-		// Start random blink behavior
-		this.startBlinkBehavior();
+		console.log("✅ IRIS Eye System Online (XState enabled)");
+	}
 
-		console.log("✅ IRIS Eye System Online");
+	// biome-ignore lint/suspicious/noExplicitAny: XState state objects have complex types
+	private onStateChange(state: any): void {
+		const currentState = state.value as IrisEyeState;
+		const context = state.context;
+
+		// Update config depth from state machine context
+		this.config.targetDepth = context.targetDepth;
+
+		// Update interaction tracking from context
+		this.interaction.clickCount = context.clickCount;
+		this.interaction.lastClickTime = context.lastClickTime;
+		this.interaction.clickRecoilTime = context.clickRecoilTime;
+
+		// Update DOM classes for CSS styling
+		this.updateDOMClasses(currentState);
+
+		// Clear blink timeout when blinking starts
+		if (currentState === "blinking" && this.interaction.blinkTimeout) {
+			clearTimeout(this.interaction.blinkTimeout);
+			this.interaction.blinkTimeout = null;
+		}
+
+		// Clear alert timeout when alert state ends
+		if (currentState !== "alert" && this.interaction.alertTimeout) {
+			clearTimeout(this.interaction.alertTimeout);
+			this.interaction.alertTimeout = null;
+		}
+
+		// Clear error recovery timeout when error state ends
+		if (currentState !== "error" && this.interaction.errorRecoveryTimeout) {
+			clearTimeout(this.interaction.errorRecoveryTimeout);
+			this.interaction.errorRecoveryTimeout = null;
+		}
+
+		// Schedule blink when entering idle or thinking states
+		if (currentState === "idle" || currentState === "thinking") {
+			this.scheduleBlink();
+		}
+
+		// Schedule alert recovery when entering alert state
+		if (currentState === "alert") {
+			this.scheduleAlertRecovery();
+		}
+
+		// Schedule error recovery when entering error state
+		if (currentState === "error") {
+			this.scheduleErrorRecovery();
+		}
+	}
+
+	private updateDOMClasses(state: IrisEyeState): void {
+		// Remove old state class from eye and body
+		this.elements.eye.classList.remove(
+			"idle",
+			"thinking",
+			"alert",
+			"error",
+			"blinking",
+		);
+		document.body.classList.remove(
+			"crt-idle",
+			"crt-thinking",
+			"crt-alert",
+			"crt-error",
+			"crt-blinking",
+		);
+
+		// Add new state class
+		this.elements.eye.classList.add(state);
+		document.body.classList.add(`crt-${state}`);
 	}
 
 	private onMouseMove(e: MouseEvent): void {
@@ -166,6 +252,9 @@ export class IrisEye {
 
 	private onEyeHover(isEntering: boolean): void {
 		this.interaction.isHovering = isEntering;
+		this.sendEvent(
+			isEntering ? { type: "HOVER_ENTER" } : { type: "HOVER_EXIT" },
+		);
 		console.log(`👁️  IRIS: ${isEntering ? "Hover enter" : "Hover exit"}`);
 	}
 
@@ -173,27 +262,20 @@ export class IrisEye {
 		e.preventDefault();
 		e.stopPropagation();
 
-		const now = Date.now();
-		const timeSinceLastClick = now - this.interaction.lastClickTime;
-		this.interaction.lastClickTime = now;
+		// Send click event to state machine (handles counter and recoil)
+		this.sendEvent({ type: "CLICK" });
 
-		// Trigger recoil effect (snap back for 300ms)
-		this.interaction.clickRecoilTime = now + 300;
-
-		// Increment click counter (reset if more than 5 seconds passed)
-		if (timeSinceLastClick > 5000) {
-			this.interaction.clickCount = 1;
-		} else {
-			this.interaction.clickCount++;
-		}
+		// Get current state for intensity calculation
+		const state = this.stateMachine.getSnapshot();
+		const context = state.context as IrisEyeMachineContext;
 
 		// Choose intensity based on click frequency
 		let intensity: "mild" | "moderate" | "severe" | "extreme" = "mild";
-		if (this.interaction.clickCount >= 5) {
+		if (context.clickCount >= 5) {
 			intensity = "extreme";
-		} else if (this.interaction.clickCount >= 3) {
+		} else if (context.clickCount >= 3) {
 			intensity = "severe";
-		} else if (this.interaction.clickCount >= 2) {
+		} else if (context.clickCount >= 2) {
 			intensity = "moderate";
 		}
 
@@ -206,16 +288,13 @@ export class IrisEye {
 		// Trigger visual effects
 		this.showClickWarning(message, intensity);
 
-		// Set IRIS to error state temporarily
-		this.setError();
-
 		// Notify external systems (e.g., achievement tracker)
 		if (this.onClickCallback) {
 			this.onClickCallback();
 		}
 
 		console.log(
-			`👁️  IRIS: Clicked! Count: ${this.interaction.clickCount}, Intensity: ${intensity}, Recoil!`,
+			`👁️  IRIS: Clicked! Count: ${context.clickCount}, Intensity: ${intensity}, Recoil!`,
 		);
 	}
 
@@ -253,29 +332,34 @@ export class IrisEye {
 		this.position.currentY +=
 			(this.position.mouseY - this.position.currentY) * this.config.smoothing;
 
-		// Smooth depth interpolation with subtle breathing in idle state
-		let adjustedTargetDepth = this.config.targetDepth;
+		// Get current state and context from state machine
+		const state = this.stateMachine.getSnapshot();
+		const currentState = state.value as IrisEyeState;
+		const context = state.context as IrisEyeMachineContext;
+
+		// Smooth depth interpolation with state-specific effects
+		let adjustedTargetDepth = context.targetDepth;
 
 		// Handle click recoil (snap back)
 		const now = Date.now();
-		if (now < this.interaction.clickRecoilTime) {
+		if (now < context.clickRecoilTime) {
 			adjustedTargetDepth = 0.2; // Pull way back on click
 		}
 		// Handle hover anticipation (expand forward)
-		else if (this.interaction.isHovering && this.currentState === "idle") {
-			adjustedTargetDepth = this.config.targetDepth + 0.15; // Expand forward by 0.15
+		else if (this.interaction.isHovering && currentState === "idle") {
+			adjustedTargetDepth = context.targetDepth + 0.15; // Expand forward by 0.15
 		}
 		// Normal idle breathing
-		else if (this.currentState === "idle") {
+		else if (currentState === "idle") {
 			// Add subtle breathing (sine wave between -0.05 and +0.05)
 			const breathingOffset = Math.sin(Date.now() / 3000) * 0.05;
-			adjustedTargetDepth = this.config.targetDepth + breathingOffset;
+			adjustedTargetDepth = context.targetDepth + breathingOffset;
 		}
 		// Error state pulsing (more dramatic oscillation)
-		else if (this.currentState === "error") {
+		else if (currentState === "error") {
 			// Add intense pulsing (oscillates between 0.0 and 0.2)
 			const errorPulse = Math.sin(Date.now() / 200) * 0.1 + 0.1;
-			adjustedTargetDepth = Math.max(0, this.config.targetDepth + errorPulse);
+			adjustedTargetDepth = Math.max(0, context.targetDepth + errorPulse);
 		}
 
 		this.config.currentDepth +=
@@ -309,102 +393,66 @@ export class IrisEye {
 		requestAnimationFrame(() => this.animate());
 	}
 
-	private setState(newState: IrisEyeState): void {
-		if (this.currentState === newState) return;
-
-		// Remove old state class from eye and body
-		this.elements.eye.classList.remove(this.currentState);
-		document.body.classList.remove(`crt-${this.currentState}`);
-
-		// Add new state class
-		this.currentState = newState;
-		this.elements.eye.classList.add(newState);
-		document.body.classList.add(`crt-${newState}`);
-
-		// Set depth based on state (more extreme values)
-		switch (newState) {
-			case "idle":
-				this.config.targetDepth = IRIS_CONSTANTS.DEPTH.IDLE; // Normal depth with subtle breathing
-				break;
-			case "thinking":
-				this.config.targetDepth = IRIS_CONSTANTS.DEPTH.THINKING; // Deep retreat (contemplating far away)
-				break;
-			case "alert":
-				this.config.targetDepth = IRIS_CONSTANTS.DEPTH.ALERT; // Maximum forward (right in your face)
-				break;
-			case "error":
-				this.config.targetDepth = IRIS_CONSTANTS.DEPTH.ERROR; // Maximum defensive retreat (into the void)
-				break;
-			case "blinking":
-				// Keep current depth during blink
-				break;
-		}
-
-		console.log(
-			`👁️  IRIS State: ${newState.toUpperCase()} | Depth: ${this.config.targetDepth}`,
-		);
+	private sendEvent(event: IrisEyeMachineEvent): void {
+		this.stateMachine.send(event);
 	}
 
-	private startBlinkBehavior(): void {
-		const scheduleBlink = () => {
-			// Random interval between 3-10 seconds
-			const interval = 3000 + Math.random() * 7000;
+	private scheduleBlink(): void {
+		// Clear any existing blink timeout
+		if (this.interaction.blinkTimeout) {
+			clearTimeout(this.interaction.blinkTimeout);
+		}
 
-			this.blinkInterval = window.setTimeout(() => {
-				this.blink();
-				scheduleBlink(); // Schedule next blink
-			}, interval);
-		};
+		// Schedule next blink (3-10 seconds)
+		const interval = 3000 + Math.random() * 7000;
+		this.interaction.blinkTimeout = window.setTimeout(() => {
+			this.blink();
+		}, interval);
+	}
 
-		scheduleBlink();
+	private scheduleAlertRecovery(): void {
+		// Clear any existing alert timeout
+		if (this.interaction.alertTimeout) {
+			clearTimeout(this.interaction.alertTimeout);
+		}
+
+		// Schedule alert recovery
+		this.interaction.alertTimeout = window.setTimeout(() => {
+			this.sendEvent({ type: "RECOVER_FROM_ALERT" });
+		}, IRIS_CONSTANTS.DURATION.ALERT);
+	}
+
+	private scheduleErrorRecovery(): void {
+		// Clear any existing error recovery timeout
+		if (this.interaction.errorRecoveryTimeout) {
+			clearTimeout(this.interaction.errorRecoveryTimeout);
+		}
+
+		// Schedule error recovery
+		this.interaction.errorRecoveryTimeout = window.setTimeout(() => {
+			this.sendEvent({ type: "RECOVER_FROM_ERROR" });
+		}, IRIS_CONSTANTS.DURATION.ERROR);
 	}
 
 	blink(): void {
-		// Don't blink if already blinking or in alert/error state
-		if (
-			this.currentState === "blinking" ||
-			this.currentState === "alert" ||
-			this.currentState === "error"
-		) {
-			return;
-		}
-
-		const previousState = this.currentState;
-		this.setState("blinking");
-
-		// Return to previous state after blink
-		setTimeout(() => {
-			this.setState(previousState);
-		}, IRIS_CONSTANTS.DURATION.BLINK);
+		this.sendEvent({ type: "BLINK" });
 	}
 
 	// Public methods for external state control
 	setIdle(): void {
-		this.setState("idle");
+		this.sendEvent({ type: "SET_IDLE" });
 	}
 
 	setThinking(): void {
-		this.setState("thinking");
+		this.sendEvent({ type: "SET_THINKING" });
 	}
 
 	setAlert(): void {
-		this.setState("alert");
-		// Return to idle after alert animation
-		setTimeout(() => {
-			if (this.currentState === "alert") {
-				this.setState("idle");
-			}
-		}, IRIS_CONSTANTS.DURATION.ALERT);
+		this.sendEvent({ type: "SET_ALERT" });
 	}
 
 	setError(): void {
-		this.setState("error");
-		// Return to idle after dramatic pause (longer for more impact)
-		setTimeout(() => {
-			if (this.currentState === "error") {
-				this.setState("idle");
-			}
-		}, IRIS_CONSTANTS.DURATION.ERROR);
+		this.sendEvent({ type: "SET_ERROR" });
 	}
 
 	// Manual depth control for dramatic effects
@@ -422,10 +470,8 @@ export class IrisEye {
 
 	// Cleanup method
 	destroy(): void {
-		if (this.blinkInterval) {
-			clearTimeout(this.blinkInterval);
-			this.blinkInterval = null;
-		}
+		// Stop the state machine
+		this.stateMachine.stop();
 
 		if (this.interaction.mouseIdleTimeout !== null) {
 			clearTimeout(this.interaction.mouseIdleTimeout);

@@ -111,10 +111,69 @@ graph TB
     style Backend fill:#1a1a1a,stroke:#666,color:#fff
 ```
 
+### XState State Machine Architecture
+
+IRIS implements a sophisticated state management system using XState for robust, predictable application behavior across three interconnected state machines:
+
+#### 1. IRIS Eye State Machine (`iris-eye.ts`)
+Manages the HAL-9000 eye visual states with smooth transitions and persistence:
+
+```typescript
+// States: idle → thinking → alert → error → blinking
+// Events: THINK_START, THINK_END, ALERT, ERROR, BLINK_START, BLINK_END
+// Features: localStorage persistence, smooth animations, health monitoring
+```
+
+**State Transitions:**
+- **idle**: Default resting state with gentle pulsing
+- **thinking**: Rapid pulsing during LLM processing
+- **alert**: Bright glow for successful operations
+- **error**: Dimmed state for failures
+- **blinking**: Special acknowledgment animation
+
+#### 2. Command Processing State Machine (`command-processor.ts`)
+Handles intelligent command routing and execution with fallback strategies:
+
+```typescript
+// States: idle → processing → success → error
+// Events: PROCESS_COMMAND, PROCESS_SUCCESS, PROCESS_ERROR, RESET
+// Features: NLP routing, LLM fallback, error recovery
+```
+
+**Processing Flow:**
+1. **Simple NLP Router**: Fast pattern matching for common commands
+2. **LLM Intent Parser**: AI-powered understanding for complex queries
+3. **Command Handlers**: Modular execution with proper error handling
+4. **Fallback Logic**: Graceful degradation when LLM unavailable
+
+#### 3. Terminal State Machine (`terminal.ts`)
+Manages authentication, settings, and session state with localStorage persistence:
+
+```typescript
+// States: login → authenticated → settings → error
+// Events: LOGIN_START, LOGIN_SUCCESS, LOGIN_ERROR, SETTINGS_TOGGLE, LOGOUT
+// Features: Auth token management, settings persistence, session recovery
+```
+
+**Session Management:**
+- **Authentication Flow**: Secure login with token storage
+- **Settings Persistence**: NLP/LLM toggles saved locally
+- **Session Recovery**: Automatic state restoration on page reload
+- **Error Handling**: Graceful failure states with user feedback
+
+#### State Machine Benefits
+- **Predictable Behavior**: Finite state machines eliminate race conditions
+- **Visual Feedback**: Eye states provide clear processing indicators
+- **Error Recovery**: Robust error states with automatic recovery
+- **Persistence**: Settings and auth state survive page refreshes
+- **Debugging**: XState inspector support for development
+- **Testability**: Deterministic state transitions for reliable testing
+
 ### Tech Stack
 
 - **Frontend**: TypeScript + Vite (hot-reload development)
 - **Backend**: Node.js + Express
+- **State Management**: XState (finite state machines)
 - **LLM Integration**: Multi-provider abstraction (Ollama/OpenAI/Anthropic)
 - **Database**: SQLite (interaction logging)
 - **Testing**: Playwright (30 E2E tests)
@@ -1011,6 +1070,43 @@ localStorage.getItem('irisAuthToken')
 ```
 
 </details>
+
+---
+
+## 🚀 Future Roadmap (Phase 4+)
+
+### Enhanced Error Handling
+- **Retry Logic**: Automatic retry for transient LLM failures
+- **Circuit Breaker**: Prevent cascading failures during LLM outages
+- **Graceful Degradation**: Fallback UI states when services unavailable
+- **Error Analytics**: Track and analyze common failure patterns
+
+### Advanced State Persistence
+- **Cross-Session Context**: Persist conversation history across browser sessions
+- **State Synchronization**: Sync state across multiple IRIS instances
+- **Offline Mode**: Queue commands for execution when connection restored
+- **State Migration**: Handle state schema changes gracefully
+
+### New Features
+- **Voice Commands**: Speech-to-text input for hands-free operation
+- **Multi-Language Support**: Internationalization for Norwegian/English
+- **Advanced Scheduling**: Recurring bookings and calendar integration
+- **Collaborative Features**: Shared bookings and team coordination
+- **Analytics Dashboard**: Usage statistics and booking insights
+- **Plugin System**: Extensible command architecture
+- **Mobile Optimization**: Responsive design for mobile devices
+
+### Performance Optimizations
+- **Code Splitting**: Lazy load command handlers and LLM providers
+- **Service Worker**: Offline caching and background sync
+- **Bundle Optimization**: Reduce initial load time with dynamic imports
+- **Memory Management**: Optimize state machine memory usage
+
+### Security Enhancements
+- **Input Sanitization**: Enhanced protection against injection attacks
+- **Rate Limiting**: Prevent abuse of LLM and API endpoints
+- **Audit Logging**: Comprehensive security event logging
+- **Token Rotation**: Automatic refresh of authentication tokens
 
 ---
 

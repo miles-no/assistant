@@ -653,12 +653,38 @@ Important Rules:
 			intent = parsed;
 		}
 
+		// Log successful interaction (including fallback to unknown)
+		const durationMs = Date.now() - startTime;
+		logInteraction({
+			userId,
+			userEmail: null,
+			command,
+			intentAction: intent.action,
+			intentParams: intent.params || null,
+			response: intent.response || null,
+			error: null,
+			durationMs,
+		});
+
 		res.json(intent);
 	} catch (error: unknown) {
 		const msg = error instanceof Error ? error.message : String(error);
 		_errorMsg = msg;
 		console.error("Error in intent parsing:", msg);
 		console.log(`✗ Intent parsing failed (${Date.now() - startTime}ms)`);
+
+		// Log failed interaction
+		const durationMs = Date.now() - startTime;
+		logInteraction({
+			userId,
+			userEmail: null,
+			command,
+			intentAction: "error",
+			intentParams: null,
+			response: null,
+			error: msg,
+			durationMs,
+		});
 
 		res.json({
 			action: "unknown",
