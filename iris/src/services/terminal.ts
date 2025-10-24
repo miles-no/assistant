@@ -721,8 +721,10 @@ export class Terminal {
 			await this.handleSimpleNLPIntent(intent);
 		} else if (
 			this.state.settings.useLLM &&
-			this.llmHealth.getStatus() === "connected" &&
-			this.nlpProcessor.shouldUseLLM(intent)
+			(this.llmHealth.getStatus() === "connected" ||
+				!this.state.settings.useSimpleNLP) &&
+			(this.nlpProcessor.shouldUseLLM(intent) ||
+				!this.state.settings.useSimpleNLP)
 		) {
 			// Use LLM for complex queries or low confidence
 			await this.handleLLMIntent(command);
