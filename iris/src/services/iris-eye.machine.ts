@@ -354,15 +354,10 @@ export const irisEyeMachine = createMachine<
 			}),
 
 			scheduleAlertRecovery: assign((_context) => {
-				const timeoutId = window.setTimeout(() => {
-					// This would need to be sent as an event
-				}, IRIS_CONSTANTS.DURATION.ALERT);
-
 				logActionExecution("irisEye", "scheduleAlertRecovery");
 
-				return {
-					alertTimeoutId: timeoutId,
-				};
+				// Timeout scheduling handled in service layer to avoid memory leaks
+				return {};
 			}),
 
 			clearAlertTimeout: assign((context) => {
@@ -376,15 +371,10 @@ export const irisEyeMachine = createMachine<
 			}),
 
 			scheduleErrorRecovery: assign((_context) => {
-				const timeoutId = window.setTimeout(() => {
-					// This would need to be sent as an event
-				}, IRIS_CONSTANTS.DURATION.ERROR);
-
 				logActionExecution("irisEye", "scheduleErrorRecovery");
 
-				return {
-					errorRecoveryTimeoutId: timeoutId,
-				};
+				// Timeout scheduling handled in service layer to avoid memory leaks
+				return {};
 			}),
 
 			clearErrorTimeout: assign((context) => {

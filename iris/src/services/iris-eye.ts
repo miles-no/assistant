@@ -98,6 +98,8 @@ export class IrisEye {
 			clickRecoilTime: 0,
 			mouseIdleTimeout: null,
 			blinkTimeout: null,
+			alertTimeout: null,
+			errorRecoveryTimeout: null,
 		};
 
 		this.init();
@@ -136,9 +138,10 @@ export class IrisEye {
 		console.log("✅ IRIS Eye System Online (XState enabled)");
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: XState state objects have complex types
 	private onStateChange(state: any): void {
 		const currentState = state.value as IrisEyeState;
-		const context = state.context as IrisEyeMachineContext;
+		const context = state.context;
 
 		// Update config depth from state machine context
 		this.config.targetDepth = context.targetDepth;
@@ -157,9 +160,31 @@ export class IrisEye {
 			this.interaction.blinkTimeout = null;
 		}
 
+		// Clear alert timeout when alert state ends
+		if (currentState !== "alert" && this.interaction.alertTimeout) {
+			clearTimeout(this.interaction.alertTimeout);
+			this.interaction.alertTimeout = null;
+		}
+
+		// Clear error recovery timeout when error state ends
+		if (currentState !== "error" && this.interaction.errorRecoveryTimeout) {
+			clearTimeout(this.interaction.errorRecoveryTimeout);
+			this.interaction.errorRecoveryTimeout = null;
+		}
+
 		// Schedule blink when entering idle or thinking states
 		if (currentState === "idle" || currentState === "thinking") {
 			this.scheduleBlink();
+		}
+
+		// Schedule alert recovery when entering alert state
+		if (currentState === "alert") {
+			this.scheduleAlertRecovery();
+		}
+
+		// Schedule error recovery when entering error state
+		if (currentState === "error") {
+			this.scheduleErrorRecovery();
 		}
 	}
 
@@ -383,6 +408,30 @@ export class IrisEye {
 		this.interaction.blinkTimeout = window.setTimeout(() => {
 			this.blink();
 		}, interval);
+	}
+
+	private scheduleAlertRecovery(): void {
+		// Clear any existing alert timeout
+		if (this.interaction.alertTimeout) {
+			clearTimeout(this.interaction.alertTimeout);
+		}
+
+		// Schedule alert recovery
+		this.interaction.alertTimeout = window.setTimeout(() => {
+			this.sendEvent({ type: "RECOVER_FROM_ALERT" });
+		}, IRIS_CONSTANTS.DURATION.ALERT);
+	}
+
+	private scheduleErrorRecovery(): void {
+		// Clear any existing error recovery timeout
+		if (this.interaction.errorRecoveryTimeout) {
+			clearTimeout(this.interaction.errorRecoveryTimeout);
+		}
+
+		// Schedule error recovery
+		this.interaction.errorRecoveryTimeout = window.setTimeout(() => {
+			this.sendEvent({ type: "RECOVER_FROM_ERROR" });
+		}, IRIS_CONSTANTS.DURATION.ERROR);
 	}
 
 	blink(): void {

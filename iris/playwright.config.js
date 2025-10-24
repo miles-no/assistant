@@ -11,7 +11,7 @@ export default defineConfig({
 	reporter: "list",
 
 	use: {
-		baseURL: "http://localhost:3007",
+		baseURL: `http://localhost:${process.env.PORT || 3002}`,
 		trace: "on-first-retry",
 		screenshot: "only-on-failure",
 		headless: true, // Run in headless mode to avoid blocking browser windows
@@ -26,8 +26,8 @@ export default defineConfig({
 
 	// Run local dev server before tests
 	webServer: {
-		command: "PORT=3007 npm run dev:server",
-		url: "http://localhost:3007/health",
+		command: `PORT=${process.env.PORT || 3002} npm run dev:server`,
+		url: `http://localhost:${process.env.PORT || 3002}/health`,
 		reuseExistingServer: false,
 		timeout: 10000,
 	},

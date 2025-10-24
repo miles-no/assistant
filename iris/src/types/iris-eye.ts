@@ -27,6 +27,8 @@ export interface IrisEyeInteraction {
 	clickRecoilTime: number;
 	mouseIdleTimeout: number | null;
 	blinkTimeout: number | null;
+	alertTimeout: number | null;
+	errorRecoveryTimeout: number | null;
 }
 
 export interface IrisEyeElements {
