@@ -388,7 +388,7 @@ export class CommandProcessor {
 		this.stateMachine.send({
 			type: "UPDATE_SETTINGS",
 			settings,
-		} as any); // Type assertion needed for extended events
+		});
 	}
 
 	public updateLLMHealth(
