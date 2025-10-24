@@ -231,6 +231,7 @@ export const commandProcessorMachine = createMachine<
 							actions: ["setError"],
 						},
 					],
+					// Stay in executing_llm state until async operation completes
 				},
 			},
 
@@ -280,7 +281,7 @@ export const commandProcessorMachine = createMachine<
 	},
 	{
 		guards: {
-			shouldUseNLP: (context, event) => {
+			shouldUseNLP: (context, _event) => {
 				const intent = context.parsedIntent;
 				return (
 					context.settings.useSimpleNLP &&
@@ -290,43 +291,41 @@ export const commandProcessorMachine = createMachine<
 				);
 			},
 
-			shouldUseLLM: (context, event) => {
+			shouldUseLLM: (context, _event) => {
 				return (
 					context.settings.useLLM &&
-					(context.llmHealthStatus === "connected" ||
-						!context.settings.useSimpleNLP) &&
 					// LLM routing logic would go here
-					true // Simplified for now
+					true // Simplified for now - allow LLM even if health unknown
 				);
 			},
 
-			canUseNLP: (context, event) => {
+			canUseNLP: (context, _event) => {
 				return context.settings.useSimpleNLP;
 			},
 
-			canUseLLM: (context, event) => {
+			canUseLLM: (context, _event) => {
 				return (
 					context.settings.useLLM && context.llmHealthStatus === "connected"
 				);
 			},
 
-			canFallbackToLLM: (context, event) => {
+			canFallbackToLLM: (context, _event) => {
 				return (
 					context.settings.useLLM && context.llmHealthStatus === "connected"
 				);
 			},
 
-			canFallbackToNLP: (context, event) => {
+			canFallbackToNLP: (context, _event) => {
 				return context.settings.useSimpleNLP;
 			},
 
-			canRetry: (context, event) => {
+			canRetry: (context, _event) => {
 				return context.retryCount < 3; // Max 3 retries
 			},
 		},
 
 		actions: {
-			logStateEntry: (context, event, meta) => {
+			logStateEntry: (_context, event, meta) => {
 				const stateId = meta.state.value as CommandProcessingState;
 				logStateTransition("commandProcessor", "previous", stateId, event.type);
 			},
@@ -344,7 +343,7 @@ export const commandProcessorMachine = createMachine<
 				errorMessage: undefined,
 			}),
 
-			setCommand: assign((context, event) => {
+			setCommand: assign((_context, event) => {
 				if (event.type === "PROCESS_COMMAND") {
 					const command = event.command.trim();
 					const parts = command.split(/\s+/);
@@ -359,21 +358,21 @@ export const commandProcessorMachine = createMachine<
 				return {};
 			}),
 
-			logCommandReceived: (context, event) => {
+			logCommandReceived: (context, _event) => {
 				logActionExecution("commandProcessor", "processCommand", {
 					command: context.command,
 					mainCommand: context.mainCommand,
 				});
 			},
 
-			parseCommand: (context, event) => {
+			parseCommand: (context, _event) => {
 				logActionExecution("commandProcessor", "parseCommand", {
 					command: context.command,
 				});
 				// Parsing logic will be handled by the service layer
 			},
 
-			setParsedIntent: assign((context, event) => {
+			setParsedIntent: assign((_context, event) => {
 				if (event.type === "COMMAND_PARSED") {
 					return {
 						parsedIntent: event.intent,
@@ -382,7 +381,7 @@ export const commandProcessorMachine = createMachine<
 				return {};
 			}),
 
-			startExecution: assign((context, event) => {
+			startExecution: assign((context, _event) => {
 				logActionExecution("commandProcessor", "startExecution", {
 					command: context.command,
 				});
@@ -392,7 +391,7 @@ export const commandProcessorMachine = createMachine<
 				};
 			}),
 
-			endExecution: assign((context, event) => {
+			endExecution: assign((context, _event) => {
 				const executionTime = Date.now() - context.executionStartTime;
 				logActionExecution("commandProcessor", "endExecution", {
 					executionTime,
@@ -403,7 +402,7 @@ export const commandProcessorMachine = createMachine<
 				};
 			}),
 
-			markCommandComplete: assign((context, event) => {
+			markCommandComplete: assign((context, _event) => {
 				logActionExecution("commandProcessor", "commandComplete", {
 					command: context.command,
 				});
@@ -416,7 +415,7 @@ export const commandProcessorMachine = createMachine<
 				canUndo: true,
 			}),
 
-			setError: assign((context, event) => {
+			setError: assign((_context, event) => {
 				if (event.type === "EXECUTION_ERROR") {
 					return {
 						lastError: event.error,
@@ -426,33 +425,33 @@ export const commandProcessorMachine = createMachine<
 				return {};
 			}),
 
-			incrementRetryCount: assign((context, event) => {
+			incrementRetryCount: assign((context, _event) => {
 				return {
 					retryCount: context.retryCount + 1,
 				};
 			}),
 
-			logFallbackAttempt: (context, event) => {
+			logFallbackAttempt: (context, _event) => {
 				logActionExecution("commandProcessor", "fallbackAttempt", {
 					from: context.lastError?.message,
 				});
 			},
 
-			logError: (context, event) => {
+			logError: (context, _event) => {
 				logActionExecution("commandProcessor", "error", {
 					error: context.lastError?.message,
 					retryCount: context.retryCount,
 				});
 			},
 
-			logMaxRetriesReached: (context, event) => {
+			logMaxRetriesReached: (context, _event) => {
 				logActionExecution("commandProcessor", "maxRetriesReached", {
 					command: context.command,
 					retryCount: context.retryCount,
 				});
 			},
 
-			updateSettings: assign((context, event) => {
+			updateSettings: assign((_context, event) => {
 				if (event.type === "UPDATE_SETTINGS") {
 					logActionExecution("commandProcessor", "updateSettings", {
 						settings: event.settings,
@@ -464,7 +463,7 @@ export const commandProcessorMachine = createMachine<
 				return {};
 			}),
 
-			updateLLMHealth: assign((context, event) => {
+			updateLLMHealth: assign((_context, event) => {
 				if (event.type === "UPDATE_LLM_HEALTH") {
 					logActionExecution("commandProcessor", "updateLLMHealth", {
 						status: event.status,

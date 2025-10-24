@@ -47,9 +47,11 @@ export interface IntentResponse {
  */
 export class LLMService {
 	private baseUrl: string;
+	private apiClient: MilesApiClient;
 
-	constructor(_apiClient: MilesApiClient, baseUrl: string) {
+	constructor(apiClient: MilesApiClient, baseUrl: string) {
 		this.baseUrl = baseUrl;
+		this.apiClient = apiClient;
 	}
 
 	/**
@@ -61,7 +63,7 @@ export class LLMService {
 		timezone?: string,
 	): Promise<LLMIntent> {
 		try {
-			const response = await fetch(`${this.getBaseUrl()}/api/intent`, {
+			const response = await fetch(`${this.getBaseUrl()}/api/parse-intent`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -115,8 +117,7 @@ export class LLMService {
 	 * Get auth token from API client
 	 */
 	private getAuthToken(): string {
-		// Get token from localStorage since API client doesn't expose it directly
-		return localStorage.getItem("irisAuthToken") || "";
+		return this.apiClient.getAuthToken() || "";
 	}
 
 	/**

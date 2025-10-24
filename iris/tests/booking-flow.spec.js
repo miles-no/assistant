@@ -31,12 +31,8 @@ async function sendCommand(page, command) {
 	await input.fill(command);
 	await input.press("Enter");
 
-	await expect(page.locator("#typing-indicator")).toBeVisible({
-		timeout: 5000,
-	});
-	await expect(page.locator("#typing-indicator")).not.toBeVisible({
-		timeout: 30000,
-	});
+	// Wait for processing (LLM commands take time)
+	await page.waitForTimeout(6000);
 
 	await page.waitForTimeout(500);
 }

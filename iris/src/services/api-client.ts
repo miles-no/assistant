@@ -106,6 +106,13 @@ export class MilesApiClient {
 	}
 
 	/**
+	 * Get the current authentication token
+	 */
+	getAuthToken(): string | undefined {
+		return this.authToken;
+	}
+
+	/**
 	 * Health check
 	 */
 	async health(): Promise<{ status: string; timestamp: string }> {

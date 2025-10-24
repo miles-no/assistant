@@ -8,10 +8,10 @@ export default defineConfig({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	workers: 1, // Single worker to avoid race conditions
-	reporter: "html",
+	reporter: "list",
 
 	use: {
-		baseURL: "http://localhost:3002",
+		baseURL: "http://localhost:3007",
 		trace: "on-first-retry",
 		screenshot: "only-on-failure",
 		headless: true, // Run in headless mode to avoid blocking browser windows
@@ -26,9 +26,9 @@ export default defineConfig({
 
 	// Run local dev server before tests
 	webServer: {
-		command: "node server.js",
-		url: "http://localhost:3002/health",
-		reuseExistingServer: !process.env.CI,
+		command: "PORT=3007 npm run dev:server",
+		url: "http://localhost:3007/health",
+		reuseExistingServer: false,
 		timeout: 10000,
 	},
 });
