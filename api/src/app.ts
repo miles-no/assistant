@@ -31,13 +31,10 @@ const openApiDocument = yaml.load(
 
 const app: Application = express();
 
-// CORS configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [
-	"http://localhost:3000",
-];
+// CORS configuration - Allow all origins for development
 app.use(
 	cors({
-		origin: allowedOrigins,
+		origin: true, // Allow all origins
 		credentials: true,
 	}),
 );
