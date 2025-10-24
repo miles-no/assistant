@@ -2,7 +2,10 @@
 import { vi } from "vitest";
 
 // Mock window object for node environment
-global.window = global.window || {};
+global.window = global.window || {
+	setTimeout: global.setTimeout,
+	clearTimeout: global.clearTimeout,
+};
 
 // Mock DOM APIs
 Object.defineProperty(global.window, "matchMedia", {

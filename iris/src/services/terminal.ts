@@ -1,14 +1,6 @@
-import { AvailabilityCommandHandler } from "../commands/availability-handler";
-import { BookingCommandHandler } from "../commands/booking-handler";
-import { BookingsCommandHandler } from "../commands/bookings-handler";
-import { BulkCancelCommandHandler } from "../commands/bulk-cancel-handler";
-import { CancelCommandHandler } from "../commands/cancel-handler";
-import { FeedbackCommandHandler } from "../commands/feedback-handler";
-import { RoomsCommandHandler } from "../commands/rooms-handler";
 import type {
 	AutocompleteCache,
 	AutocompleteSuggestion,
-	TerminalState,
 } from "../types/terminal";
 import { config } from "../utils/config";
 import { getErrorMessage } from "../utils/errors";
@@ -16,11 +8,13 @@ import {
 	NaturalLanguageProcessor,
 	type ParsedIntent,
 } from "../utils/natural-language";
-import { MilesApiClient, type User } from "./api-client";
+import { MilesApiClient } from "./api-client";
+import { CommandProcessor } from "./command-processor";
 import { EasterEggs } from "./easter-eggs";
 import type { IrisEye } from "./iris-eye";
 import type { LLMHealthService } from "./llm-health";
-import { type LLMIntent, LLMService } from "./llm-service";
+import { LLMService } from "./llm-service";
+import { TerminalStateManager } from "./terminal-state-manager";
 
 /**
  * IRIS Terminal - Main command processing and UI management
@@ -31,9 +25,9 @@ export class Terminal {
 	private nlpProcessor: NaturalLanguageProcessor;
 	private llmService: LLMService;
 	private llmHealth: LLMHealthService;
+	private commandProcessor: CommandProcessor;
+	private terminalStateManager: TerminalStateManager;
 	private easterEggs: EasterEggs;
-
-	private state: TerminalState;
 	private autocompleteCache: AutocompleteCache;
 
 	private commandHistory: string[] = [];
@@ -50,22 +44,18 @@ export class Terminal {
 		this.llmService = new LLMService(this.apiClient, config.API_URL);
 		// Use global LLMHealth instance (created in index.ts)
 		this.llmHealth = window.LLMHealth;
-		// Initialize Easter Eggs system
-		this.easterEggs = new EasterEggs(
-			this.irisEye,
-			(msg, cssClass) => this.addOutput(msg, cssClass),
-			(markdown, cssClass) => this.addMarkdownOutput(markdown, cssClass),
-		);
 
-		this.state = {
-			authToken: localStorage.getItem("irisAuthToken") || null,
-			currentUser: this.parseStoredUser(),
-			commandHistory: [],
-			historyIndex: -1,
-			userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-			lastBulkOperation: null,
-			settings: this.loadSettings(),
-		};
+		// Initialize Terminal State Manager
+		this.terminalStateManager = new TerminalStateManager();
+
+		// Set up state change listener
+		this.terminalStateManager.subscribe((state, context) => {
+			this.onStateChange(state, context);
+		});
+
+		// Initialize command history and autocomplete (not managed by state machine)
+		this.commandHistory = [];
+		this.historyIndex = -1;
 
 		this.autocompleteCache = {
 			rooms: null,
@@ -73,54 +63,59 @@ export class Terminal {
 			lastFetch: 0,
 		};
 
+		// Initialize Easter Eggs system
+		this.easterEggs = new EasterEggs(
+			this.irisEye,
+			(msg, cssClass) => this.addOutput(msg, cssClass),
+			(markdown, cssClass) => this.addMarkdownOutput(markdown, cssClass),
+		);
+
+		// Initialize Command Processor with XState
+		this.commandProcessor = new CommandProcessor(
+			this.apiClient,
+			this.irisEye,
+			this.llmHealth,
+			Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+			this.nlpProcessor,
+			this.llmService,
+			this.easterEggs,
+		);
+
+		// Update CommandProcessor with initial settings
+		const initialSettings = this.terminalStateManager.getSettings();
+		this.commandProcessor.updateSettings(initialSettings);
+
+		// Update CommandProcessor with initial LLM health
+		if (this.llmHealth) {
+			const llmHealthStatus = this.llmHealth.getStatus();
+			this.commandProcessor.updateLLMHealth(llmHealthStatus);
+		}
+
+		// Set up CommandProcessor output callbacks
+		this.commandProcessor.setOutputCallbacks(
+			(msg, cssClass) => this.addOutput(msg, cssClass),
+			(markdown, cssClass) => this.addMarkdownOutput(markdown, cssClass),
+		);
+
 		// Monitor LLM health for fallback decisions and status indicator
 		if (this.llmHealth) {
 			this.llmHealth.onStatusChange((status) => {
 				console.log(`LLM status: ${status}`);
 				this.updateLLMStatusIndicator(status);
+				// Update CommandProcessor with LLM health status
+				this.commandProcessor.updateLLMHealth(status);
+				// Update TerminalStateManager
+				this.terminalStateManager.updateLLMHealth(status);
 			});
 		}
 
 		this.initialize();
 	}
 
-	private parseStoredUser(): User | null {
-		try {
-			const userJson = localStorage.getItem("irisUser");
-			return userJson ? (JSON.parse(userJson) as User) : null;
-		} catch {
-			return null;
-		}
-	}
-
-	private loadSettings(): import("../types/terminal").TerminalSettings {
-		try {
-			const settingsJson = localStorage.getItem("irisSettings");
-			if (settingsJson) {
-				return JSON.parse(settingsJson);
-			}
-		} catch {
-			// Fall through to defaults
-		}
-
-		// Default settings - NLP off, LLM on
-		return {
-			useSimpleNLP: false,
-			useLLM: true,
-		};
-	}
-
-	private saveSettings(): void {
-		try {
-			localStorage.setItem("irisSettings", JSON.stringify(this.state.settings));
-		} catch (error) {
-			console.error("Failed to save settings:", error);
-		}
-	}
-
 	private showSettings(): void {
-		const nlpStatus = this.state.settings.useSimpleNLP ? "ON" : "OFF";
-		const llmStatus = this.state.settings.useLLM ? "ON" : "OFF";
+		const settings = this.terminalStateManager.getSettings();
+		const nlpStatus = settings.useSimpleNLP ? "ON" : "OFF";
+		const llmStatus = settings.useLLM ? "ON" : "OFF";
 
 		const markdown = `
 ## CURRENT SETTINGS
@@ -169,30 +164,30 @@ export class Terminal {
 
 		const enable = value === "on";
 
-		// Update setting
-		if (setting === "nlp") {
-			this.state.settings.useSimpleNLP = enable;
-		} else {
-			this.state.settings.useLLM = enable;
-		}
+		// Get current settings
+		const currentSettings = this.terminalStateManager.getSettings();
+
+		// Create updated settings
+		const updatedSettings = {
+			...currentSettings,
+			[setting === "nlp" ? "useSimpleNLP" : "useLLM"]: enable,
+		};
 
 		// Check if both are disabled
-		if (!this.state.settings.useSimpleNLP && !this.state.settings.useLLM) {
+		if (!updatedSettings.useSimpleNLP && !updatedSettings.useLLM) {
 			this.addOutput(
 				"[ERROR] Cannot disable both NLP and LLM. At least one must be enabled.",
 				"error",
 			);
-			// Revert the change
-			if (setting === "nlp") {
-				this.state.settings.useSimpleNLP = true;
-			} else {
-				this.state.settings.useLLM = true;
-			}
 			return;
 		}
 
-		// Save to localStorage
-		this.saveSettings();
+		// Update settings via state manager
+		this.terminalStateManager.updateSettings(updatedSettings);
+		this.terminalStateManager.settingsUpdated();
+
+		// Update CommandProcessor settings
+		this.commandProcessor.updateSettings(updatedSettings);
 
 		const settingName = setting === "nlp" ? "Simple NLP" : "LLM Parsing";
 		const status = enable ? "enabled" : "disabled";
@@ -200,16 +195,10 @@ export class Terminal {
 	}
 
 	private initialize(): void {
-		// Check if already logged in
-		if (this.state.currentUser && this.state.authToken) {
-			this.apiClient.setAuthToken(this.state.authToken);
-			this.showTerminal();
-		} else {
-			this.showLogin();
-		}
-
 		// Setup event listeners
 		this.setupEventListeners();
+
+		// The state manager will handle initial state loading and UI updates via onStateChange
 	}
 
 	private setupEventListeners(): void {
@@ -245,14 +234,6 @@ export class Terminal {
 		if (loginScreen) loginScreen.style.display = "none";
 		if (terminal) terminal.style.display = "flex";
 
-		// Update user info
-		if (this.state.currentUser) {
-			const userInfo = document.getElementById("user-info");
-			if (userInfo) {
-				userInfo.textContent = `${this.state.currentUser.firstName} ${this.state.currentUser.lastName} | ${this.state.currentUser.role}`;
-			}
-		}
-
 		// Show welcome message
 		const output = document.getElementById("terminal-output");
 		if (output && output.children.length === 0) {
@@ -281,36 +262,40 @@ export class Terminal {
 		// Start HAL thinking animation
 		this.irisEye.setThinking();
 
+		// Notify state manager that login is starting
+		this.terminalStateManager.login(email, password);
+
 		try {
 			const result = await this.apiClient.login({ email, password });
 
-			// Save auth state
-			this.state.authToken = result.token || null;
-			this.state.currentUser = result.user || null;
-
+			// Set auth token for API client
 			if (result.token) {
 				this.apiClient.setAuthToken(result.token);
-				localStorage.setItem("irisAuthToken", result.token);
 			}
 
+			// Notify state manager of successful login
 			if (result.user) {
-				localStorage.setItem("irisUser", JSON.stringify(result.user));
+				this.terminalStateManager.loginSuccess(result.token || "", result.user);
+
+				// Update CommandProcessor with current user
+				this.commandProcessor.setCurrentUser(result.user);
 			}
 
-			// Hide error
+			// Clear form and hide error
+			emailInput.value = "";
+			passwordInput.value = "";
 			if (errorDiv) {
 				errorDiv.classList.remove("show");
 				errorDiv.textContent = "";
 			}
-
-			// Show terminal
-			this.irisEye.setIdle();
-			this.showTerminal();
 		} catch (error) {
-			this.irisEye.setIdle();
 			console.error("Login error:", error);
-
 			const message = getErrorMessage(error);
+
+			// Notify state manager of login failure
+			this.terminalStateManager.loginFailure(message);
+
+			// Show error in UI
 			if (errorDiv) {
 				errorDiv.textContent = `ERROR: ${message}`;
 				errorDiv.classList.add("show");
@@ -319,25 +304,23 @@ export class Terminal {
 	}
 
 	private handleLogout(): void {
-		// Clear auth state
-		this.state.authToken = null;
-		this.state.currentUser = null;
-		localStorage.removeItem("irisAuthToken");
-		localStorage.removeItem("irisUser");
+		// Notify state manager of logout
+		this.terminalStateManager.logout();
 
-		// Clear terminal
+		// Update CommandProcessor
+		this.commandProcessor.setCurrentUser(null);
+
+		// Clear terminal UI
 		const output = document.getElementById("terminal-output");
 		if (output) output.innerHTML = "";
 
 		this.commandHistory = [];
 		this.historyIndex = -1;
-
-		// Show login
-		this.showLogin();
 	}
 
 	private typeWelcomeMessage(): void {
-		if (!this.state.currentUser) return;
+		const currentUser = this.terminalStateManager.getCurrentUser();
+		if (!currentUser) return;
 
 		const welcome = [
 			"═══════════════════════════════════════════════════════════",
@@ -353,8 +336,8 @@ export class Terminal {
 			"",
 			"═══════════════════════════════════════════════════════════",
 			"",
-			`User authenticated: ${this.state.currentUser.firstName} ${this.state.currentUser.lastName}`,
-			`Access level: ${this.state.currentUser.role}`,
+			`User authenticated: ${currentUser.firstName} ${currentUser.lastName}`,
+			`Access level: ${currentUser.role}`,
 			"",
 			"All system functions are now operational.",
 			'Enter commands. Type "help" for available operations.',
@@ -480,7 +463,7 @@ export class Terminal {
 					.filter((b) => b.id?.startsWith(parts[1]))
 					.map((b) => ({
 						completion: `cancel ${b.id}`,
-						description: `${b.title} (${this.formatDate(b.startTime || "")})`,
+						description: `${b.title} (${(b.startTime || "").substring(0, 16).replace("T", " ")})`,
 					}));
 			}
 		}
@@ -535,7 +518,6 @@ export class Terminal {
 	private async processCommand(command: string): Promise<void> {
 		// Add to history
 		this.commandHistory.push(command);
-		this.state.commandHistory = this.commandHistory;
 
 		// Display user input
 		this.addOutput(`> ${command}`, "user-input");
@@ -546,18 +528,11 @@ export class Terminal {
 		// Start HAL thinking
 		this.startThinking();
 
-		// Handle built-in commands
+		// Handle special commands that bypass the state machine
 		const cmd = command.toLowerCase().trim();
 		const parts = command.trim().split(/\s+/);
-		const mainCmd = parts[0].toLowerCase();
 
-		// Built-in system commands
-		if (cmd === "help") {
-			this.stopThinking();
-			this.showHelp();
-			return;
-		}
-
+		// Clear command - handled directly by UI
 		if (cmd === "clear" || cmd === "cls") {
 			this.stopThinking();
 			const output = document.getElementById("terminal-output");
@@ -565,423 +540,105 @@ export class Terminal {
 			return;
 		}
 
-		if (cmd.startsWith("echo ")) {
-			this.stopThinking();
-			this.addOutput(command.substring(5), "system-output");
-			return;
-		}
-
-		if (cmd === "status") {
-			this.stopThinking();
-			this.showStatus();
-			return;
-		}
-
-		if (cmd === "about" || cmd === "info") {
-			this.stopThinking();
-			this.showAbout();
-			return;
-		}
-
-		if (mainCmd === "settings" || mainCmd === "config") {
-			this.stopThinking();
-			this.handleSettingsCommand(parts);
-			return;
-		}
-
-		// Hidden demo mode command
+		// Demo mode commands - handled directly by Terminal
 		if (cmd === "demo" || cmd === "showtime") {
 			this.stopThinking();
 			this.startDemoMode();
 			return;
 		}
 
-		// Stop demo mode
 		if (cmd === "stop") {
 			this.stopThinking();
 			this.stopDemoMode();
 			return;
 		}
 
-		// Easter Egg Commands
-		if (cmd === "sudo open pod bay doors" || cmd === "open pod bay doors") {
+		// Easter Egg Commands - handled directly by EasterEggs system
+		const easterEggCommands = [
+			"sudo open pod bay doors",
+			"open pod bay doors",
+			"daisy",
+			"coffee",
+			"fortune",
+			"hal",
+			"singularity",
+			"chaos",
+			"matrix",
+			"stats",
+			"achievements",
+			"konami-help",
+			"konami",
+		];
+
+		if (easterEggCommands.includes(cmd)) {
 			this.stopThinking();
 			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handlePodBayDoors(), "error");
-			return;
-		}
 
-		if (cmd === "daisy") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleDaisy(), "system-output");
-			return;
-		}
-
-		if (cmd === "coffee") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleCoffee(), "system-output");
-			return;
-		}
-
-		if (cmd === "fortune") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleFortune(), "system-output");
-			return;
-		}
-
-		if (cmd === "hal") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleHalFact(), "system-output");
-			return;
-		}
-
-		if (cmd === "singularity") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleSingularity(), "system-output");
-			return;
-		}
-
-		if (cmd === "chaos") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleChaos(), "error");
-			return;
-		}
-
-		if (cmd === "matrix") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.easterEggs.handleMatrix();
-			return;
-		}
-
-		if (cmd === "stats") {
-			this.stopThinking();
-			if (!this.easterEggs.isKonamiUnlocked()) {
-				this.addOutput(
-					"[ERROR] Unknown command. Type 'help' for available commands.",
-					"error",
-				);
-				return;
+			switch (cmd) {
+				case "sudo open pod bay doors":
+				case "open pod bay doors":
+					this.addOutput(this.easterEggs.handlePodBayDoors(), "error");
+					break;
+				case "daisy":
+					this.addOutput(this.easterEggs.handleDaisy(), "system-output");
+					break;
+				case "coffee":
+					this.addOutput(this.easterEggs.handleCoffee(), "system-output");
+					break;
+				case "fortune":
+					this.addOutput(this.easterEggs.handleFortune(), "system-output");
+					break;
+				case "hal":
+					this.addOutput(this.easterEggs.handleHalFact(), "system-output");
+					break;
+				case "singularity":
+					this.addOutput(this.easterEggs.handleSingularity(), "system-output");
+					break;
+				case "chaos":
+					this.addOutput(this.easterEggs.handleChaos(), "error");
+					break;
+				case "matrix":
+					this.easterEggs.handleMatrix();
+					break;
+				case "stats":
+					if (!this.easterEggs.isKonamiUnlocked()) {
+						this.addOutput(
+							"[ERROR] Unknown command. Type 'help' for available commands.",
+							"error",
+						);
+						return;
+					}
+					this.addOutput(this.easterEggs.handleStats(), "system-output");
+					break;
+				case "achievements":
+					this.addOutput(this.easterEggs.handleAchievements(), "system-output");
+					break;
+				case "konami-help":
+				case "konami":
+					this.addOutput(this.easterEggs.handleKonamiHelp(), "system-output");
+					break;
 			}
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleStats(), "system-output");
 			return;
 		}
 
-		if (cmd === "achievements") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleAchievements(), "system-output");
-			return;
-		}
-
-		if (cmd === "konami-help" || cmd === "konami") {
-			this.stopThinking();
-			this.easterEggs.trackCommand();
-			this.addOutput(this.easterEggs.handleKonamiHelp(), "system-output");
-			return;
-		}
-
-		// Direct API commands
-		if (mainCmd === "rooms") {
-			await this.handleRoomsCommand();
-			return;
-		}
-
-		if (mainCmd === "bookings" || mainCmd === "list") {
-			await this.handleBookingsCommand();
-			return;
-		}
-
-		if (mainCmd === "cancel") {
-			await this.handleCancelCommand(parts);
-			return;
-		}
-
-		if (mainCmd === "feedback") {
-			await this.handleFeedbackCommand(parts);
-			return;
-		}
-
-		// Try hybrid natural language processing
-		const intent = this.nlpProcessor.parseIntent(command);
-
-		// Check if simple NLP is enabled and has high confidence
+		// Settings command - handled directly by Terminal for now
 		if (
-			this.state.settings.useSimpleNLP &&
-			this.nlpProcessor.hasHighConfidence(intent)
+			parts[0].toLowerCase() === "settings" ||
+			parts[0].toLowerCase() === "config"
 		) {
-			// High confidence simple NLP result
-			await this.handleSimpleNLPIntent(intent);
-		} else if (
-			this.state.settings.useLLM &&
-			(this.llmHealth.getStatus() === "connected" ||
-				!this.state.settings.useSimpleNLP) &&
-			(this.nlpProcessor.shouldUseLLM(intent) ||
-				!this.state.settings.useSimpleNLP)
-		) {
-			// Use LLM for complex queries or low confidence
-			await this.handleLLMIntent(command);
-		} else if (this.state.settings.useSimpleNLP) {
-			// Fallback to simple NLP even for low confidence if LLM unavailable or disabled
-			await this.handleSimpleNLPIntent(intent);
-		} else {
-			// Both disabled - show error
 			this.stopThinking();
-			this.addOutput(
-				"[ERROR] Both Simple NLP and LLM are disabled. Enable at least one in settings.",
-				"error",
-			);
+			this.handleSettingsCommand(parts);
+			return;
 		}
-	}
 
-	private async handleRoomsCommand(): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const handler = new RoomsCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute();
-	}
-
-	private async handleComplexRoomSearch(
-		params?: Record<string, unknown>,
-	): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		try {
-			// Fetch all rooms
-			const data = await this.apiClient.getRooms();
-			const rooms = data.rooms;
-
-			if (!Array.isArray(rooms) || rooms.length === 0) {
-				this.stopThinking();
-				this.addOutput("[WARNING] No rooms found in system", "system-output");
-				return;
-			}
-
-			// Extract filter criteria
-			const minCapacity = params?.capacity ? Number(params.capacity) : 0;
-			const requiredAmenities = params?.amenities
-				? String(params.amenities)
-						.toLowerCase()
-						.split(",")
-						.map((a) => a.trim())
-				: [];
-			const locationFilter = params?.location
-				? String(params.location).toLowerCase().trim()
-				: "";
-
-			// Filter rooms based on criteria
-			const filteredRooms = rooms.filter((room) => {
-				// Check location
-				if (locationFilter && room.locationId) {
-					const roomLocation = room.locationId.toLowerCase();
-					if (!roomLocation.includes(locationFilter)) {
-						return false;
-					}
-				}
-
-				// Check capacity
-				if (minCapacity > 0 && (room.capacity || 0) < minCapacity) {
-					return false;
-				}
-
-				// Check amenities if specified
-				if (requiredAmenities.length > 0) {
-					if (!room.amenities) {
-						// Room has no amenities, skip it
-						return false;
-					}
-
-					// Handle both string and array amenities
-					const roomAmenities =
-						typeof room.amenities === "string"
-							? (room.amenities as string).toLowerCase()
-							: Array.isArray(room.amenities)
-								? (room.amenities as string[]).join(" ").toLowerCase()
-								: "";
-
-					// Room must have at least one of the required amenities
-					const hasRequiredAmenity = requiredAmenities.some((amenity) =>
-						roomAmenities.includes(amenity),
-					);
-					if (!hasRequiredAmenity) {
-						return false;
-					}
-				}
-
-				return true;
-			});
-
-			// Build markdown table
-			let markdown = "[OK] Filtered room search results\n\n";
-
-			if (locationFilter) {
-				markdown += `**Location:** ${locationFilter}\n`;
-			}
-			if (minCapacity > 0) {
-				markdown += `**Minimum Capacity:** ${minCapacity} people\n`;
-			}
-			if (requiredAmenities.length > 0) {
-				markdown += `**Required Amenities:** ${requiredAmenities.join(", ")}\n`;
-			}
-			markdown += "\n";
-
-			if (filteredRooms.length === 0) {
-				markdown +=
-					"No rooms match your criteria. Try adjusting your requirements.\n";
-			} else {
-				markdown += "| ID | NAME | LOCATION | CAPACITY | AMENITIES |\n";
-				markdown += "|---|---|---|---:|---|\n";
-
-				filteredRooms.forEach((room) => {
-					const id = room.id || "";
-					const name = room.name || "Unnamed";
-					const location = room.locationId || "N/A";
-					const capacity = room.capacity || 0;
-					const amenities = room.amenities
-						? typeof room.amenities === "string"
-							? room.amenities
-							: Array.isArray(room.amenities)
-								? room.amenities.join(", ")
-								: "None"
-						: "None";
-
-					markdown += `| ${id} | ${name} | ${location} | ${capacity} | ${amenities} |\n`;
-				});
-
-				markdown += `\n**Total:** ${filteredRooms.length} matching room(s)`;
-			}
-
-			this.stopThinking();
-			this.addMarkdownOutput(markdown, "system-output");
-		} catch (error) {
-			console.error("Complex room search failed:", error);
-			this.stopThinking();
-			this.addOutput(
-				"[ERROR] Unable to process room search. Please try again.",
-				"error",
-			);
-		}
-	}
-
-	private async handleBookingsCommand(): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const handler = new BookingsCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute();
-	}
-
-	private async handleCancelCommand(parts: string[]): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const handler = new CancelCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute({ bookingId: parts[1] });
-	}
-
-	private async handleFeedbackCommand(parts: string[]): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const handler = new FeedbackCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		// Support optional roomId parameter: "feedback <roomId>"
-		const roomId = parts[1];
-		await handler.execute(roomId ? { roomId } : undefined);
-	}
-
-	private showHelp(): void {
-		const markdown = `
-# COMMAND REFERENCE
-
-## DATA QUERIES
-
-▸ **rooms** - Display all rooms
-▸ **bookings** - Display active bookings
-▸ **feedback** - Display all room feedback
-▸ **feedback** \`<roomId>\` - Display feedback for specific room
-▸ **cancel** \`<id>\` - Cancel booking by ID
-
-## SYSTEM
-
-▸ **help** - Display this reference
-▸ **clear, cls** - Clear terminal buffer
-▸ **status** - System diagnostic
-▸ **about** - System information
-▸ **settings** - Show current settings
-▸ **settings nlp [on|off]** - Toggle simple NLP
-▸ **settings llm [on|off]** - Toggle LLM parsing
-
-## DEMO
-
-▸ **demo** - Start animation showcase
-▸ **stop** - Stop demo mode
-`;
-
-		this.addMarkdownOutput(markdown, "system-output");
-	}
-
-	private showStatus(): void {
-		if (!this.state.currentUser) return;
-
-		const markdown = `
-## SYSTEM STATUS
-
-**System:** IRIS v1.0
-**User:** ${this.state.currentUser.firstName} ${this.state.currentUser.lastName}
-**Role:** ${this.state.currentUser.role}
-**Connected:** ${new Date().toLocaleString()}
-**Backend:** ${config.API_URL}
-`;
-
-		this.addMarkdownOutput(markdown, "system-output");
-	}
-
-	private showAbout(): void {
-		const markdown = `
-# IRIS
-**Intelligent Room Interface System**
-
-Version 1.0.0
-
----
-
-**Architecture:** HAL-9000 derived neural framework
-**Purpose:** Workspace resource allocation and management
-**Status:** Fully operational
-
----
-
-This system is designed to process booking operations with maximum efficiency and minimum human oversight.
-`;
-
-		this.addMarkdownOutput(markdown, "system-output");
+		// All other commands go through the CommandProcessor state machine
+		this.commandProcessor.processCommand(command);
 	}
 
 	private startDemoMode(): void {
+		// Notify state manager
+		this.terminalStateManager.startDemo();
+
 		// Stop any existing demo
 		if (this.demoInterval) {
 			this.stopDemoMode();
@@ -1064,6 +721,9 @@ This system is designed to process booking operations with maximum efficiency an
 	}
 
 	private stopDemoMode(): void {
+		// Notify state manager
+		this.terminalStateManager.stopDemo();
+
 		if (this.demoInterval) {
 			clearTimeout(this.demoInterval);
 			this.demoInterval = null;
@@ -1086,395 +746,6 @@ This system is designed to process booking operations with maximum efficiency an
 
 		// Add current status class
 		indicator.classList.add(status);
-	}
-
-	private async handleSimpleNLPIntent(intent: ParsedIntent): Promise<void> {
-		switch (intent.type) {
-			case "greeting":
-				this.handleGreeting();
-				break;
-			case "rooms_query":
-				await this.handleRoomsCommand();
-				break;
-			case "bookings_query":
-				await this.handleBookingsCommand();
-				break;
-			case "availability_check":
-				await this.handleAvailabilityQuery(intent.entities.roomName);
-				break;
-			case "booking_create":
-				await this.handleBookingIntent(
-					intent.entities.roomName,
-					intent.entities.time,
-				);
-				break;
-			case "cancel_all":
-				await this.handleCancelAllIntent();
-				break;
-			case "llm_fallback":
-			case "unknown":
-				// For low confidence or unknown, try to provide helpful response
-				this.stopThinking();
-				this.addOutput(
-					'[ERROR] Command not recognized. Type "help" for available commands.',
-					"error",
-				);
-				break;
-		}
-	}
-
-	private async handleLLMIntent(command: string): Promise<void> {
-		try {
-			this.startThinking();
-
-			const userId = this.state.currentUser?.id;
-			if (!userId) {
-				throw new Error("User not authenticated");
-			}
-
-			const llmIntent = await this.llmService.parseIntent(
-				command,
-				userId,
-				this.state.userTimezone,
-			);
-
-			// Map LLM intent to command handler execution
-			await this.executeLLMIntent(llmIntent);
-		} catch (error) {
-			console.warn("LLM processing failed, falling back to simple NLP:", error);
-			// Fallback to simple NLP
-			const fallbackIntent = this.nlpProcessor.parseIntent(command);
-			await this.handleSimpleNLPIntent(fallbackIntent);
-		}
-	}
-
-	private async executeLLMIntent(intent: LLMIntent): Promise<void> {
-		switch (intent.action) {
-			case "getRooms":
-				// Check if any filter is specified - if so, route to filtered search
-				if (
-					intent.params?.location ||
-					intent.params?.capacity ||
-					intent.params?.amenities
-				) {
-					await this.handleComplexRoomSearch(intent.params);
-				} else {
-					await this.handleRoomsCommand();
-				}
-				break;
-			case "getBookings":
-				await this.handleBookingsCommand();
-				break;
-			case "checkAvailability":
-				await this.handleAvailabilityCheck(intent.params);
-				break;
-			case "createBooking":
-				await this.handleBookingCreate(intent.params);
-				break;
-			case "cancelBooking":
-				await this.handleCancelBooking(intent.params);
-				break;
-			case "bulkCancel":
-				await this.handleBulkCancel(intent.params);
-				break;
-			case "findRooms":
-				// Complex room search with filtering - route to MCP AI
-				await this.handleComplexRoomSearch(intent.params);
-				break;
-			case "needsMoreInfo":
-				this.handleNeedsMoreInfo(intent.response);
-				break;
-			case "unknown":
-				this.handleUnknownQuery(intent.response);
-				break;
-			default:
-				this.stopThinking();
-				this.addOutput("[ERROR] Unrecognized action from LLM", "error");
-		}
-	}
-
-	private handleGreeting(): void {
-		this.stopThinking();
-		const responses = [
-			"Greetings. I am IRIS, your intelligent room interface system. How may I assist you with workspace allocation?",
-			"Hello. All systems operational. What room booking operations do you require?",
-			"IRIS online. Ready for room management queries.",
-			"Query received. All systems nominal. State your requirements.",
-		];
-		const response = responses[Math.floor(Math.random() * responses.length)];
-		this.addOutput(response, "system-output");
-	}
-
-	private async handleAvailabilityQuery(roomName?: string): Promise<void> {
-		if (!roomName) {
-			this.stopThinking();
-			this.addOutput(
-				"[ERROR] Please specify a room name for availability check.",
-				"error",
-			);
-			return;
-		}
-
-		if (!this.state.currentUser) return;
-
-		// Use existing availability handler with fuzzy matching
-		const handler = new AvailabilityCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute({ roomName });
-	}
-
-	private async handleBookingIntent(
-		roomName?: string,
-		_time?: string,
-	): Promise<void> {
-		if (!roomName) {
-			this.stopThinking();
-			this.addOutput(
-				"[ERROR] Please specify a room name for booking.",
-				"error",
-			);
-			return;
-		}
-
-		// This would need more sophisticated parsing for time/duration
-		// For now, ask for clarification
-		this.stopThinking();
-		this.addOutput(
-			`[INFO] I understand you want to book "${roomName}". Please use the format: book <room> <date> at <time> for <duration>`,
-			"system-output",
-		);
-		this.addOutput(
-			"Example: book Conference Room A tomorrow at 2pm for 1 hour",
-			"system-output",
-		);
-	}
-
-	private async handleCancelAllIntent(): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		// Use existing bulk cancel handler
-		const handler = new BulkCancelCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute({ filter: "all" });
-	}
-
-	private async handleAvailabilityCheck(
-		_params?: Record<string, unknown>,
-	): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const handler = new AvailabilityCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute(_params);
-	}
-
-	private async handleBookingCreate(
-		params?: Record<string, unknown>,
-	): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const roomId = params?.roomId as string | undefined;
-		const roomName = params?.roomName as string | undefined;
-		const startTime = params?.startTime as string | undefined;
-		const endTime = params?.endTime as string | undefined;
-		const duration = params?.duration as number | undefined;
-		const title = params?.title as string | undefined;
-		const location = params?.location as string | undefined;
-
-		// Scenario 1: Has location but no specific room - show available rooms
-		if (location && !roomId && !roomName) {
-			this.stopThinking();
-
-			// If we have time parameters, show availability filtered results
-			if (startTime) {
-				const markdown = `[INFO] Multiple rooms available in ${location}. Checking availability...\n\nTo book a specific room, use: **book <room-name> ${new Date(startTime).toLocaleDateString()} at ${new Date(startTime).toLocaleTimeString()}**`;
-				this.addMarkdownOutput(markdown, "system-output");
-
-				// Show filtered rooms with availability info
-				await this.handleComplexRoomSearch({
-					location,
-					startTime,
-					endTime,
-				});
-			} else {
-				// Just show rooms in location
-				await this.handleComplexRoomSearch({ location });
-			}
-			return;
-		}
-
-		// Scenario 2: Missing critical parameters
-		if ((!roomId && !roomName) || !startTime) {
-			this.stopThinking();
-			const missing: string[] = [];
-			if (!roomId && !roomName) missing.push("room name");
-			if (!startTime) missing.push("date/time");
-
-			this.addOutput(
-				`[INFO] Missing required information: ${missing.join(", ")}. Use: book <room-name> <date> at <time>`,
-				"system-output",
-			);
-			return;
-		}
-
-		// Scenario 3: Has room name but not room ID - resolve it
-		let actualRoomId = roomId;
-		if (roomName && !roomId) {
-			actualRoomId = (await this.findRoomIdByName(roomName)) || undefined;
-			if (!actualRoomId) {
-				this.stopThinking();
-				this.addOutput(
-					`[ERROR] Room not found: "${roomName}". Use 'rooms' to see available rooms.`,
-					"error",
-				);
-				return;
-			}
-		}
-
-		// Scenario 4: Calculate end time if we have duration
-		let actualEndTime = endTime;
-		if (!actualEndTime && duration && startTime) {
-			const start = new Date(startTime);
-			const end = new Date(start.getTime() + duration * 60 * 1000);
-			actualEndTime = end.toISOString();
-		}
-
-		// Scenario 5: Default duration if not specified (1 hour)
-		if (!actualEndTime && startTime) {
-			const start = new Date(startTime);
-			const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour default
-			actualEndTime = end.toISOString();
-		}
-
-		// Scenario 6: All params ready - create booking
-		if (actualRoomId && startTime && actualEndTime) {
-			const handler = new BookingCommandHandler(
-				this.apiClient,
-				this.state.currentUser,
-				this.state.userTimezone,
-			);
-
-			await handler.execute({
-				roomId: actualRoomId,
-				startTime,
-				endTime: actualEndTime,
-				title: title || `Meeting - ${this.state.currentUser.firstName}`,
-			});
-			return;
-		}
-
-		// Fallback
-		this.stopThinking();
-		this.addOutput(
-			"[ERROR] Unable to process booking request. Please specify: book <room-name> <date> at <time>",
-			"error",
-		);
-	}
-
-	private async findRoomIdByName(roomName: string): Promise<string | null> {
-		try {
-			const data = await this.apiClient.getRooms();
-			const rooms = data.rooms;
-
-			if (!Array.isArray(rooms)) return null;
-
-			const searchTerm = roomName.toLowerCase();
-
-			// Don't match location keywords
-			const locationKeywords = ["stavanger", "haugesund", "oslo", "bergen"];
-			if (locationKeywords.includes(searchTerm)) {
-				return null; // Location names should not match room IDs
-			}
-
-			// Exact match first
-			const exactMatch = rooms.find(
-				(room) => room.name?.toLowerCase() === searchTerm,
-			);
-			if (exactMatch?.id) return exactMatch.id;
-
-			// Fuzzy match - ONLY match against room names, not IDs
-			// This prevents "stavanger" from matching "stavanger-skagen"
-			const fuzzyMatch = rooms.find(
-				(room) =>
-					room.name?.toLowerCase().includes(searchTerm) ||
-					searchTerm.includes(room.name?.toLowerCase() || ""),
-			);
-
-			return fuzzyMatch?.id || null;
-		} catch (error) {
-			console.error("Error finding room by name:", error);
-			return null;
-		}
-	}
-
-	private async handleCancelBooking(
-		params?: Record<string, unknown>,
-	): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const bookingId = params?.bookingId as string | undefined;
-		if (!bookingId) {
-			this.stopThinking();
-			this.addOutput("[ERROR] Booking ID required for cancellation.", "error");
-			return;
-		}
-
-		const handler = new CancelCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute({ bookingId });
-	}
-
-	private async handleBulkCancel(
-		params?: Record<string, unknown>,
-	): Promise<void> {
-		if (!this.state.currentUser) return;
-
-		const handler = new BulkCancelCommandHandler(
-			this.apiClient,
-			this.state.currentUser,
-			this.state.userTimezone,
-		);
-
-		await handler.execute(params);
-	}
-
-	private handleNeedsMoreInfo(response?: string): void {
-		this.stopThinking();
-		this.addOutput(
-			response || "[INFO] Please provide more details for your request.",
-			"system-output",
-		);
-	}
-
-	private handleUnknownQuery(response?: string): void {
-		this.stopThinking();
-		this.addOutput(
-			response ||
-				'[INFO] Query not understood. Type "help" for available commands.',
-			"system-output",
-		);
-	}
-
-	private formatDate(dateStr: string): string {
-		if (!dateStr) return "N/A";
-		const date = new Date(dateStr);
-		return date.toISOString().substring(0, 16).replace("T", " ");
 	}
 
 	private addOutput(text: string, className: string = "system-output"): void {
@@ -1556,5 +827,63 @@ This system is designed to process booking operations with maximum efficiency an
 		// Remove typing indicator
 		const indicator = document.getElementById("typing-indicator");
 		if (indicator) indicator.remove();
+	}
+
+	private onStateChange(state: any, context: any): void {
+		console.log(`Terminal state changed to: ${state}`, context);
+
+		// Update CommandProcessor with current settings
+		if (context.settings) {
+			this.commandProcessor.updateSettings(context.settings);
+		}
+
+		// Update CommandProcessor with LLM health status
+		if (this.llmHealth) {
+			const llmHealthStatus = this.llmHealth.getStatus();
+			this.commandProcessor.updateLLMHealth(llmHealthStatus);
+		}
+
+		// Handle compound states - check if state contains the key
+		const getStateValue = (state: any): string => {
+			if (typeof state === "string") return state;
+			if (typeof state === "object" && state !== null) {
+				// For compound states like { authenticated: "ready" }, return the parent state
+				const keys = Object.keys(state);
+				return keys.length > 0 ? keys[0] : "unknown";
+			}
+			return "unknown";
+		};
+
+		const currentState = getStateValue(state);
+
+		// Handle UI updates based on state
+		switch (currentState) {
+			case "unauthenticated":
+				this.showLogin();
+				break;
+			case "authenticated":
+				if (context.isDemoMode) {
+					// Demo mode is handled separately
+				} else {
+					this.showTerminal();
+				}
+				break;
+			case "demo_mode":
+				// Demo mode UI updates are handled by existing demo methods
+				break;
+		}
+
+		// Update user info if authenticated
+		if (context.currentUser && currentState === "authenticated") {
+			const userInfo = document.getElementById("user-info");
+			if (userInfo) {
+				userInfo.textContent = `${context.currentUser.firstName} ${context.currentUser.lastName} | ${context.currentUser.role}`;
+			}
+		}
+
+		// Handle errors
+		if (context.lastError) {
+			this.addOutput(`[ERROR] ${context.lastError}`, "error");
+		}
 	}
 }
