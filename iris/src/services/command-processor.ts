@@ -72,6 +72,7 @@ export class CommandProcessor {
 		});
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: XState state objects have complex types
 	private onStateChange(state: any): void {
 		const context = state.context as CommandProcessorContext;
 
@@ -159,7 +160,8 @@ export class CommandProcessor {
 		// High confidence simple NLP
 		if (
 			settings.useSimpleNLP &&
-			this.nlpProcessor.hasHighConfidence(parsedIntent!)
+			parsedIntent &&
+			this.nlpProcessor.hasHighConfidence(parsedIntent)
 		) {
 			this.stateMachine.send({ type: "EXECUTE_NLP" });
 			return;
@@ -168,7 +170,8 @@ export class CommandProcessor {
 		// Use LLM for complex queries
 		if (
 			settings.useLLM &&
-			(this.nlpProcessor.shouldUseLLM(parsedIntent!) || !settings.useSimpleNLP)
+			parsedIntent &&
+			(this.nlpProcessor.shouldUseLLM(parsedIntent) || !settings.useSimpleNLP)
 		) {
 			this.stateMachine.send({ type: "EXECUTE_LLM" });
 			return;
@@ -388,7 +391,7 @@ export class CommandProcessor {
 		this.stateMachine.send({
 			type: "UPDATE_SETTINGS",
 			settings,
-		} as any); // Type assertion needed for extended events
+		});
 	}
 
 	public updateLLMHealth(
@@ -397,7 +400,7 @@ export class CommandProcessor {
 		this.stateMachine.send({
 			type: "UPDATE_LLM_HEALTH",
 			status,
-		} as any);
+		});
 	}
 
 	public setOutputCallbacks(
@@ -1191,7 +1194,7 @@ This system is designed to process booking operations with maximum efficiency an
 
 				const handler = new BookingCommandHandler(
 					this.apiClient,
-					this.currentUser!,
+					this.currentUser,
 					this.userTimezone,
 				);
 
